@@ -1,0 +1,41 @@
+{
+  "required": true,
+  "package": "com.ae2utilix.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "mixins.ae2_utilix.refmap.json",
+  "mixins": [
+    "MixinDualityInterface",
+    "MixinAEBaseContainer",
+    "MixinUpgradeInventory",
+    "MixinUpgradeInvFilter",
+    "MixinGrid",
+    "MixinCraftingGridCache",
+    "MixinCraftingCPUStatus",
+    "MixinCraftingCPUCluster",
+    "MixinContainerCraftConfirm",
+    "MixinPacketValueConfig",
+    "MixinPacketSwitchGuis",
+    "MixinPacketJEIRecipe",
+    "MixinBasicCellInventory",
+    "MixinGridNodeAccessor",
+    "MixinPartStorageBusAccessor"
+  ],
+  "client": [
+    "MixinAEBaseGuiRemoveFinal",
+    "MixinAEBaseGuiHandleClick",
+    "MixinPacketCompressedNBT",
+    "MixinGuiMEMonitorable",
+    "MixinRCGuiMEMonitorable",
+    "MixinGuiCraftConfirm",
+    "MixinGuiCraftingStatus",
+    "MixinGuiMEMonitorableAccessor",
+    "MixinGuiCraftingCPU",
+    "MixinApiClientHelper",
+    "MixinGasCellInfo",
+    "MixinJEIPlugin",
+    "MixinRecipeTransferHandler"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,16 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "IGI",
+        "GTG",
+        "IGI"
+    ],
+    "key": {
+        "I": { "item": "minecraft:iron_ingot" },
+        "G": { "item": "minecraft:glass" },
+        "T": { "item": "appliedenergistics2:part", "data": 380 }
+    },
+    "result": {
+        "item": "ae2_utilix:storage_terminal"
+    }
+}

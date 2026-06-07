@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "appliedenergistics2:material", "data": 28 },
+    { "item": "appliedenergistics2:material", "data": 24 }
+  ],
+  "result": {
+    "item": "ae2_utilix:parallel_card",
+    "count": 1
+  }
+}

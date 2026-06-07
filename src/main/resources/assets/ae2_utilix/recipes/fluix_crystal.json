@@ -1,0 +1,16 @@
+{
+  "inputs": [
+    { "item": "minecraft:quartz", "count": 1 },
+    { "item": "minecraft:redstone", "count": 1 },
+    { "item": "appliedenergistics2:material", "meta": 1, "count": 1 }
+  ],
+  "input_fluid": {
+    "fluid": "water",
+    "amount": 100
+  },
+  "outputs": [
+    { "item": "appliedenergistics2:material", "meta": 7, "count": 2 }
+  ],
+  "processing_time": 100,
+  "energy_cost": 2000.0
+}

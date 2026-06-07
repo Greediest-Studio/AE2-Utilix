@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IP ",
+    "DEM",
+    "DDK"
+  ],
+  "key": {
+    "I": { "item": "appliedenergistics2:inscriber" },
+    "P": { "item": "appliedenergistics2:part", "data": 300 },
+    "D": { "item": "appliedenergistics2:dense_energy_cell" },
+    "E": { "item": "appliedenergistics2:entropy_manipulator" },
+    "M": { "item": "appliedenergistics2:material", "data": 47 },
+    "K": [
+      { "item": "appliedenergistics2:certus_quartz_cutting_knife" },
+      { "item": "appliedenergistics2:nether_quartz_cutting_knife" }
+    ]
+  },
+  "result": {
+    "item": "ae2_utilix:matter_decomposer",
+    "count": 1
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CIC",
+    "G G",
+    "CGC"
+  ],
+  "key": {
+    "C": { "item": "appliedenergistics2:part", "data": 16 },
+    "I": { "item": "appliedenergistics2:inscriber" },
+    "G": { "item": "appliedenergistics2:quartz_growth_accelerator" }
+  },
+  "result": {
+    "item": "ae2_utilix:crystal_growth_chamber",
+    "count": 1
+  }
+}

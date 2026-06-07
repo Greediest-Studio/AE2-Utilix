@@ -1,0 +1,118 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+        maven { url = 'https://cursemaven.com' }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:3.+'
+    }
+}
+        
+apply plugin: 'net.minecraftforge.gradle'
+// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
+apply plugin: 'eclipse'
+apply plugin: 'maven-publish'
+
+version = '1.0'
+group = 'com.ae2utilix' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+archivesBaseName = 'ae2_utilix'
+
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
+
+minecraft {
+    // The mappings can be changed at any time, and must be in the following format.
+    // snapshot_YYYYMMDD   Snapshot are built nightly.
+    // stable_#            Stables are built at the discretion of the MCP team.
+    // Use non-default mappings at your own risk. they may not always work.
+    // Simply re-run your setup task after changing the mappings to update your workspace.
+    //mappings channel: 'snapshot', version: '20171003-1.12'
+    mappings channel: 'snapshot', version: '20171003-1.12'
+    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+    
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs {
+        client {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+
+            // Recommended logging level for the console
+            property 'forge.logging.console.level', 'debug'
+        }
+
+        server {
+
+            // Recommended logging data for a userdev environment
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+
+            // Recommended logging level for the console
+            property 'forge.logging.console.level', 'debug'
+        }
+    }
+}
+
+repositories {
+    maven { url = 'https://cursemaven.com' }
+    maven { url = 'https://maven.cleanroommc.com' }
+}
+
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2859'
+    implementation fg.deobf("curse.maven:ae2-extended-life-570458:6302098")
+    compileOnly fg.deobf("curse.maven:mekanism-ce-399904:4804509")
+    compileOnly fg.deobf("curse.maven:mekanism-energistics-1027681:5775101")
+    compileOnly fg.deobf("curse.maven:nae2-884359:5380800")
+    compileOnly fg.deobf("curse.maven:jei-238222:5846804")
+    compileOnly fg.deobf("curse.maven:ae2-better-magnet-card-1475753:8114817")
+    compileOnly fg.deobf("curse.maven:ae2fluidcraft-rework-unofficial-1404390:7742544")
+    compileOnly fg.deobf("curse.maven:random-complement-1198138:8025976")
+    compileOnly files('libs/Baubles-1.12-1.5.2.jar')
+    compileOnly files('libs/CraftTweaker2-1.12-4.1.20.715.jar')
+    annotationProcessor 'org.ow2.asm:asm-debug-all:5.2'
+    annotationProcessor 'com.google.guava:guava:32.1.2-jre'
+    annotationProcessor 'com.google.code.gson:gson:2.8.9'
+    implementation ('zone.rong:mixinbooter:10.7') {
+        transitive = false
+    }
+    annotationProcessor ('zone.rong:mixinbooter:10.7') {
+        transitive = false
+    }
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title": "ae2_utilix",
+            "Specification-Vendor": "ae2utilix",
+            "Specification-Version": "1",
+            "Implementation-Title": project.name,
+            "Implementation-Version": "${version}",
+            "Implementation-Vendor" :"ae2utilix",
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+// Example configuration to allow publishing using the maven-publish task
+// This is the preferred method to reobfuscate your jar file
+jar.finalizedBy('reobfJar') 
+// However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing
+//publish.dependsOn('reobfJar')
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file:///${project.projectDir}/mcmodsrepo"
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "IMI",
+        "GTG",
+        "IGI"
+    ],
+    "key": {
+        "I": { "item": "minecraft:iron_ingot" },
+        "G": { "item": "minecraft:glass" },
+        "M": { "item": "appliedenergistics2:interface" },
+        "T": { "item": "appliedenergistics2:part", "data": 380 }
+    },
+    "result": {
+        "item": "ae2_utilix:interface_terminal"
+    }
+}

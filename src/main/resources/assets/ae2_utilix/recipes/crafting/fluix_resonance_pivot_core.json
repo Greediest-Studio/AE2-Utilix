@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IDI",
+    "QDI",
+    "IDI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_block" },
+    "D": { "item": "appliedenergistics2:dense_energy_cell" },
+    "Q": { "item": "appliedenergistics2:quartz_block" }
+  },
+  "result": {
+    "item": "ae2_utilix:fluix_resonance_pivot_core",
+    "count": 1
+  }
+}

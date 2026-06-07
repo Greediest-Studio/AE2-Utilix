@@ -1,0 +1,16 @@
+[
+{
+  "modid": "ae2_utilix",
+  "name": "AE2 Utilix",
+  "description": "AE2 Utilities - Practical devices for Applied Energistics 2.",
+  "version": "1.0.",
+  "mcversion": "1.12.2",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["nyonio"],
+  "credits": "AE2 Unofficial Extended Life",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": ["appliedenergistics2"]
+}
+]

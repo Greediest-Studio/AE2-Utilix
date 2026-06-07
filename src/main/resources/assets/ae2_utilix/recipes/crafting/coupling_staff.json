@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "  F",
+    " CS",
+    "DFN"
+  ],
+  "key": {
+    "F": [
+      { "item": "appliedenergistics2:material", "data": 7 },
+      { "item": "appliedenergistics2:material", "data": 12 }
+    ],
+    "C": { "item": "appliedenergistics2:charged_staff" },
+    "S": { "item": "appliedenergistics2:material", "data": 31 },
+    "D": { "item": "appliedenergistics2:dense_energy_cell" },
+    "N": { "item": "appliedenergistics2:material", "data": 29 }
+  },
+  "result": {
+    "item": "ae2_utilix:coupling_staff",
+    "count": 1
+  }
+}
