@@ -6,14 +6,12 @@ import appeng.api.storage.data.IItemList;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.InvOperation;
-import com.glodblock.github.interfaces.FCFluidPatternPart;
-import com.glodblock.github.util.Util;
+import com.ae2utilix.integration.AE2FCRUCompat;
 import com.circulation.random_complement.client.RCSettings;
 import com.circulation.random_complement.client.buttonsetting.PatternTermAutoFillPattern;
 import com.circulation.random_complement.common.interfaces.RCIConfigManager;
 import com.circulation.random_complement.common.interfaces.RCIConfigManagerHost;
 import com.circulation.random_complement.common.interfaces.RCIConfigurableObject;
-import com.circulation.random_complement.common.util.MEHandler;
 import com.circulation.random_complement.common.util.RCConfigManager;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.item.ItemStack;
@@ -22,7 +20,7 @@ import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
-public class TilePatternTerminal extends TileStorageTerminal implements FCFluidPatternPart, RCIConfigurableObject, RCIConfigManagerHost {
+public class TilePatternTerminal extends TileStorageTerminal implements RCIConfigurableObject, RCIConfigManagerHost {
 
     public static final int PAGE_COUNT = 9;
     public static final int SLOTS_PER_PAGE_INPUT = 9;
@@ -77,34 +75,31 @@ public class TilePatternTerminal extends TileStorageTerminal implements FCFluidP
         this.isSubstitute = substitute;
     }
 
-    // FCFluidPatternPart implementation
-    @Override
+    // AE2FCRU-compatible methods (was FCFluidPatternPart implementation)
     public boolean getCombineMode() {
         return this.fc$combine;
     }
 
-    @Override
     public void setCombineMode(boolean mode) {
         this.fc$combine = mode;
         this.saveChanges();
     }
 
-    @Override
     public boolean getFluidPlaceMode() {
         return this.fc$fluidFirst;
     }
 
-    @Override
     public void setFluidPlaceMode(boolean mode) {
         this.fc$fluidFirst = mode;
         this.saveChanges();
     }
 
-    @Override
     public void onChangeCrafting(final Int2ObjectMap<ItemStack[]> inputs, final List<ItemStack> outputs, final boolean combine) {
+        if (!AE2FCRUCompat.isLoaded()) return;
+
         // Clear crafting and output inventories
-        Util.clearItemInventory(this.craftingGrid);
-        Util.clearItemInventory(this.patternOut);
+        AE2FCRUCompat.clearItemInventory(this.craftingGrid);
+        AE2FCRUCompat.clearItemInventory(this.patternOut);
 
         // Get ME network storage list for fuzzy matching
         IItemList<IAEItemStack> storageList = null;
@@ -118,14 +113,14 @@ public class TilePatternTerminal extends TileStorageTerminal implements FCFluidP
         }
 
         // Fuzzy-match input candidates against ME network storage
-        ItemStack[] fuzzyFind = new ItemStack[Util.findMax(inputs.keySet()) + 1];
+        ItemStack[] fuzzyFind = new ItemStack[AE2FCRUCompat.findMax(inputs.keySet()) + 1];
         for (final int index : inputs.keySet()) {
-            Util.fuzzyTransferItems(index, inputs.get(index), fuzzyFind, storageList);
+            AE2FCRUCompat.fuzzyTransferItems(index, inputs.get(index), fuzzyFind, storageList);
         }
 
         // Compress (merge identical items) if combine is true and in processing mode
         if (combine && !this.isCraftingRecipe) {
-            fuzzyFind = Util.compress(fuzzyFind);
+            fuzzyFind = AE2FCRUCompat.compress(fuzzyFind);
         }
 
         // Write matched items into crafting grid
@@ -246,25 +241,24 @@ public class TilePatternTerminal extends TileStorageTerminal implements FCFluidP
                             patternItem.getPatternForItem(is, this.getWorld());
                     if (details != null) {
                         // Determine the correct inputs to write back to the crafting grid.
-                        // For FluidCraftingPatternDetails, getInputs() returns fluid pseudo-items
-                        // (e.g. 1000mb water instead of water bucket), but we want the original
-                        // container items. Use getOriginInputs() for fluid crafting patterns.
                         IAEItemStack[] inputs = details.getInputs();
                         boolean crafting = details.isCraftable();
-                        try {
-                            if (details instanceof com.glodblock.github.util.FluidCraftingPatternDetails) {
-                                inputs = ((com.glodblock.github.util.FluidCraftingPatternDetails) details).getOriginInputs();
-                                // FluidCraftingPatternDetails.isCraftable() always returns false,
-                                // but DENSE_CRAFT_ENCODED_PATTERN should be treated as crafting mode.
-                                // Read the 'crafting' flag from NBT directly.
-                                NBTTagCompound tag = is.getTagCompound();
-                                if (tag != null) {
-                                    crafting = tag.getBoolean("crafting");
-                                }
+
+                        // Check for FluidCraftingPatternDetails via reflection
+                        if (AE2FCRUCompat.isFluidCraftingPatternDetails(details)) {
+                            IAEItemStack[] originInputs = AE2FCRUCompat.getOriginInputs(details);
+                            if (originInputs != null) {
+                                inputs = originInputs;
                             }
-                        } catch (NoClassDefFoundError ignored) {
-                            // AE2FCRU not loaded
+                            // FluidCraftingPatternDetails.isCraftable() always returns false,
+                            // but DENSE_CRAFT_ENCODED_PATTERN should be treated as crafting mode.
+                            // Read the 'crafting' flag from NBT directly.
+                            NBTTagCompound tag = is.getTagCompound();
+                            if (tag != null) {
+                                crafting = tag.getBoolean("crafting");
+                            }
                         }
+
                         this.setCraftingRecipe(crafting);
                         this.setSubstitute(details.canSubstitute());
 

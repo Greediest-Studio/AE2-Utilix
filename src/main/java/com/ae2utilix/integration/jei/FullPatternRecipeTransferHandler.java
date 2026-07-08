@@ -3,9 +3,7 @@ package com.ae2utilix.integration.jei;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import com.ae2utilix.gui.ContainerFullPattern;
-import com.glodblock.github.FluidCraft;
-import com.glodblock.github.integration.jei.RecipeTransferBuilder;
-import com.glodblock.github.network.CPacketLoadPattern;
+import com.ae2utilix.integration.AE2FCRUCompat;
 import mezz.jei.api.gui.IRecipeLayout;
 import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
@@ -28,6 +26,10 @@ public class FullPatternRecipeTransferHandler implements IRecipeTransferHandler<
     @Override
     public IRecipeTransferError transferRecipe(@Nonnull final ContainerFullPattern container, @Nonnull final IRecipeLayout recipeLayout,
                                                @Nonnull final EntityPlayer player, final boolean maxTransfer, final boolean doTransfer) {
+        if (!AE2FCRUCompat.isLoaded()) {
+            // AE2FCRU not loaded, skip fluid recipe transfer
+            return null;
+        }
         try {
             if (doTransfer) {
                 boolean craftMode = container.isCraftingMode();
@@ -41,14 +43,9 @@ public class FullPatternRecipeTransferHandler implements IRecipeTransferHandler<
                     }
                 } catch (final IOException ignore) {
                 }
-                final RecipeTransferBuilder transfer = new RecipeTransferBuilder(recipeLayout)
-                        .clearEmptySlot(!craftMode)
-                        .putFluidFirst(container.fluidFirst)
-                        .build();
-                FluidCraft.proxy.netHandler.sendToServer(new CPacketLoadPattern(transfer.getInput(), transfer.getOutput(), container.combine));
+                AE2FCRUCompat.sendRecipeTransfer(container, container.fluidFirst, container.combine, recipeLayout, craftMode);
             }
-        } catch (NoClassDefFoundError ignored) {
-            // AE2FCRU not loaded, fall through
+        } catch (Exception ignored) {
         }
         return null;
     }

@@ -1,0 +1,12 @@
+[{
+    "modid": "nae2",
+    "name": "Neeve's AE2: Extended Life Additions",
+    "description": "Neeve's auxiliary additions for AE2: Extended Life.",
+    "version": "1.6.4",
+    "mcversion": "1.12.2",
+    "logoFile": "assets/nae2/textures/logo.png",
+    "url": "",
+    "authorList": ["NotMyWing"],
+    "credits": "",
+    "dependencies": []
+}]

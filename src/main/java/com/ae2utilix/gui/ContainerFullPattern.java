@@ -27,8 +27,7 @@ import appeng.util.inv.WrapperCursorItemHandler;
 import appeng.util.item.AEItemStack;
 import com.ae2utilix.block.terminal.TilePatternTerminal;
 import com.ae2utilix.AE2Utilix;
-import com.glodblock.github.interfaces.FCFluidPatternContainer;
-import com.glodblock.github.interfaces.FCFluidPatternPart;
+import com.ae2utilix.integration.AE2FCRUCompat;
 import com.circulation.random_complement.client.buttonsetting.PatternTermAutoFillPattern;
 import com.circulation.random_complement.common.interfaces.PatternTermConfigs;
 import com.circulation.random_complement.common.interfaces.RCIConfigurableObject;
@@ -38,6 +37,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.*;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
@@ -55,7 +55,7 @@ import java.util.Optional;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 public class ContainerFullPattern extends ContainerMEMonitorable
-        implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, FCFluidPatternContainer, PatternTermConfigs {
+        implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, PatternTermConfigs {
 
     private final TilePatternTerminal patternTerminal;
 
@@ -79,7 +79,6 @@ public class ContainerFullPattern extends ContainerMEMonitorable
     public int currentPage = 0;
 
     // AE2FCRU sync fields
-    private final FCFluidPatternPart fcPart;
     @GuiSync(105)
     public boolean combine = false;
     @GuiSync(106)
@@ -93,7 +92,6 @@ public class ContainerFullPattern extends ContainerMEMonitorable
     public ContainerFullPattern(InventoryPlayer ip, ITerminalHost monitorable) {
         super(ip, monitorable, false);
         this.patternTerminal = (TilePatternTerminal) monitorable;
-        this.fcPart = (FCFluidPatternPart) monitorable;
 
         // Initialize RC autoFillPattern from tile entity (same as RC Mixin onInit)
         try {
@@ -315,22 +313,25 @@ public class ContainerFullPattern extends ContainerMEMonitorable
         // AE2FCRU fluid interception: in processing mode, LEFT-CLICK converts fluid containers to fluid fake items
         // Left-click = mark fluid (e.g. water), Right-click = mark item (e.g. water bucket)
         if (!this.isCraftingMode() && action == InventoryAction.PICKUP_OR_SET_DOWN) {
-            try {
-                if (id == 0 && slotId >= 0 && slotId < this.inventorySlots.size()) {
-                    final Slot slot = getSlot(slotId);
-                    final ItemStack stack = player.inventory.getItemStack();
-                    if ((slot instanceof SlotFakeCraftingMatrix || slot instanceof SlotPatternOutputs) && !stack.isEmpty()
-                            && stack.hasCapability(net.minecraftforge.fluids.capability.CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)
-                            && com.glodblock.github.util.Util.getFluidFromItem(stack) != null) {
-                        net.minecraftforge.fluids.FluidStack fluid = com.glodblock.github.util.Util.getFluidFromItem(stack);
-                        slot.putStack(com.glodblock.github.common.item.fake.FakeFluids.packFluid2Drops(fluid));
-                        if (fluid != null) return;
+            if (AE2FCRUCompat.isLoaded()) {
+                try {
+                    if (id == 0 && slotId >= 0 && slotId < this.inventorySlots.size()) {
+                        final Slot slot = getSlot(slotId);
+                        final ItemStack stack = player.inventory.getItemStack();
+                        if ((slot instanceof SlotFakeCraftingMatrix || slot instanceof SlotPatternOutputs) && !stack.isEmpty()
+                                && stack.hasCapability(net.minecraftforge.fluids.capability.CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)
+                                && AE2FCRUCompat.getFluidFromItem(stack) != null) {
+                            net.minecraftforge.fluids.FluidStack fluid = AE2FCRUCompat.getFluidFromItem(stack);
+                            ItemStack packed = AE2FCRUCompat.packFluid2Drops(fluid);
+                            if (packed != null) {
+                                slot.putStack(packed);
+                                return;
+                            }
+                        }
                     }
+                } catch (Exception e) {
+                    AE2Utilix.LOGGER.error("doAction: Unexpected exception in fluid interception", e);
                 }
-            } catch (NoClassDefFoundError ignored) {
-                // AE2FCRU not loaded, fall through
-            } catch (Exception e) {
-                AE2Utilix.LOGGER.error("doAction: Unexpected exception in fluid interception", e);
             }
         }
         super.doAction(player, action, slotId, id);
@@ -363,7 +364,7 @@ public class ContainerFullPattern extends ContainerMEMonitorable
 
         // AE2FCRU: Check for fluid pattern FIRST (before getInputs/getOutputs)
         // This matches ContainerFluidPatternTerminal.encode() flow
-        try {
+        if (AE2FCRUCompat.isLoaded()) {
             if (!this.craftingMode && this.checkHasFluidPattern()) {
                 // Fluid encoding path (DENSE_ENCODED_PATTERN)
                 if (output.isEmpty()) {
@@ -395,7 +396,6 @@ public class ContainerFullPattern extends ContainerMEMonitorable
                     this.patternSlotOUT.putStack(ItemStack.EMPTY);
                 }
             }
-        } catch (NoClassDefFoundError ignored) {
         }
 
         // Standard encoding (same as ContainerPatternEncoder.encode())
@@ -705,8 +705,8 @@ public class ContainerFullPattern extends ContainerMEMonitorable
                 this.substitute = this.patternTerminal.isSubstitute();
             }
             // Sync AE2FCRU fields
-            this.combine = this.fcPart.getCombineMode();
-            this.fluidFirst = this.fcPart.getFluidPlaceMode();
+            this.combine = this.patternTerminal.getCombineMode();
+            this.fluidFirst = this.patternTerminal.getFluidPlaceMode();
 
             // Sync RandomComplement fields
             try {
@@ -757,89 +757,83 @@ public class ContainerFullPattern extends ContainerMEMonitorable
         }
     }
 
-    // FCFluidPatternContainer implementation
-    @Override
+    // FCFluidPatternContainer equivalent methods (not interface implementations)
     public boolean getCombineMode() {
-        return this.fcPart.getCombineMode();
+        return this.patternTerminal.getCombineMode();
     }
 
-    @Override
     public void setCombineMode(boolean mode) {
-        this.fcPart.setCombineMode(mode);
+        this.patternTerminal.setCombineMode(mode);
     }
 
-    @Override
     public boolean getFluidPlaceMode() {
-        return this.fcPart.getFluidPlaceMode();
+        return this.patternTerminal.getFluidPlaceMode();
     }
 
-    @Override
     public void setFluidPlaceMode(boolean mode) {
-        this.fcPart.setFluidPlaceMode(mode);
+        this.patternTerminal.setFluidPlaceMode(mode);
     }
 
-    @Override
     public void acceptPattern(Int2ObjectMap<ItemStack[]> inputs, List<ItemStack> outputs, boolean compress) {
-        if (this.fcPart != null) {
-            this.fcPart.onChangeCrafting(inputs, outputs, compress);
+        if (this.patternTerminal != null) {
+            this.patternTerminal.onChangeCrafting(inputs, outputs, compress);
         }
     }
 
-    @Override
     public void encodeFluidCraftPattern() {
-        try {
-            ItemStack output = this.patternSlotOUT.getStack();
-            final ItemStack[] in = this.getInputs();
-            final ItemStack[] out = this.getOutputs();
-            if (in == null || out == null) {
-                return;
-            }
-
-            if (!output.isEmpty() && !isPattern(output)) {
-                return;
-            } else if (output.isEmpty()) {
-                output = this.patternSlotIN.getStack();
-                if (output.isEmpty() || !isPattern(output)) {
-                    return;
-                }
-                output.setCount(output.getCount() - 1);
-                if (output.getCount() == 0) {
-                    this.patternSlotIN.putStack(ItemStack.EMPTY);
-                }
-            }
-
-            final NBTTagCompound encodedValue = new NBTTagCompound();
-            final NBTTagList tagIn = new NBTTagList();
-            final NBTTagList tagOut = new NBTTagList();
-
-            for (final ItemStack i : in) {
-                tagIn.appendTag(this.createItemTag(i));
-            }
-            for (final ItemStack i : out) {
-                tagOut.appendTag(this.createItemTag(i));
-            }
-
-            encodedValue.setTag("in", tagIn);
-            encodedValue.setTag("out", tagOut);
-            encodedValue.setBoolean("crafting", this.isCraftingMode());
-            encodedValue.setBoolean("substitute", this.substitute);
-
-            // Always create DENSE_CRAFT_ENCODED_PATTERN (matches AE2FCR original)
-            final ItemStack patternStack = new ItemStack(com.glodblock.github.loader.FCItems.DENSE_CRAFT_ENCODED_PATTERN);
-            patternStack.setTagCompound(encodedValue);
-
-            // Validate: if not necessary (no fluid inputs), fall back to standard encode
-            final com.glodblock.github.util.FluidCraftingPatternDetails details =
-                    com.glodblock.github.util.FluidCraftingPatternDetails.GetFluidPattern(patternStack, this.patternTerminal.getWorld());
-            if (details == null || !details.isNecessary()) {
-                encode();
-                return;
-            }
-            patternSlotOUT.putStack(patternStack);
-        } catch (NoClassDefFoundError e) {
-            // AE2FCRU not loaded, fall back to normal encode
+        Item denseItem = AE2FCRUCompat.getDenseCraftEncodedPattern();
+        if (denseItem == null) {
             encode();
+            return;
         }
+
+        ItemStack output = this.patternSlotOUT.getStack();
+        final ItemStack[] in = this.getInputs();
+        final ItemStack[] out = this.getOutputs();
+        if (in == null || out == null) {
+            return;
+        }
+
+        if (!output.isEmpty() && !isPattern(output)) {
+            return;
+        } else if (output.isEmpty()) {
+            output = this.patternSlotIN.getStack();
+            if (output.isEmpty() || !isPattern(output)) {
+                return;
+            }
+            output.setCount(output.getCount() - 1);
+            if (output.getCount() == 0) {
+                this.patternSlotIN.putStack(ItemStack.EMPTY);
+            }
+        }
+
+        final NBTTagCompound encodedValue = new NBTTagCompound();
+        final NBTTagList tagIn = new NBTTagList();
+        final NBTTagList tagOut = new NBTTagList();
+
+        for (final ItemStack i : in) {
+            tagIn.appendTag(this.createItemTag(i));
+        }
+        for (final ItemStack i : out) {
+            tagOut.appendTag(this.createItemTag(i));
+        }
+
+        encodedValue.setTag("in", tagIn);
+        encodedValue.setTag("out", tagOut);
+        encodedValue.setBoolean("crafting", this.isCraftingMode());
+        encodedValue.setBoolean("substitute", this.substitute);
+
+        // Create DENSE_CRAFT_ENCODED_PATTERN via compat layer
+        final ItemStack patternStack = new ItemStack(denseItem);
+        patternStack.setTagCompound(encodedValue);
+
+        // Validate: if not necessary (no fluid inputs), fall back to standard encode
+        final Object details = AE2FCRUCompat.getFluidCraftingPatternDetails(patternStack, this.patternTerminal.getWorld());
+        if (details == null || !AE2FCRUCompat.isFluidPatternNecessary(details)) {
+            encode();
+            return;
+        }
+        patternSlotOUT.putStack(patternStack);
     }
 
     /**
@@ -847,6 +841,7 @@ public class ContainerFullPattern extends ContainerMEMonitorable
      * Only relevant in processing mode.
      */
     private boolean checkHasFluidPattern() {
+        if (!AE2FCRUCompat.isLoaded()) return false;
         if (this.craftingMode) {
             return false;
         }
@@ -858,7 +853,7 @@ public class ContainerFullPattern extends ContainerMEMonitorable
                 continue;
             }
             search = true;
-            if (com.glodblock.github.common.item.fake.FakeFluids.isFluidFakeItem(crafting)) {
+            if (AE2FCRUCompat.isFluidFakeItem(crafting)) {
                 hasFluid = true;
                 break;
             }
@@ -874,7 +869,7 @@ public class ContainerFullPattern extends ContainerMEMonitorable
             search = false;
             if (hasFluid) {
                 break;
-            } else if (com.glodblock.github.common.item.fake.FakeFluids.isFluidFakeItem(out)) {
+            } else if (AE2FCRUCompat.isFluidFakeItem(out)) {
                 hasFluid = true;
                 break;
             }
@@ -887,12 +882,18 @@ public class ContainerFullPattern extends ContainerMEMonitorable
      * Called by encode() when in processing mode with fluid items.
      */
     private void encodeFluidPattern() {
-        final ItemStack patternStack = new ItemStack(com.glodblock.github.loader.FCItems.DENSE_ENCODED_PATTERN);
-        final com.glodblock.github.util.FluidPatternDetails pattern = new com.glodblock.github.util.FluidPatternDetails(patternStack);
-        pattern.setInputs(collectInventory(this.craftingSlots));
-        pattern.setOutputs(collectInventory(this.outputSlots));
-        pattern.setEncoder(this.getInventoryPlayer().player.getGameProfile());
-        patternSlotOUT.putStack(pattern.writeToStack());
+        Item denseItem = AE2FCRUCompat.getDenseEncodedPattern();
+        if (denseItem == null) return;
+        final ItemStack patternStack = new ItemStack(denseItem);
+        ItemStack result = AE2FCRUCompat.encodeFluidPattern(
+                patternStack,
+                collectInventory(this.craftingSlots),
+                collectInventory(this.outputSlots),
+                this.getInventoryPlayer().player.getGameProfile().getId()
+        );
+        if (result != null) {
+            patternSlotOUT.putStack(result);
+        }
     }
 
     private static IAEItemStack[] collectInventory(final Slot[] slots) {
@@ -925,13 +926,8 @@ public class ContainerFullPattern extends ContainerMEMonitorable
         // Check standard AE2 patterns
         boolean isPattern = AEApi.instance().definitions().items().encodedPattern().isSameAs(output);
         isPattern |= AEApi.instance().definitions().materials().blankPattern().isSameAs(output);
-        // Check AE2FCRU fluid pattern types
-        try {
-            isPattern |= output.getItem() instanceof com.glodblock.github.common.item.ItemFluidEncodedPattern;
-            isPattern |= output.getItem() instanceof com.glodblock.github.common.item.ItemFluidCraftEncodedPattern;
-            isPattern |= output.getItem() instanceof com.glodblock.github.common.item.ItemLargeEncodedPattern;
-        } catch (NoClassDefFoundError ignored) {
-        }
+        // Check AE2FCRU fluid pattern types via compat layer
+        isPattern |= AE2FCRUCompat.isFluidEncodedPattern(output);
         return isPattern;
     }
 

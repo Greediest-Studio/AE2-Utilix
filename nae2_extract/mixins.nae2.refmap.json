@@ -1,0 +1,110 @@
+{
+  "mappings": {
+    "co/neeve/nae2/mixin/beamformer/client/MixinCableBusBakedModel": {
+      "getQuads": "Lappeng/client/render/cablebus/CableBusBakedModel;func_188616_a(Lnet/minecraft/block/state/IBlockState;Lnet/minecraft/util/EnumFacing;J)Ljava/util/List;"
+    },
+    "co/neeve/nae2/mixin/beamformer/client/MixinTileCableBus": {
+      "getMaxRenderDistanceSquared": "Lappeng/tile/networking/TileCableBus;func_145833_n()D"
+    },
+    "co/neeve/nae2/mixin/crafting/patterntransform/MixinCraftingCPUCluster": {
+      "Lnet/minecraft/nbt/NBTTagList;appendTag(Lnet/minecraft/nbt/NBTBase;)V": "Lnet/minecraft/nbt/NBTTagList;func_74742_a(Lnet/minecraft/nbt/NBTBase;)V"
+    },
+    "co/neeve/nae2/mixin/ifacep2p/shared/MixinAE2FCInventoryAdaptor": {
+      "Lnet/minecraft/world/World;getTileEntity(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;": "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;"
+    },
+    "co/neeve/nae2/mixin/ifacep2p/shared/MixinBlockingTermName": {
+      "Lnet/minecraft/world/World;getBlockState(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/block/state/IBlockState;": "Lnet/minecraft/world/World;func_180495_p(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/block/state/IBlockState;",
+      "Lnet/minecraft/world/World;getTileEntity(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;": "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;"
+    },
+    "co/neeve/nae2/mixin/ifacep2p/shared/MixinPushPattern": {
+      "Lnet/minecraft/world/World;getTileEntity(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;": "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;"
+    },
+    "co/neeve/nae2/mixin/jei/cellview/MixinRecipeLayout": {
+      "Lnet/minecraft/client/renderer/GlStateManager;disableBlend()V": "Lnet/minecraft/client/renderer/GlStateManager;func_179084_k()V"
+    },
+    "co/neeve/nae2/mixin/jei/craft/shared/MixinPacketJEIRecipe": {
+      "Lnet/minecraft/inventory/Container;onCraftMatrixChanged(Lnet/minecraft/inventory/IInventory;)V": "Lnet/minecraft/inventory/Container;func_75130_a(Lnet/minecraft/inventory/IInventory;)V",
+      "Lnet/minecraft/nbt/NBTTagCompound;getKeySet()Ljava/util/Set;": "Lnet/minecraft/nbt/NBTTagCompound;func_150296_c()Ljava/util/Set;"
+    },
+    "co/neeve/nae2/mixin/patternmultitool/client/MixinAEBaseGui": {
+      "drawSlot": "Lappeng/client/gui/AEBaseGui;func_146977_a(Lnet/minecraft/inventory/Slot;)V"
+    },
+    "co/neeve/nae2/mixin/patternmultitool/client/MixinStackSizeRenderer": {
+      "Lnet/minecraft/client/renderer/GlStateManager;enableLighting()V": "Lnet/minecraft/client/renderer/GlStateManager;func_179145_e()V"
+    },
+    "co/neeve/nae2/mixin/patternmultitool/client/pmthosts/MixinGuiPatternTerminal": {
+      "initGui": "func_73866_w_()V"
+    },
+    "co/neeve/nae2/mixin/patternmultitool/shared/MixinContainerPatternEncoder": {
+      "Lappeng/container/slot/SlotRestrictedInput;getStack()Lnet/minecraft/item/ItemStack;": "Lappeng/container/slot/SlotRestrictedInput;func_75211_c()Lnet/minecraft/item/ItemStack;",
+      "Lnet/minecraft/entity/player/InventoryPlayer;addItemStackToInventory(Lnet/minecraft/item/ItemStack;)Z": "Lnet/minecraft/entity/player/InventoryPlayer;func_70441_a(Lnet/minecraft/item/ItemStack;)Z"
+    },
+    "co/neeve/nae2/mixin/upgrades/base/MixinSlotRestrictedInput": {
+      "isItemValid": "Lappeng/container/slot/SlotRestrictedInput;func_75214_a(Lnet/minecraft/item/ItemStack;)Z"
+    },
+    "co/neeve/nae2/mixin/upgrades/base/MixinUpgradeInvFilter": {
+      "Lnet/minecraft/item/ItemStack;getItem()Lnet/minecraft/item/Item;": "Lnet/minecraft/item/ItemStack;func_77973_b()Lnet/minecraft/item/Item;"
+    },
+    "co/neeve/nae2/mixin/upgrades/base/MixinUpgradeInventory": {
+      "Lnet/minecraft/item/ItemStack;getItem()Lnet/minecraft/item/Item;": "Lnet/minecraft/item/ItemStack;func_77973_b()Lnet/minecraft/item/Item;"
+    },
+    "co/neeve/nae2/mixin/voidcell/condenser/shared/MixinContainerTileCondenser": {
+      "<init>": "Lappeng/container/implementations/ContainerCondenser;<init>(Lnet/minecraft/entity/player/InventoryPlayer;Lappeng/tile/misc/TileCondenser;)V"
+    }
+  },
+  "data": {
+    "searge": {
+      "co/neeve/nae2/mixin/beamformer/client/MixinCableBusBakedModel": {
+        "getQuads": "Lappeng/client/render/cablebus/CableBusBakedModel;func_188616_a(Lnet/minecraft/block/state/IBlockState;Lnet/minecraft/util/EnumFacing;J)Ljava/util/List;"
+      },
+      "co/neeve/nae2/mixin/beamformer/client/MixinTileCableBus": {
+        "getMaxRenderDistanceSquared": "Lappeng/tile/networking/TileCableBus;func_145833_n()D"
+      },
+      "co/neeve/nae2/mixin/crafting/patterntransform/MixinCraftingCPUCluster": {
+        "Lnet/minecraft/nbt/NBTTagList;appendTag(Lnet/minecraft/nbt/NBTBase;)V": "Lnet/minecraft/nbt/NBTTagList;func_74742_a(Lnet/minecraft/nbt/NBTBase;)V"
+      },
+      "co/neeve/nae2/mixin/ifacep2p/shared/MixinAE2FCInventoryAdaptor": {
+        "Lnet/minecraft/world/World;getTileEntity(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;": "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;"
+      },
+      "co/neeve/nae2/mixin/ifacep2p/shared/MixinBlockingTermName": {
+        "Lnet/minecraft/world/World;getBlockState(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/block/state/IBlockState;": "Lnet/minecraft/world/World;func_180495_p(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/block/state/IBlockState;",
+        "Lnet/minecraft/world/World;getTileEntity(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;": "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;"
+      },
+      "co/neeve/nae2/mixin/ifacep2p/shared/MixinPushPattern": {
+        "Lnet/minecraft/world/World;getTileEntity(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;": "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;"
+      },
+      "co/neeve/nae2/mixin/jei/cellview/MixinRecipeLayout": {
+        "Lnet/minecraft/client/renderer/GlStateManager;disableBlend()V": "Lnet/minecraft/client/renderer/GlStateManager;func_179084_k()V"
+      },
+      "co/neeve/nae2/mixin/jei/craft/shared/MixinPacketJEIRecipe": {
+        "Lnet/minecraft/inventory/Container;onCraftMatrixChanged(Lnet/minecraft/inventory/IInventory;)V": "Lnet/minecraft/inventory/Container;func_75130_a(Lnet/minecraft/inventory/IInventory;)V",
+        "Lnet/minecraft/nbt/NBTTagCompound;getKeySet()Ljava/util/Set;": "Lnet/minecraft/nbt/NBTTagCompound;func_150296_c()Ljava/util/Set;"
+      },
+      "co/neeve/nae2/mixin/patternmultitool/client/MixinAEBaseGui": {
+        "drawSlot": "Lappeng/client/gui/AEBaseGui;func_146977_a(Lnet/minecraft/inventory/Slot;)V"
+      },
+      "co/neeve/nae2/mixin/patternmultitool/client/MixinStackSizeRenderer": {
+        "Lnet/minecraft/client/renderer/GlStateManager;enableLighting()V": "Lnet/minecraft/client/renderer/GlStateManager;func_179145_e()V"
+      },
+      "co/neeve/nae2/mixin/patternmultitool/client/pmthosts/MixinGuiPatternTerminal": {
+        "initGui": "func_73866_w_()V"
+      },
+      "co/neeve/nae2/mixin/patternmultitool/shared/MixinContainerPatternEncoder": {
+        "Lappeng/container/slot/SlotRestrictedInput;getStack()Lnet/minecraft/item/ItemStack;": "Lappeng/container/slot/SlotRestrictedInput;func_75211_c()Lnet/minecraft/item/ItemStack;",
+        "Lnet/minecraft/entity/player/InventoryPlayer;addItemStackToInventory(Lnet/minecraft/item/ItemStack;)Z": "Lnet/minecraft/entity/player/InventoryPlayer;func_70441_a(Lnet/minecraft/item/ItemStack;)Z"
+      },
+      "co/neeve/nae2/mixin/upgrades/base/MixinSlotRestrictedInput": {
+        "isItemValid": "Lappeng/container/slot/SlotRestrictedInput;func_75214_a(Lnet/minecraft/item/ItemStack;)Z"
+      },
+      "co/neeve/nae2/mixin/upgrades/base/MixinUpgradeInvFilter": {
+        "Lnet/minecraft/item/ItemStack;getItem()Lnet/minecraft/item/Item;": "Lnet/minecraft/item/ItemStack;func_77973_b()Lnet/minecraft/item/Item;"
+      },
+      "co/neeve/nae2/mixin/upgrades/base/MixinUpgradeInventory": {
+        "Lnet/minecraft/item/ItemStack;getItem()Lnet/minecraft/item/Item;": "Lnet/minecraft/item/ItemStack;func_77973_b()Lnet/minecraft/item/Item;"
+      },
+      "co/neeve/nae2/mixin/voidcell/condenser/shared/MixinContainerTileCondenser": {
+        "<init>": "Lappeng/container/implementations/ContainerCondenser;<init>(Lnet/minecraft/entity/player/InventoryPlayer;Lappeng/tile/misc/TileCondenser;)V"
+      }
+    }
+  }
+}

@@ -18,9 +18,7 @@ import appeng.helpers.InventoryAction;
 import appeng.util.item.AEItemStack;
 import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.block.terminal.TilePatternTerminal;
-import com.glodblock.github.FluidCraft;
-import com.glodblock.github.client.button.GuiFCImgButton;
-import com.glodblock.github.network.CPacketFluidPatternTermBtns;
+import com.ae2utilix.integration.AE2FCRUCompat;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiTextField;
@@ -57,11 +55,11 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
     private GuiScrollbar patternScrollbar;
 
     // AE2FCRU buttons
-    private GuiFCImgButton combineEnableBtn;
-    private GuiFCImgButton combineDisableBtn;
-    private GuiFCImgButton fluidEnableBtn;
-    private GuiFCImgButton fluidDisableBtn;
-    private GuiFCImgButton craftingFluidBtn;
+    private GuiImgButton combineEnableBtn;
+    private GuiImgButton combineDisableBtn;
+    private GuiImgButton fluidEnableBtn;
+    private GuiImgButton fluidDisableBtn;
+    private GuiImgButton craftingFluidBtn;
 
     // Middle-click quantity input
     private GuiTextField amountField;
@@ -157,27 +155,35 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
         this.patternScrollbar.setRange(0, TilePatternTerminal.PAGE_COUNT - 1, 1);
 
         // AE2FCRU buttons (only when AE2FCRU is loaded)
-        try {
-            this.combineEnableBtn = new GuiFCImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, "FORCE_COMBINE", "DO_COMBINE");
-            this.combineEnableBtn.setHalfSize(true);
-            this.buttonList.add(this.combineEnableBtn);
+        if (AE2FCRUCompat.isLoaded()) {
+            this.combineEnableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, "FORCE_COMBINE", "DO_COMBINE");
+            if (this.combineEnableBtn != null) {
+                this.combineEnableBtn.setHalfSize(true);
+                this.buttonList.add(this.combineEnableBtn);
+            }
 
-            this.combineDisableBtn = new GuiFCImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, "NOT_COMBINE", "DONT_COMBINE");
-            this.combineDisableBtn.setHalfSize(true);
-            this.buttonList.add(this.combineDisableBtn);
+            this.combineDisableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, "NOT_COMBINE", "DONT_COMBINE");
+            if (this.combineDisableBtn != null) {
+                this.combineDisableBtn.setHalfSize(true);
+                this.buttonList.add(this.combineDisableBtn);
+            }
 
-            this.fluidEnableBtn = new GuiFCImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 153, "FLUID_FIRST", "FLUID");
-            this.fluidEnableBtn.setHalfSize(true);
-            this.buttonList.add(this.fluidEnableBtn);
+            this.fluidEnableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 153, "FLUID_FIRST", "FLUID");
+            if (this.fluidEnableBtn != null) {
+                this.fluidEnableBtn.setHalfSize(true);
+                this.buttonList.add(this.fluidEnableBtn);
+            }
 
-            this.fluidDisableBtn = new GuiFCImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 153, "ORIGIN_ORDER", "ITEM");
-            this.fluidDisableBtn.setHalfSize(true);
-            this.buttonList.add(this.fluidDisableBtn);
+            this.fluidDisableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 153, "ORIGIN_ORDER", "ITEM");
+            if (this.fluidDisableBtn != null) {
+                this.fluidDisableBtn.setHalfSize(true);
+                this.buttonList.add(this.fluidDisableBtn);
+            }
 
-            this.craftingFluidBtn = new GuiFCImgButton(this.guiLeft + 110, this.guiTop + this.ySize - 115, "CRAFT_FLUID", "ENCODE");
-            this.buttonList.add(this.craftingFluidBtn);
-        } catch (NoClassDefFoundError ignored) {
-            // AE2FCRU not loaded
+            this.craftingFluidBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 110, this.guiTop + this.ySize - 115, "CRAFT_FLUID", "ENCODE");
+            if (this.craftingFluidBtn != null) {
+                this.buttonList.add(this.craftingFluidBtn);
+            }
         }
     }
 
@@ -347,21 +353,11 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
         } else if (btn == this.minusOneBtn) {
             NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DecreaseByOne", "1"));
         } else if (this.combineDisableBtn == btn || this.combineEnableBtn == btn) {
-            try {
-                FluidCraft.proxy.netHandler.sendToServer(new CPacketFluidPatternTermBtns("PatternTerminal.Combine", this.combineDisableBtn == btn ? "1" : "0"));
-            } catch (NoClassDefFoundError ignored) {
-            }
+            AE2FCRUCompat.sendFluidPatternBtns("PatternTerminal.Combine", this.combineDisableBtn == btn ? "1" : "0");
         } else if (this.fluidDisableBtn == btn || this.fluidEnableBtn == btn) {
-            try {
-                FluidCraft.proxy.netHandler.sendToServer(new CPacketFluidPatternTermBtns("PatternTerminal.Fluid", this.fluidDisableBtn == btn ? "1" : "0"));
-            } catch (NoClassDefFoundError ignored) {
-            }
+            AE2FCRUCompat.sendFluidPatternBtns("PatternTerminal.Fluid", this.fluidDisableBtn == btn ? "1" : "0");
         } else if (this.craftingFluidBtn == btn) {
-            try {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.FluidCraft", "0"));
-            } catch (IOException ignored) {
-            } catch (NoClassDefFoundError ignored) {
-            }
+            NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.FluidCraft", "0"));
         }
     }
 
@@ -518,25 +514,25 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
     protected void renderHoveredToolTip(int mouseX, int mouseY) {
         Slot slot = this.getSlotUnderMouse();
         if (!this.container.isCraftingMode() && slot instanceof SlotFake) {
-            try {
-                ItemStack heldItem = this.mc.player.inventory.getItemStack();
-                if (!heldItem.isEmpty() && heldItem.hasCapability(
-                        net.minecraftforge.fluids.capability.CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)) {
-                    net.minecraftforge.fluids.FluidStack fluid = com.glodblock.github.util.Util.getFluidFromItem(heldItem);
-                    if (fluid != null) {
-                        java.util.List<String> tips = new java.util.ArrayList<>();
-                        tips.add(net.minecraft.client.resources.I18n.format("ae2fc.tooltip.fluid_pattern.tooltip",
-                                net.minecraft.client.settings.GameSettings.getKeyDisplayString(-100),
-                                fluid.getLocalizedName()));
-                        tips.add(net.minecraft.client.resources.I18n.format("ae2fc.tooltip.fluid_pattern.tooltip",
-                                net.minecraft.client.settings.GameSettings.getKeyDisplayString(-99),
-                                heldItem.getDisplayName()));
-                        this.drawHoveringText(tips, mouseX, mouseY);
-                        return;
-                    }
+            if (!AE2FCRUCompat.isLoaded()) {
+                super.renderHoveredToolTip(mouseX, mouseY);
+                return;
+            }
+            ItemStack heldItem = this.mc.player.inventory.getItemStack();
+            if (!heldItem.isEmpty() && heldItem.hasCapability(
+                    net.minecraftforge.fluids.capability.CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)) {
+                net.minecraftforge.fluids.FluidStack fluid = AE2FCRUCompat.getFluidFromItem(heldItem);
+                if (fluid != null) {
+                    java.util.List<String> tips = new java.util.ArrayList<>();
+                    tips.add(net.minecraft.client.resources.I18n.format("ae2fc.tooltip.fluid_pattern.tooltip",
+                            net.minecraft.client.settings.GameSettings.getKeyDisplayString(-100),
+                            fluid.getLocalizedName()));
+                    tips.add(net.minecraft.client.resources.I18n.format("ae2fc.tooltip.fluid_pattern.tooltip",
+                            net.minecraft.client.settings.GameSettings.getKeyDisplayString(-99),
+                            heldItem.getDisplayName()));
+                    this.drawHoveringText(tips, mouseX, mouseY);
+                    return;
                 }
-            } catch (NoClassDefFoundError ignored) {
-                // AE2FCRU not loaded, fall through
             }
         }
         super.renderHoveredToolTip(mouseX, mouseY);
@@ -578,14 +574,45 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
         }
         // Handle FluidStack ingredients from JEI (AE2FCRU support)
         else if (ingredient instanceof net.minecraftforge.fluids.FluidStack) {
-            try {
-                net.minecraftforge.fluids.FluidStack fluidStack = (net.minecraftforge.fluids.FluidStack) ingredient;
-                // In processing mode, convert fluid to fake fluid item; in crafting mode, convert to filled bucket
-                if (!this.container.isCraftingMode()) {
-                    // Processing mode: use FakeFluids to create virtual fluid item
-                    ItemStack fakeFluidItem = com.glodblock.github.common.item.fake.FakeFluids.packFluid2Drops(fluidStack.copy());
+            if (!AE2FCRUCompat.isLoaded()) return targets;
+            net.minecraftforge.fluids.FluidStack fluidStack = (net.minecraftforge.fluids.FluidStack) ingredient;
+            // In processing mode, convert fluid to fake fluid item; in crafting mode, convert to filled bucket
+            if (!this.container.isCraftingMode()) {
+                // Processing mode: use AE2FCRUCompat to create virtual fluid item
+                ItemStack fakeFluidItem = AE2FCRUCompat.packFluid2Drops(fluidStack.copy());
+                if (fakeFluidItem == null) return targets;
+                for (Slot slot : this.inventorySlots.inventorySlots) {
+                    if (slot instanceof SlotFake) {
+                        IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
+                            @Override
+                            public Rectangle getArea() {
+                                return new Rectangle(getGuiLeft() + slot.xPos, getGuiTop() + slot.yPos, 16, 16);
+                            }
+
+                            @Override
+                            public void accept(Object ingredient) {
+                                try {
+                                    PacketInventoryAction p = new PacketInventoryAction(
+                                            InventoryAction.PLACE_JEI_GHOST_ITEM,
+                                            (SlotFake) slot,
+                                            AEItemStack.fromItemStack(fakeFluidItem));
+                                    NetworkHandler.instance().sendToServer(p);
+                                } catch (IOException e) {
+                                    AE2Utilix.LOGGER.error("Failed to send ghost fluid packet", e);
+                                }
+                            }
+                        };
+                        targets.add(target);
+                        mapTargetSlot.putIfAbsent(target, slot);
+                    }
+                }
+            } else {
+                // Crafting mode: convert to filled bucket
+                ItemStack bucketItem = net.minecraftforge.fluids.FluidUtil.getFilledBucket(fluidStack);
+                if (!bucketItem.isEmpty()) {
                     for (Slot slot : this.inventorySlots.inventorySlots) {
                         if (slot instanceof SlotFake) {
+                            ItemStack finalBucketItem = bucketItem;
                             IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
                                 @Override
                                 public Rectangle getArea() {
@@ -598,10 +625,10 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
                                         PacketInventoryAction p = new PacketInventoryAction(
                                                 InventoryAction.PLACE_JEI_GHOST_ITEM,
                                                 (SlotFake) slot,
-                                                AEItemStack.fromItemStack(fakeFluidItem));
+                                                AEItemStack.fromItemStack(finalBucketItem));
                                         NetworkHandler.instance().sendToServer(p);
                                     } catch (IOException e) {
-                                        AE2Utilix.LOGGER.error("Failed to send ghost fluid packet", e);
+                                        AE2Utilix.LOGGER.error("Failed to send ghost bucket packet", e);
                                     }
                                 }
                             };
@@ -609,72 +636,6 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
                             mapTargetSlot.putIfAbsent(target, slot);
                         }
                     }
-                } else {
-                    // Crafting mode: convert to filled bucket
-                    ItemStack bucketItem = net.minecraftforge.fluids.FluidUtil.getFilledBucket(fluidStack);
-                    if (!bucketItem.isEmpty()) {
-                        for (Slot slot : this.inventorySlots.inventorySlots) {
-                            if (slot instanceof SlotFake) {
-                                ItemStack finalBucketItem = bucketItem;
-                                IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
-                                    @Override
-                                    public Rectangle getArea() {
-                                        return new Rectangle(getGuiLeft() + slot.xPos, getGuiTop() + slot.yPos, 16, 16);
-                                    }
-
-                                    @Override
-                                    public void accept(Object ingredient) {
-                                        try {
-                                            PacketInventoryAction p = new PacketInventoryAction(
-                                                    InventoryAction.PLACE_JEI_GHOST_ITEM,
-                                                    (SlotFake) slot,
-                                                    AEItemStack.fromItemStack(finalBucketItem));
-                                            NetworkHandler.instance().sendToServer(p);
-                                        } catch (IOException e) {
-                                            AE2Utilix.LOGGER.error("Failed to send ghost bucket packet", e);
-                                        }
-                                    }
-                                };
-                                targets.add(target);
-                                mapTargetSlot.putIfAbsent(target, slot);
-                            }
-                        }
-                    }
-                }
-            } catch (NoClassDefFoundError ignored) {
-                // AE2FCRU not loaded, try fallback with filled bucket
-                try {
-                    net.minecraftforge.fluids.FluidStack fluidStack = (net.minecraftforge.fluids.FluidStack) ingredient;
-                    ItemStack bucketItem = net.minecraftforge.fluids.FluidUtil.getFilledBucket(fluidStack);
-                    if (!bucketItem.isEmpty()) {
-                        for (Slot slot : this.inventorySlots.inventorySlots) {
-                            if (slot instanceof SlotFake) {
-                                ItemStack finalBucketItem = bucketItem;
-                                IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
-                                    @Override
-                                    public Rectangle getArea() {
-                                        return new Rectangle(getGuiLeft() + slot.xPos, getGuiTop() + slot.yPos, 16, 16);
-                                    }
-
-                                    @Override
-                                    public void accept(Object ingredient) {
-                                        try {
-                                            PacketInventoryAction p = new PacketInventoryAction(
-                                                    InventoryAction.PLACE_JEI_GHOST_ITEM,
-                                                    (SlotFake) slot,
-                                                    AEItemStack.fromItemStack(finalBucketItem));
-                                            NetworkHandler.instance().sendToServer(p);
-                                        } catch (IOException e) {
-                                            AE2Utilix.LOGGER.error("Failed to send ghost bucket packet", e);
-                                        }
-                                    }
-                                };
-                                targets.add(target);
-                                mapTargetSlot.putIfAbsent(target, slot);
-                            }
-                        }
-                    }
-                } catch (Exception ignored2) {
                 }
             }
         }

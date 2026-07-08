@@ -65,7 +65,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     @Shadow(remap = false)
     private IInterfaceHost iHost;
 
-    @Inject(method = "getTermName", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    @Inject(method = "getTermName", at = @At("HEAD"), cancellable = true, remap = false, require = 0)/*require=0: old ae2fc may transform target*/
     private void ae2utilix$phaseInterfaceTermName(CallbackInfoReturnable<String> cir) {
         if (this.iHost instanceof TilePhaseInterface) {
             String key = ((TilePhaseInterface) this.iHost).ae2utilix$getTermNameKey();
@@ -420,7 +420,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     @Shadow(remap = false)
     private void pushItemsOut(EnumFacing face) {}
 
-    @Inject(method = "pushPattern", at = @At("HEAD"), remap = false)
+    @Inject(method = "pushPattern", at = @At("HEAD"), remap = false, require = 0)
     private void ae2utilix$onPushPatternHead(ICraftingPatternDetails patternDetails, InventoryCrafting table, CallbackInfoReturnable<Boolean> cir) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -431,7 +431,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         }
     }
 
-    @Redirect(method = "pushPattern", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;", ordinal = 0), remap = false)
+    @Redirect(method = "pushPattern", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;", ordinal = 0), remap = false, require = 0)
     private TileEntity ae2utilix$redirectPushPatternGetTile(World world, BlockPos pos) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -441,7 +441,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         return world.getTileEntity(pos);
     }
 
-    @Redirect(method = "pushItemsOut(Lnet/minecraft/util/EnumFacing;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;", ordinal = 0), remap = false)
+    @Redirect(method = "pushItemsOut(Lnet/minecraft/util/EnumFacing;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;", ordinal = 0), remap = false, require = 0)
     private TileEntity ae2utilix$redirectPushItemsOutGetTile(World world, BlockPos pos) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -454,7 +454,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     @Unique
     private boolean ae2utilix$inPushItemsOutRedirect = false;
 
-    @Inject(method = "pushItemsOut(Ljava/util/EnumSet;)V", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "pushItemsOut(Ljava/util/EnumSet;)V", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private void ae2utilix$onPushItemsOutSetHead(EnumSet<EnumFacing> possibleDirections, CallbackInfo ci) {
         if (ae2utilix$inPushItemsOutRedirect) return;
 
@@ -474,7 +474,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         }
     }
 
-    @Inject(method = "isBusy", at = @At(value = "INVOKE", target = "Lappeng/helpers/IInterfaceHost;getTargets()Ljava/util/EnumSet;", remap = false, shift = At.Shift.AFTER), cancellable = true, remap = false)
+    @Inject(method = "isBusy", at = @At(value = "INVOKE", target = "Lappeng/helpers/IInterfaceHost;getTargets()Ljava/util/EnumSet;", remap = false, shift = At.Shift.AFTER), cancellable = true, remap = false, require = 0)
     private void ae2utilix$onIsBusyAfterGetTargets(CallbackInfoReturnable<Boolean> cir) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi == null) return;
@@ -504,7 +504,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         }
     }
 
-    @ModifyArg(method = "pushPattern", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1)
+    @ModifyArg(method = "pushPattern", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1, require = 0)
     private EnumFacing ae2utilix$modifyPushPatternAdaptorFace(EnumFacing face) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -515,7 +515,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         return phaseFace != null ? phaseFace : face;
     }
 
-    @ModifyArg(method = "pushPattern", at = @At(value = "INVOKE", target = "Lappeng/api/implementations/tiles/ICraftingMachine;pushPattern(Lappeng/api/networking/crafting/ICraftingPatternDetails;Lnet/minecraft/inventory/InventoryCrafting;Lnet/minecraft/util/EnumFacing;)Z", remap = false), remap = false, index = 2)
+    @ModifyArg(method = "pushPattern", at = @At(value = "INVOKE", target = "Lappeng/api/implementations/tiles/ICraftingMachine;pushPattern(Lappeng/api/networking/crafting/ICraftingPatternDetails;Lnet/minecraft/inventory/InventoryCrafting;Lnet/minecraft/util/EnumFacing;)Z", remap = false), remap = false, index = 2, require = 0)
     private EnumFacing ae2utilix$modifyPushPatternCraftingFace(EnumFacing face) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -526,7 +526,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         return phaseFace != null ? phaseFace : face;
     }
 
-    @ModifyArg(method = "pushItemsOut(Lnet/minecraft/util/EnumFacing;)V", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1)
+    @ModifyArg(method = "pushItemsOut(Lnet/minecraft/util/EnumFacing;)V", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1, require = 0)
     private EnumFacing ae2utilix$modifyPushItemsOutSingleFace(EnumFacing face) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -537,7 +537,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         return phaseFace != null ? phaseFace : face;
     }
 
-    @ModifyArg(method = "pushItemsOut(Ljava/util/EnumSet;)V", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1)
+    @ModifyArg(method = "pushItemsOut(Ljava/util/EnumSet;)V", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1, require = 0)
     private EnumFacing ae2utilix$modifyPushItemsOutSetFace(EnumFacing face) {
         TilePhaseInterface pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
@@ -548,7 +548,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         return phaseFace != null ? phaseFace : face;
     }
 
-    @Inject(method = "pushPattern", at = @At("RETURN"), remap = false)
+    @Inject(method = "pushPattern", at = @At("RETURN"), remap = false, require = 0)
     private void ae2utilix$onPushPattern(ICraftingPatternDetails patternDetails, InventoryCrafting table, CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValue()) return;
         if (ae2utilix$hasProductReturnCard()) {
@@ -579,7 +579,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         }
     }
 
-    @Inject(method = "tickingRequest", at = @At("RETURN"), cancellable = true, remap = false)
+    @Inject(method = "tickingRequest", at = @At("RETURN"), cancellable = true, remap = false, require = 0)
     private void ae2utilix$onTickingRequest(IGridNode node, int ticksSinceLastCall, CallbackInfoReturnable<TickRateModulation> cir) {
         boolean hasMagnet = ae2utilix$hasMagnetCard();
 
@@ -842,7 +842,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         }
     }
 
-    @Inject(method = "writeToNBT", at = @At("TAIL"), remap = false)
+    @Inject(method = "writeToNBT", at = @At("TAIL"), remap = false, require = 0)
     private void ae2utilix$writeToNBT(NBTTagCompound data, CallbackInfo ci) {
         if (!ae2utilix$expectedResults.isEmpty()) {
             NBTTagList list = new NBTTagList();
@@ -855,7 +855,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         }
     }
 
-    @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false)
+    @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false, require = 0)
     private void ae2utilix$readFromNBT(NBTTagCompound data, CallbackInfo ci) {
         ae2utilix$expectedResults.clear();
         if (data.hasKey("ae2utilix_expected_results")) {

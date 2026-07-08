@@ -1,0 +1,6 @@
+{
+  "parent": "appliedenergistics2:item/part/p2p_tunnel",
+  "textures": {
+    "type": "nae2:part/p2p/interface"
+  }
+}
