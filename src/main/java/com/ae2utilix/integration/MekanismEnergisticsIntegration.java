@@ -119,6 +119,7 @@ public final class MekanismEnergisticsIntegration {
             ItemStack marker = (extended ? tile.getExtendedConfig() : tile.getConfig()).getStackInSlot(slot);
             String gasName = ItemFluidMark.getGasName(marker);
             if (gasName == null) continue;
+            if (!tile.canStoreGasInSlot(extended, slot)) continue;
 
             int configuredAmount = tile.getGasConfigAmount(extended, slot);
             if (tile.getGasConfigName(extended, slot) == null) {
@@ -364,6 +365,7 @@ public final class MekanismEnergisticsIntegration {
                 for (int index : order) {
                     boolean extended = index >= 9;
                     int slot = index % 9;
+                    if (!tile.canStoreGasInSlot(extended, slot)) continue;
                     ItemStack config = (extended ? tile.getExtendedConfig() : tile.getConfig()).getStackInSlot(slot);
                     if (!isGasCompatible(config, gas.getName(), pass)) continue;
                     String storedName = tile.getStoredGasName(extended, slot);

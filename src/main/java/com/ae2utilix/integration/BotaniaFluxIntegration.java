@@ -165,6 +165,9 @@ public final class BotaniaFluxIntegration {
             net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
             for (int slot = 0; slot < 9; slot++) {
                 if (getConfiguredType(config.getStackInSlot(slot)) != type) continue;
+                if (type == MANA
+                        ? !tile.canStoreManaInSlot(extended, slot)
+                        : !tile.canStoreFeInSlot(extended, slot)) continue;
                 long stored = getStored(tile, extended, slot, type);
                 int target = getConfiguredAmount(tile, extended, slot, type);
                 if (stored > target) {
@@ -222,6 +225,9 @@ public final class BotaniaFluxIntegration {
                 for (int slot = 0; slot < 9 && remaining > 0; slot++) {
                     ItemStack marker = config.getStackInSlot(slot);
                     int configuredType = getConfiguredType(marker);
+                    if (type == MANA
+                            ? !tile.canStoreManaInSlot(extended, slot)
+                            : !tile.canStoreFeInSlot(extended, slot)) continue;
                     long stored = getStored(tile, extended, slot, type);
                     boolean candidate = configuredType == type && (pass == 0 ? stored > 0 : stored == 0);
                     if (!candidate && allowUnconfigured && configuredType == 0 && marker.isEmpty()
@@ -443,6 +449,9 @@ public final class BotaniaFluxIntegration {
                     net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
                     for (int slot = 0; slot < 9 && remaining > 0; slot++) {
                         if (getConfiguredType(config.getStackInSlot(slot)) != type) continue;
+                        if (type == MANA
+                                ? !tile.canStoreManaInSlot(extended, slot)
+                                : !tile.canStoreFeInSlot(extended, slot)) continue;
                         long stored = getStored(tile, extended, slot, type);
                         if ((pass == 0) != (stored > 0)) continue;
                         long accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);

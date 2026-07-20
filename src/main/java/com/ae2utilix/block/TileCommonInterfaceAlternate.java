@@ -38,6 +38,7 @@ import appeng.util.inv.IInventoryDestination;
 import appeng.util.inv.InvOperation;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
+import appeng.util.inv.filter.IAEItemFilter;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -70,6 +71,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     private static final int ITEM_CAPACITY = 512;
     private static final int VIRTUAL_STORAGE_CAPACITY = 512000;
+    private static final int STORAGE_TYPE_NONE = 0;
+    private static final int STORAGE_TYPE_FLUID = 1;
+    private static final int STORAGE_TYPE_GAS = 2;
+    private static final int STORAGE_TYPE_MANA = 3;
+    private static final int STORAGE_TYPE_FE = 4;
+    private static final int STORAGE_TYPE_ITEM = 5;
     private static final String NBT_LINK_DIM = "ae2utilix_link_dim";
     private static final String NBT_LINK_X = "ae2utilix_link_x";
     private static final String NBT_LINK_Y = "ae2utilix_link_y";
@@ -148,6 +155,24 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public TileCommonInterfaceAlternate() {
         this.getProxy().setValidSides(EnumSet.allOf(EnumFacing.class));
+        this.installStorageItemFilter(this.interfaceDuality.getStorage(), false);
+        this.installStorageItemFilter(this.extendedDuality.getStorage(), true);
+    }
+
+    private void installStorageItemFilter(IItemHandler storage, final boolean extended) {
+        if (storage instanceof AppEngInternalInventory) {
+            ((AppEngInternalInventory) storage).setFilter(new IAEItemFilter() {
+                @Override
+                public boolean allowExtract(IItemHandler inv, int slot, int amount) {
+                    return true;
+                }
+
+                @Override
+                public boolean allowInsert(IItemHandler inv, int slot, ItemStack stack) {
+                    return !TileCommonInterfaceAlternate.this.hasVirtualStorage(extended, slot);
+                }
+            });
+        }
     }
 
     public DualityInterface getInterfaceDuality() {
@@ -164,6 +189,90 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public int getVirtualStorageCapacity() {
         return VIRTUAL_STORAGE_CAPACITY << this.getCapacityUpgradeCount();
+    }
+
+    public boolean hasItemStorage(boolean extended, int slot) {
+        IItemHandler storage = extended ? this.extendedDuality.getStorage() : this.interfaceDuality.getStorage();
+        return !storage.getStackInSlot(slot).isEmpty();
+    }
+
+    private int getConfiguredStorageType(boolean extended, int slot) {
+        ItemStack config = (extended ? this.extendedDuality : this.interfaceDuality)
+                .getConfig().getStackInSlot(slot);
+        if (com.ae2utilix.item.ItemFluidMark.isFluidMark(config)) return STORAGE_TYPE_FLUID;
+        if (com.ae2utilix.item.ItemFluidMark.isGasMark(config)) return STORAGE_TYPE_GAS;
+        if (com.ae2utilix.item.ItemFluidMark.isManaMark(config)) return STORAGE_TYPE_MANA;
+        if (com.ae2utilix.item.ItemFluidMark.isFeMark(config)) return STORAGE_TYPE_FE;
+        return config.isEmpty() ? STORAGE_TYPE_NONE : STORAGE_TYPE_ITEM;
+    }
+
+    public boolean hasFluidStorage(boolean extended, int slot) {
+        IAEFluidStack fluid = (extended ? this.extendedStoredFluids : this.interfaceStoredFluids)[slot];
+        return fluid != null && fluid.getStackSize() > 0;
+    }
+
+    public boolean hasGasStorage(boolean extended, int slot) {
+        String name = (extended ? this.extendedStoredGases : this.interfaceStoredGases)[slot];
+        int amount = (extended ? this.extendedStoredGasAmounts : this.interfaceStoredGasAmounts)[slot];
+        return name != null && !name.isEmpty() && amount > 0;
+    }
+
+    public boolean hasManaStorage(boolean extended, int slot) {
+        return (extended ? this.extendedManaAmounts : this.interfaceManaAmounts)[slot] > 0;
+    }
+
+    public boolean hasFeStorage(boolean extended, int slot) {
+        return (extended ? this.extendedFeAmounts : this.interfaceFeAmounts)[slot] > 0;
+    }
+
+    public boolean hasVirtualStorage(boolean extended, int slot) {
+        int configuredType = this.getConfiguredStorageType(extended, slot);
+        return (configuredType >= STORAGE_TYPE_FLUID
+                && configuredType <= STORAGE_TYPE_FE)
+                || this.hasFluidStorage(extended, slot)
+                || this.hasGasStorage(extended, slot)
+                || this.hasManaStorage(extended, slot)
+                || this.hasFeStorage(extended, slot);
+    }
+
+    public boolean canStoreFluidInSlot(boolean extended, int slot) {
+        int configuredType = this.getConfiguredStorageType(extended, slot);
+        return configuredType != STORAGE_TYPE_ITEM
+                && (configuredType == STORAGE_TYPE_NONE || configuredType == STORAGE_TYPE_FLUID)
+                && !this.hasItemStorage(extended, slot)
+                && !this.hasGasStorage(extended, slot)
+                && !this.hasManaStorage(extended, slot)
+                && !this.hasFeStorage(extended, slot);
+    }
+
+    public boolean canStoreGasInSlot(boolean extended, int slot) {
+        int configuredType = this.getConfiguredStorageType(extended, slot);
+        return configuredType != STORAGE_TYPE_ITEM
+                && (configuredType == STORAGE_TYPE_NONE || configuredType == STORAGE_TYPE_GAS)
+                && !this.hasItemStorage(extended, slot)
+                && !this.hasFluidStorage(extended, slot)
+                && !this.hasManaStorage(extended, slot)
+                && !this.hasFeStorage(extended, slot);
+    }
+
+    public boolean canStoreManaInSlot(boolean extended, int slot) {
+        int configuredType = this.getConfiguredStorageType(extended, slot);
+        return configuredType != STORAGE_TYPE_ITEM
+                && (configuredType == STORAGE_TYPE_NONE || configuredType == STORAGE_TYPE_MANA)
+                && !this.hasItemStorage(extended, slot)
+                && !this.hasFluidStorage(extended, slot)
+                && !this.hasGasStorage(extended, slot)
+                && !this.hasFeStorage(extended, slot);
+    }
+
+    public boolean canStoreFeInSlot(boolean extended, int slot) {
+        int configuredType = this.getConfiguredStorageType(extended, slot);
+        return configuredType != STORAGE_TYPE_ITEM
+                && (configuredType == STORAGE_TYPE_NONE || configuredType == STORAGE_TYPE_FE)
+                && !this.hasItemStorage(extended, slot)
+                && !this.hasFluidStorage(extended, slot)
+                && !this.hasGasStorage(extended, slot)
+                && !this.hasManaStorage(extended, slot);
     }
 
     private void refreshItemSlotCapacities() {
@@ -1209,12 +1318,13 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         // Fill existing matching marked tanks first. Each slot is independent,
         // so a full tank does not prevent a later slot from holding the same fluid.
         for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
+            if (!this.canStoreFluidInSlot(extended, i)) continue;
             ItemStack configStack = config.getStackInSlot(i);
             if (!com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
             IAEFluidStack stored = storedFluids[i];
             if (stored == null || !stored.getFluidStack().isFluidEqual(resource)) continue;
             used[i] = true;
-            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill, extended);
             total += accepted;
             remaining.amount -= accepted;
         }
@@ -1222,11 +1332,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         // Preserve the marker's priority over an unconfigured offline tank.
         for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
             if (used[i]) continue;
+            if (!this.canStoreFluidInSlot(extended, i)) continue;
             ItemStack configStack = config.getStackInSlot(i);
             if (!configStack.isEmpty() || storedFluids[i] == null
                     || !storedFluids[i].getFluidStack().isFluidEqual(resource)) continue;
             used[i] = true;
-            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill, extended);
             total += accepted;
             remaining.amount -= accepted;
         }
@@ -1235,12 +1346,13 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         // multiple markers for the same fluid in one interface group.
         for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
             if (used[i]) continue;
+            if (!this.canStoreFluidInSlot(extended, i)) continue;
             ItemStack configStack = config.getStackInSlot(i);
             if (!com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
             FluidStack marked = com.ae2utilix.item.ItemFluidMark.getFluid(configStack);
             if (marked == null || !marked.isFluidEqual(resource) || storedFluids[i] != null) continue;
             used[i] = true;
-            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill, extended);
             total += accepted;
             remaining.amount -= accepted;
         }
@@ -1249,10 +1361,11 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         // offline tank and can hold any fluid type.
         for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
             if (used[i]) continue;
+            if (!this.canStoreFluidInSlot(extended, i)) continue;
             ItemStack configStack = config.getStackInSlot(i);
             if (!configStack.isEmpty() || storedFluids[i] != null) continue;
             used[i] = true;
-            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill, extended);
             total += accepted;
             remaining.amount -= accepted;
         }
@@ -1261,7 +1374,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     private int fillLocalSlot(IAEFluidStack[] storedFluids, int slot,
-            FluidStack resource, boolean doFill) {
+            FluidStack resource, boolean doFill, boolean extended) {
+        if (!this.canStoreFluidInSlot(extended, slot)) return 0;
         IAEFluidStack stored = storedFluids[slot];
         int current = stored == null ? 0 : (int) stored.getStackSize();
         int accepted = Math.min(resource.amount,
