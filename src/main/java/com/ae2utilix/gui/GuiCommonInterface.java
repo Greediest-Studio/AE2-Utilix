@@ -224,6 +224,31 @@ public class GuiCommonInterface extends AEBaseGui {
     protected void renderHoveredToolTip(int mouseX, int mouseY) {
         Slot slot = this.getSlotUnderMouse();
         if (slot != null && slot.slotNumber < 36
+                && (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3)) {
+            boolean extended = slot.slotNumber % 4 >= 2;
+            int storageSlot = slot.slotNumber / 4;
+            java.util.List<String> tips = new java.util.ArrayList<>();
+            net.minecraftforge.fluids.FluidStack storedFluid = this.container.getTile()
+                    .getStoredFluid(extended, storageSlot);
+            if (storedFluid != null && storedFluid.amount > 0) {
+                tips.add(I18n.format("ae2_utilix.common_interface.stored",
+                        storedFluid.getLocalizedName(), storedFluid.amount));
+            } else {
+                String gasName = this.container.getTile().getStoredGasName(extended, storageSlot);
+                int gasAmount = this.container.getTile().getStoredGasAmount(extended, storageSlot);
+                if (gasName != null && gasAmount > 0) {
+                    String displayName = com.ae2utilix.integration.MekanismEnergisticsIntegration
+                            .getGasDisplayName(gasName);
+                    tips.add(I18n.format("ae2_utilix.common_interface.stored",
+                            displayName == null ? gasName : displayName, gasAmount));
+                }
+            }
+            if (!tips.isEmpty()) {
+                this.drawHoveringText(tips, mouseX, mouseY);
+                return;
+            }
+        }
+        if (slot != null && slot.slotNumber < 36
                 && (slot.slotNumber % 4 == 0 || slot.slotNumber % 4 == 2)) {
             java.util.List<String> tips = new java.util.ArrayList<>();
             ItemStack marked = slot.getStack();

@@ -29,6 +29,11 @@ public final class MekanismEnergisticsClientRenderer {
                 .getAtlasSprite("minecraft:blocks/water_still") : gas.getSprite();
     }
 
+    public static int getGasTint(String gasName) {
+        Gas gas = GasRegistry.getGas(gasName);
+        return gas == null ? 0xFFFFFFFF : gas.getTint();
+    }
+
     public static void renderGasAmount(FontRenderer font, String gasName, int amount, int x, int y) {
         Gas gas = GasRegistry.getGas(gasName);
         if (gas == null || amount <= 0) return;

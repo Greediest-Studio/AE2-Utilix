@@ -4,6 +4,7 @@ import com.ae2utilix.block.TileCrystalGrowthChamber;
 import com.ae2utilix.block.terminal.*;
 import com.ae2utilix.client.ModelBakeHandler;
 import com.ae2utilix.network.HighlightRenderer;
+import com.ae2utilix.item.ItemFluidMark;
 import com.ae2utilix.parts.PartBlockStorageBus;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
@@ -61,5 +62,17 @@ public class ClientProxy extends CommonProxy {
         Minecraft.getMinecraft().getBlockColors().registerBlockColorHandler(blockColor, terminalBlocks);
         Minecraft.getMinecraft().getItemColors().registerItemColorHandler(
                 (stack, tintIndex) -> blockColor.colorMultiplier(null, null, null, tintIndex), terminalItems);
+        Minecraft.getMinecraft().getItemColors().registerItemColorHandler((stack, tintIndex) -> {
+            net.minecraftforge.fluids.FluidStack fluid = ItemFluidMark.getFluid(stack);
+            if (fluid != null) {
+                return fluid.getFluid().getColor(fluid);
+            }
+
+            String gasName = ItemFluidMark.getGasName(stack);
+            if (gasName != null && com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()) {
+                return com.ae2utilix.client.MekanismEnergisticsClientRenderer.getGasTint(gasName);
+            }
+            return 0xFFFFFFFF;
+        }, AE2Utilix.FLUID_MARK);
     }
 }
