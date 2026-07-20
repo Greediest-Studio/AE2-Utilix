@@ -82,6 +82,8 @@ public class GuiCommonInterface extends AEBaseGui {
             int renderX = this.amountField.x - this.guiLeft + 1;
             int renderY = this.amountField.y - this.guiTop - 1;
             GlStateManager.disableDepth();
+            GlStateManager.disableBlend();
+            GlStateManager.disableLighting();
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             drawRect(renderX - 2, renderY - 2,
                     renderX + this.amountField.getWidth() + 2,
@@ -97,6 +99,8 @@ public class GuiCommonInterface extends AEBaseGui {
                 this.fontRenderer.drawString("_", cursorX, renderY + this.fontRenderer.FONT_HEIGHT - 1, 0xFFFFFF);
             }
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            GlStateManager.enableLighting();
+            GlStateManager.enableBlend();
             GlStateManager.enableDepth();
         }
     }

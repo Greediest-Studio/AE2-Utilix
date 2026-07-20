@@ -735,10 +735,27 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     @Override
     public int fill(FluidStack resource, boolean doFill) {
         if (resource == null || resource.amount <= 0) return 0;
-        int filled = fillConfigured(resource, doFill, false);
-        if (filled > 0) return filled;
-        filled = fillConfigured(resource, doFill, true);
-        return filled > 0 ? filled : this.networkFluidHandler.fill(resource, doFill);
+
+        // Treat the interface as a network-facing fluid handler first. This
+        // lets external fluid logistics inject into the ME network whenever
+        // the network has room, while retaining configured slots as a local
+        // overflow buffer when the network rejects part of the stack.
+        int networkFilled = this.networkFluidHandler.fill(resource, doFill);
+        if (networkFilled >= resource.amount) {
+            return resource.amount;
+        }
+
+        int remainingAmount = resource.amount - networkFilled;
+        FluidStack remaining = resource.copy();
+        remaining.amount = remainingAmount;
+
+        int localFilled = fillConfigured(remaining, doFill, false);
+        if (localFilled < remainingAmount) {
+            FluidStack extendedRemaining = remaining.copy();
+            extendedRemaining.amount = remainingAmount - localFilled;
+            localFilled += fillConfigured(extendedRemaining, doFill, true);
+        }
+        return networkFilled + localFilled;
     }
 
     private int fillConfigured(FluidStack resource, boolean doFill, boolean extended) {
