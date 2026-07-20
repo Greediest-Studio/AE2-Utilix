@@ -143,6 +143,11 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return this.extendedDuality;
     }
 
+    public void updateRedstoneState() {
+        this.interfaceDuality.updateRedstoneState();
+        this.extendedDuality.updateRedstoneState();
+    }
+
     @Override
     public IItemHandler getInternalInventory() {
         return this.interfaceDuality.getInternalInventory();
@@ -666,7 +671,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     public int fill(FluidStack resource, boolean doFill) {
         if (resource == null || resource.amount <= 0) return 0;
         int filled = fillConfigured(resource, doFill, false);
-        return filled > 0 ? filled : fillConfigured(resource, doFill, true);
+        if (filled > 0) return filled;
+        filled = fillConfigured(resource, doFill, true);
+        return filled > 0 ? filled : this.networkFluidHandler.fill(resource, doFill);
     }
 
     private int fillConfigured(FluidStack resource, boolean doFill, boolean extended) {

@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Read-only Forge fluid capability backed by the ME network.
+ * Forge fluid capability backed by the ME network.
  */
 public final class NetworkStorageFluidHandler implements IFluidHandler {
     private static final IFluidTankProperties[] EMPTY_PROPERTIES = new IFluidTankProperties[0];
@@ -118,7 +118,25 @@ public final class NetworkStorageFluidHandler implements IFluidHandler {
 
     @Override
     public int fill(FluidStack resource, boolean doFill) {
-        return 0;
+        if (resource == null || resource.amount <= 0) {
+            return 0;
+        }
+
+        this.refresh();
+        if (this.monitor == null) {
+            return 0;
+        }
+
+        IAEFluidStack input = appeng.fluids.util.AEFluidStack.fromFluidStack(resource.copy());
+        try {
+            IAEFluidStack remainder = Platform.poweredInsert(
+                    this.proxy.getEnergy(), this.monitor, input, this.source,
+                    doFill ? Actionable.MODULATE : Actionable.SIMULATE);
+            long inserted = input.getStackSize() - (remainder == null ? 0 : remainder.getStackSize());
+            return (int) Math.min(Integer.MAX_VALUE, Math.max(0, inserted));
+        } catch (GridAccessException ignored) {
+            return 0;
+        }
     }
 
     @Override
