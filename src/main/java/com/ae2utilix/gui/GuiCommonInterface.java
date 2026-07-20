@@ -95,8 +95,8 @@ public class GuiCommonInterface extends AEBaseGui {
                     && (this.mc.ingameGUI.getUpdateCounter() / 6) % 2 == 0) {
                 int cursorPosition = Math.min(this.amountField.getCursorPosition(), text.length());
                 int cursorX = renderX + 2 + this.fontRenderer.getStringWidth(text.substring(0, cursorPosition));
-                this.fontRenderer.drawString("|", cursorX, renderY + 1, 0xFFFFFF);
-                this.fontRenderer.drawString("_", cursorX, renderY + this.fontRenderer.FONT_HEIGHT - 1, 0xFFFFFF);
+                String cursor = cursorPosition < text.length() ? "|" : "_";
+                this.fontRenderer.drawString(cursor, cursorX, renderY + 1, 0xFFFFFF);
             }
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             GlStateManager.enableLighting();

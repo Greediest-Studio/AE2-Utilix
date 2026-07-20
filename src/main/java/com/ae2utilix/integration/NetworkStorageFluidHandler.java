@@ -24,6 +24,7 @@ import java.util.List;
  */
 public final class NetworkStorageFluidHandler implements IFluidHandler {
     private static final IFluidTankProperties[] EMPTY_PROPERTIES = new IFluidTankProperties[0];
+    private static final int NETWORK_TANK_CAPACITY = Integer.MAX_VALUE;
 
     private final AENetworkProxy proxy;
     private final IActionSource source;
@@ -104,17 +105,22 @@ public final class NetworkStorageFluidHandler implements IFluidHandler {
     @Override
     public IFluidTankProperties[] getTankProperties() {
         this.refresh();
-        if (this.cache.isEmpty()) {
+        if (this.monitor == null) {
             return EMPTY_PROPERTIES;
         }
 
-        IFluidTankProperties[] properties = new IFluidTankProperties[this.cache.size()];
+        // A network can accept a new fluid even when it does not currently
+        // contain that fluid. Expose a generic tank so Forge fluid logistics
+        // will call fill() instead of treating the handler as read-only.
+        IFluidTankProperties[] properties = new IFluidTankProperties[this.cache.size() + 1];
         for (int i = 0; i < this.cache.size(); i++) {
             IAEFluidStack stack = this.cache.get(i);
             FluidStack fluid = stack.getFluidStack();
             int amount = (int) Math.min(Integer.MAX_VALUE, stack.getStackSize());
             properties[i] = new FluidTankProperties(fluid, amount, true, true);
         }
+        properties[this.cache.size()] = new FluidTankProperties(
+                null, NETWORK_TANK_CAPACITY, true, true);
         return properties;
     }
 
