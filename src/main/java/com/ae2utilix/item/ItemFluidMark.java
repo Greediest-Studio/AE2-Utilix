@@ -18,6 +18,8 @@ public class ItemFluidMark extends Item {
 
     public static final String MARK_TAG = "ae2utilix_fluid_mark";
     private static final String GAS_KEY = "Gas";
+    private static final String MANA_KEY = "Mana";
+    private static final String FE_KEY = "FE";
 
     public ItemFluidMark() {
         this.setUnlocalizedName(AE2Utilix.MODID + ".fluid_mark");
@@ -43,6 +45,20 @@ public class ItemFluidMark extends Item {
         ItemStack stack = new ItemStack(AE2Utilix.FLUID_MARK);
         NBTTagCompound tag = stack.getOrCreateSubCompound(MARK_TAG);
         tag.setString(GAS_KEY, gasName == null ? "" : gasName);
+        return stack;
+    }
+
+    /** Creates a type-only Botania Applie mana token. */
+    public static ItemStack createManaMark() {
+        ItemStack stack = new ItemStack(AE2Utilix.FLUID_MARK);
+        stack.getOrCreateSubCompound(MARK_TAG).setBoolean(MANA_KEY, true);
+        return stack;
+    }
+
+    /** Creates a type-only Flux Applied FE token. */
+    public static ItemStack createFeMark() {
+        ItemStack stack = new ItemStack(AE2Utilix.FLUID_MARK);
+        stack.getOrCreateSubCompound(MARK_TAG).setBoolean(FE_KEY, true);
         return stack;
     }
 
@@ -89,8 +105,20 @@ public class ItemFluidMark extends Item {
         return getGasName(stack) != null;
     }
 
+    public static boolean isManaMark(ItemStack stack) {
+        return !stack.isEmpty() && stack.getItem() == AE2Utilix.FLUID_MARK
+                && stack.hasTagCompound()
+                && stack.getTagCompound().getCompoundTag(MARK_TAG).getBoolean(MANA_KEY);
+    }
+
+    public static boolean isFeMark(ItemStack stack) {
+        return !stack.isEmpty() && stack.getItem() == AE2Utilix.FLUID_MARK
+                && stack.hasTagCompound()
+                && stack.getTagCompound().getCompoundTag(MARK_TAG).getBoolean(FE_KEY);
+    }
+
     public static boolean isVirtualMark(ItemStack stack) {
-        return isFluidMark(stack) || isGasMark(stack);
+        return isFluidMark(stack) || isGasMark(stack) || isManaMark(stack) || isFeMark(stack);
     }
 
     @Override
@@ -100,8 +128,16 @@ public class ItemFluidMark extends Item {
             return fluid.getLocalizedName();
         }
         String gasName = getGasName(stack);
-        return gasName == null ? I18n.translateToLocal(this.getUnlocalizedName() + ".name")
-                : I18n.translateToLocal("gas." + gasName);
+        if (gasName != null) {
+            return I18n.translateToLocal("gas." + gasName);
+        }
+        if (isManaMark(stack)) {
+            return nyonio.item.ItemManaPacket.create(0).getDisplayName();
+        }
+        if (isFeMark(stack)) {
+            return com.flux_applied.item.ItemFluxPacket.create(0).getDisplayName();
+        }
+        return I18n.translateToLocal(this.getUnlocalizedName() + ".name");
     }
 
     @Override
@@ -122,6 +158,16 @@ public class ItemFluidMark extends Item {
         if (gasName != null) {
             tooltip.add(I18n.translateToLocal("gas." + gasName));
             tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.gas_mark.tooltip"));
+            return;
+        }
+        if (isManaMark(stack)) {
+            tooltip.add(nyonio.item.ItemManaPacket.create(0).getDisplayName());
+            tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.mana_mark.tooltip"));
+            return;
+        }
+        if (isFeMark(stack)) {
+            tooltip.add(com.flux_applied.item.ItemFluxPacket.create(0).getDisplayName());
+            tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.fe_mark.tooltip"));
         }
     }
 }

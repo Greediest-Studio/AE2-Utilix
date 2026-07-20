@@ -26,6 +26,7 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
     private String fluidName;
     private net.minecraft.nbt.NBTTagCompound fluidTag;
     private String gasName;
+    private int specialType;
 
     public PacketCommonInterfaceFluidMark() {
     }
@@ -52,6 +53,11 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         this.gasName = gasName;
     }
 
+    public PacketCommonInterfaceFluidMark(BlockPos pos, int slot, boolean extended, int specialType) {
+        this(pos, slot, false, extended);
+        this.specialType = specialType;
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         this.x = buf.readInt();
@@ -63,6 +69,7 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         this.fluidName = ByteBufUtils.readUTF8String(buf);
         this.fluidTag = ByteBufUtils.readTag(buf);
         this.gasName = ByteBufUtils.readUTF8String(buf);
+        this.specialType = buf.readInt();
     }
 
     @Override
@@ -76,6 +83,7 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         ByteBufUtils.writeUTF8String(buf, this.fluidName == null ? "" : this.fluidName);
         ByteBufUtils.writeTag(buf, this.fluidTag);
         ByteBufUtils.writeUTF8String(buf, this.gasName == null ? "" : this.gasName);
+        buf.writeInt(this.specialType);
     }
 
     public static class Handler implements IMessageHandler<PacketCommonInterfaceFluidMark, IMessage> {
@@ -91,6 +99,26 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
                 if (message.slot < 0 || message.slot >= config.getSlots()) return;
                 ItemStack held = player.inventory.getItemStack();
                 if (held.isEmpty()) return;
+
+                if (message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.MANA
+                        || message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.FE) {
+                    if (com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held)
+                            != message.specialType) return;
+                    config.extractItem(message.slot, 1, false);
+                    ItemStack marker = message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.MANA
+                            ? ItemFluidMark.createManaMark() : ItemFluidMark.createFeMark();
+                    config.insertItem(message.slot, marker, false);
+                    storage.extractItem(message.slot, Integer.MAX_VALUE, false);
+                    tile.setStoredMana(message.extended, message.slot, 0);
+                    tile.setStoredFe(message.extended, message.slot, 0);
+                    if (message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.MANA) {
+                        tile.setManaConfig(message.extended, message.slot, 1000);
+                    } else {
+                        tile.setFeConfig(message.extended, message.slot, 1000);
+                    }
+                    tile.saveChanges();
+                    return;
+                }
 
                 if (message.gasName != null && !message.gasName.isEmpty()) {
                     String heldGas = com.ae2utilix.integration.MekanismEnergisticsIntegration

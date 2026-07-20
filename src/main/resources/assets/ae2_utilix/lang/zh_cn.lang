@@ -61,3 +61,6 @@ ae2_utilix.gui.interface_other_dim=接口在其他维度
 itemGroup.ae2_utilix=AE2实用器械
 item.ae2_utilix.block_storage_bus.name=方块存储总线
 item.ae2_utilix.block_storage_bus.tooltip=将面前的容器、方块和掉落物纳入存储网络
+ae2_utilix.common_interface.mana_mark.tooltip=虚拟魔力标记
+ae2_utilix.common_interface.fe_mark.tooltip=虚拟FE标记
+ae2_utilix.common_interface.right_click_special=§8右键点击：标记§7 %s

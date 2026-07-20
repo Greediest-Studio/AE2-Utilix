@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.ae2utilix.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "MixinTileCommonInterfaceBotania"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

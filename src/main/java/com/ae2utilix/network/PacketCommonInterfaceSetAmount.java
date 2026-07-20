@@ -81,6 +81,19 @@ public class PacketCommonInterfaceSetAmount implements IMessage {
                         return;
                     }
 
+                    if (com.ae2utilix.item.ItemFluidMark.isManaMark(stack)) {
+                        int amount = Math.max(1, Math.min(512000, message.amount));
+                        tile.setManaConfig(message.extended, message.slot, amount);
+                        tile.saveChanges();
+                        return;
+                    }
+                    if (com.ae2utilix.item.ItemFluidMark.isFeMark(stack)) {
+                        int amount = Math.max(1, Math.min(512000, message.amount));
+                        tile.setFeConfig(message.extended, message.slot, amount);
+                        tile.saveChanges();
+                        return;
+                    }
+
                     int amount = Math.max(1, Math.min(512, message.amount));
                     stack = stack.copy();
                     stack.setCount(amount);

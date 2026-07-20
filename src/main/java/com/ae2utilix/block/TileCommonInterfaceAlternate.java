@@ -51,6 +51,8 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
 import net.minecraftforge.fluids.capability.FluidTankProperties;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.energy.CapabilityEnergy;
+import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
 import io.netty.buffer.ByteBuf;
@@ -87,6 +89,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private final String[] extendedStoredGases = new String[9];
     private final int[] interfaceStoredGasAmounts = new int[9];
     private final int[] extendedStoredGasAmounts = new int[9];
+    private final long[] interfaceManaAmounts = new long[9];
+    private final long[] extendedManaAmounts = new long[9];
+    private final long[] interfaceFeAmounts = new long[9];
+    private final long[] extendedFeAmounts = new long[9];
     private final MEMonitorIFluidHandler fluidMonitor = new MEMonitorIFluidHandler(this);
     private final com.ae2utilix.integration.NetworkStorageItemHandler networkItemHandler =
             new com.ae2utilix.integration.NetworkStorageItemHandler(this.getProxy(), this);
@@ -113,6 +119,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             if (com.ae2utilix.integration.MekanismEnergisticsIntegration.isGasChannel(channel)) {
                 return (IMEMonitor<T>) com.ae2utilix.integration.MekanismEnergisticsIntegration
                         .getMonitor(TileCommonInterfaceAlternate.this, hasGasConfig());
+            }
+            if (com.ae2utilix.integration.BotaniaFluxIntegration.isManaChannel(channel)) {
+                return (IMEMonitor<T>) com.ae2utilix.integration.BotaniaFluxIntegration
+                        .getManaMonitor(TileCommonInterfaceAlternate.this);
+            }
+            if (com.ae2utilix.integration.BotaniaFluxIntegration.isFeChannel(channel)) {
+                return (IMEMonitor<T>) com.ae2utilix.integration.BotaniaFluxIntegration
+                        .getFeMonitor(TileCommonInterfaceAlternate.this);
             }
             return null;
         }
@@ -201,6 +215,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 this.requestMarkedFluids(this.extendedDuality);
                 com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, false);
                 com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, true);
+                com.ae2utilix.integration.BotaniaFluxIntegration.flushUnconfigured(this, com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
+                com.ae2utilix.integration.BotaniaFluxIntegration.flushUnconfigured(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
+                com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
+                com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
             }
         }
     }
@@ -220,6 +238,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeGasState(data, "extended", this.extendedGases, this.extendedGasAmounts);
         this.writeGasState(data, "interface_stored", this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         this.writeGasState(data, "extended_stored", this.extendedStoredGases, this.extendedStoredGasAmounts);
+        this.writeLongState(data, "interface_mana", this.interfaceManaAmounts);
+        this.writeLongState(data, "extended_mana", this.extendedManaAmounts);
+        this.writeLongState(data, "interface_fe", this.interfaceFeAmounts);
+        this.writeLongState(data, "extended_fe", this.extendedFeAmounts);
         if (this.hasLinkData()) {
             data.setInteger(NBT_LINK_DIM, this.linkDim);
             data.setInteger(NBT_LINK_X, this.linkPos.getX());
@@ -245,6 +267,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.readGasState(data, "extended", this.extendedGases, this.extendedGasAmounts);
         this.readGasState(data, "interface_stored", this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         this.readGasState(data, "extended_stored", this.extendedStoredGases, this.extendedStoredGasAmounts);
+        this.readLongState(data, "interface_mana", this.interfaceManaAmounts);
+        this.readLongState(data, "extended_mana", this.extendedManaAmounts);
+        this.readLongState(data, "interface_fe", this.interfaceFeAmounts);
+        this.readLongState(data, "extended_fe", this.extendedFeAmounts);
         if (data.hasKey(NBT_LINK_DIM)) {
             this.linkDim = data.getInteger(NBT_LINK_DIM);
             this.linkPos = new net.minecraft.util.math.BlockPos(
@@ -305,6 +331,56 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public int getStoredGasAmount(boolean extended, int slot) {
         return (extended ? this.extendedStoredGasAmounts : this.interfaceStoredGasAmounts)[slot];
+    }
+
+    public int getManaConfigAmount(boolean extended, int slot) {
+        long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
+        return (int) Math.max(1, Math.min(512000L, values[slot] <= 0 ? 1000L : values[slot]));
+    }
+
+    public int getFeConfigAmount(boolean extended, int slot) {
+        long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
+        return (int) Math.max(1, Math.min(512000L, values[slot] <= 0 ? 1000L : values[slot]));
+    }
+
+    public long getStoredMana(boolean extended, int slot) {
+        return (extended ? this.extendedManaAmounts : this.interfaceManaAmounts)[slot];
+    }
+
+    public long getStoredFe(boolean extended, int slot) {
+        return (extended ? this.extendedFeAmounts : this.interfaceFeAmounts)[slot];
+    }
+
+    public void setManaConfig(boolean extended, int slot, int amount) {
+        long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
+        values[slot] = Math.max(1, Math.min(512000L, amount));
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+    }
+
+    public void setFeConfig(boolean extended, int slot, int amount) {
+        long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
+        values[slot] = Math.max(1, Math.min(512000L, amount));
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+    }
+
+    public void setStoredMana(boolean extended, int slot, long amount) {
+        long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
+        values[slot] = Math.max(0, Math.min(512000L, amount));
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+    }
+
+    public void setStoredFe(boolean extended, int slot, long amount) {
+        long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
+        values[slot] = Math.max(0, Math.min(512000L, amount));
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
     }
 
     public void setStoredGas(boolean extended, int slot, String gasName, int amount) {
@@ -395,6 +471,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     public boolean hasCapability(Capability<?> capability, @Nullable EnumFacing facing) {
         return capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY
                 || capability == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY
+                || capability == CapabilityEnergy.ENERGY
                 || capability == Capabilities.STORAGE_MONITORABLE_ACCESSOR
                 || com.ae2utilix.integration.MekanismEnergisticsIntegration.isGasCapability(capability)
                 || super.hasCapability(capability, facing);
@@ -411,6 +488,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
         if (capability == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
             return (T) this;
+        }
+        if (capability == CapabilityEnergy.ENERGY) {
+            return (T) com.ae2utilix.integration.BotaniaFluxIntegration.getEnergyHandler(this);
         }
         if (com.ae2utilix.integration.MekanismEnergisticsIntegration.isGasCapability(capability)) {
             return (T) com.ae2utilix.integration.MekanismEnergisticsIntegration.getGasHandler(this);
@@ -433,7 +513,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return new TickingRequest(Math.min(primary.minTickRate, extended.minTickRate),
                 Math.min(primary.maxTickRate, extended.maxTickRate),
                 primary.isSleeping && extended.isSleeping && !this.hasFluidWork()
-                        && !com.ae2utilix.integration.MekanismEnergisticsIntegration.hasGasWork(this), true);
+                        && !com.ae2utilix.integration.MekanismEnergisticsIntegration.hasGasWork(this)
+                        && !com.ae2utilix.integration.BotaniaFluxIntegration.hasManaConfig(this)
+                        && !com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this), true);
     }
 
     @Override
@@ -443,13 +525,19 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         com.ae2utilix.integration.MekanismEnergisticsIntegration.flushUnconfiguredGasesToNetwork(this);
         com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, false);
         com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, true);
+        com.ae2utilix.integration.BotaniaFluxIntegration.flushUnconfigured(this, com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
+        com.ae2utilix.integration.BotaniaFluxIntegration.flushUnconfigured(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
+        com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
+        com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
         TickRateModulation primary = this.interfaceDuality.tickingRequest(node, ticksSinceLastCall);
         TickRateModulation extended = this.extendedDuality.tickingRequest(node, ticksSinceLastCall);
         if (primary == TickRateModulation.URGENT || extended == TickRateModulation.URGENT) return TickRateModulation.URGENT;
         if (primary == TickRateModulation.FASTER || extended == TickRateModulation.FASTER) return TickRateModulation.FASTER;
         if (primary == TickRateModulation.SLOWER || extended == TickRateModulation.SLOWER) return TickRateModulation.SLOWER;
         if (primary == TickRateModulation.SLEEP && extended == TickRateModulation.SLEEP) {
-            return this.hasFluidWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+            return this.hasFluidWork() || com.ae2utilix.integration.BotaniaFluxIntegration.hasManaConfig(this)
+                    || com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this)
+                    ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
         }
         return TickRateModulation.SAME;
     }
@@ -812,6 +900,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeGasConfigStream(data, this.extendedGases, this.extendedGasAmounts);
         this.writeGasStateStream(data, this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         this.writeGasStateStream(data, this.extendedStoredGases, this.extendedStoredGasAmounts);
+        this.writeLongStateStream(data, this.interfaceManaAmounts);
+        this.writeLongStateStream(data, this.extendedManaAmounts);
+        this.writeLongStateStream(data, this.interfaceFeAmounts);
+        this.writeLongStateStream(data, this.extendedFeAmounts);
     }
 
     @Override
@@ -825,6 +917,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         changed |= this.readGasConfigStream(data, this.extendedGases, this.extendedGasAmounts);
         changed |= this.readGasStateStream(data, this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         changed |= this.readGasStateStream(data, this.extendedStoredGases, this.extendedStoredGasAmounts);
+        changed |= this.readLongStateStream(data, this.interfaceManaAmounts);
+        changed |= this.readLongStateStream(data, this.extendedManaAmounts);
+        changed |= this.readLongStateStream(data, this.interfaceFeAmounts);
+        changed |= this.readLongStateStream(data, this.extendedFeAmounts);
         return changed;
     }
 
@@ -965,6 +1061,35 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     private boolean readGasStateStream(ByteBuf data, String[] names, int[] amounts) {
         return this.readGasConfigStream(data, names, amounts);
+    }
+
+    private void writeLongState(NBTTagCompound data, String key, long[] values) {
+        NBTTagCompound state = new NBTTagCompound();
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] > 0) state.setLong(String.valueOf(i), values[i]);
+        }
+        data.setTag("ae2utilix_energy_" + key, state);
+    }
+
+    private void readLongState(NBTTagCompound data, String key, long[] values) {
+        NBTTagCompound state = data.getCompoundTag("ae2utilix_energy_" + key);
+        for (int i = 0; i < values.length; i++) {
+            values[i] = Math.max(0, Math.min(512000L, state.getLong(String.valueOf(i))));
+        }
+    }
+
+    private void writeLongStateStream(ByteBuf data, long[] values) {
+        for (long value : values) data.writeLong(value);
+    }
+
+    private boolean readLongStateStream(ByteBuf data, long[] values) {
+        boolean changed = false;
+        for (int i = 0; i < values.length; i++) {
+            long next = Math.max(0, Math.min(512000L, data.readLong()));
+            if (values[i] != next) changed = true;
+            values[i] = next;
+        }
+        return changed;
     }
 
     @Override

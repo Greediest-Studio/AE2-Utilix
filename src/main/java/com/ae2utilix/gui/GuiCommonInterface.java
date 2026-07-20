@@ -79,8 +79,10 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
         this.fontRenderer.drawString(I18n.format("tile.ae2_utilix.common_interface.name"), 8, 6, 4210752);
+        this.drawVirtualTypeIcons();
         this.drawFluidAmountOverlays();
         this.drawGasOverlays();
+        this.drawManaAndFeOverlays();
         if (this.amountFieldActive && this.amountField != null) {
             int renderX = this.amountField.x - this.guiLeft + 1;
             int renderY = this.amountField.y - this.guiTop - 1;
@@ -172,6 +174,57 @@ public class GuiCommonInterface extends AEBaseGui {
         }
     }
 
+    private void drawVirtualTypeIcons() {
+        for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
+            Slot slot = this.inventorySlots.getSlot(slotIndex);
+            if (!this.isFluidConfigSlot(slot)) continue;
+            boolean extended = slot.slotNumber % 4 >= 2;
+            int configSlot = slot.slotNumber / 4;
+            ItemStack marker = slot.getStack();
+            ItemStack icon = null;
+            if (com.ae2utilix.item.ItemFluidMark.isManaMark(marker)) {
+                icon = nyonio.item.ItemManaPacket.create(0);
+            } else if (com.ae2utilix.item.ItemFluidMark.isFeMark(marker)) {
+                icon = com.flux_applied.item.ItemFluxPacket.create(0);
+            } else if (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3) {
+                if (this.container.getTile().getStoredMana(extended, configSlot) > 0) {
+                    icon = nyonio.item.ItemManaPacket.create(0);
+                } else if (this.container.getTile().getStoredFe(extended, configSlot) > 0) {
+                    icon = com.flux_applied.item.ItemFluxPacket.create(0);
+                }
+            }
+            if (icon != null) {
+                this.mc.getRenderItem().renderItemAndEffectIntoGUI(icon, slot.xPos, slot.yPos);
+            }
+        }
+    }
+
+    private void drawManaAndFeOverlays() {
+        for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
+            Slot slot = this.inventorySlots.getSlot(slotIndex);
+            if (!this.isFluidConfigSlot(slot)) continue;
+            boolean extended = slot.slotNumber % 4 >= 2;
+            int configSlot = slot.slotNumber / 4;
+            ItemStack marker = slot.getStack();
+            if (com.ae2utilix.item.ItemFluidMark.isManaMark(marker)) {
+                this.drawVirtualAmount(this.container.getTile().getManaConfigAmount(extended, configSlot), slot.xPos, slot.yPos);
+            } else if (com.ae2utilix.item.ItemFluidMark.isFeMark(marker)) {
+                this.drawVirtualAmount(this.container.getTile().getFeConfigAmount(extended, configSlot), slot.xPos, slot.yPos);
+            } else if (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3) {
+                long mana = this.container.getTile().getStoredMana(extended, configSlot);
+                long fe = this.container.getTile().getStoredFe(extended, configSlot);
+                if (mana > 0) this.drawVirtualAmount(mana, slot.xPos, slot.yPos);
+                else if (fe > 0) this.drawVirtualAmount(fe, slot.xPos, slot.yPos);
+            }
+        }
+    }
+
+    private void drawVirtualAmount(long amount, int x, int y) {
+        String text = String.valueOf(amount);
+        this.fontRenderer.drawStringWithShadow(text,
+                x + 17 - this.fontRenderer.getStringWidth(text), y + 9, 0xFFFFFF);
+    }
+
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         this.fluidDragSlots.clear();
@@ -258,7 +311,13 @@ public class GuiCommonInterface extends AEBaseGui {
                     .getFluidConfig(extended, configSlot);
             current = configured == null ? 1000 : configured.amount;
         } else {
-            current = this.container.getTile().getGasConfigAmount(extended, configSlot);
+            if (com.ae2utilix.item.ItemFluidMark.isGasMark(marker)) {
+                current = this.container.getTile().getGasConfigAmount(extended, configSlot);
+            } else if (com.ae2utilix.item.ItemFluidMark.isManaMark(marker)) {
+                current = this.container.getTile().getManaConfigAmount(extended, configSlot);
+            } else {
+                current = this.container.getTile().getFeConfigAmount(extended, configSlot);
+            }
         }
 
         long next;
@@ -298,6 +357,16 @@ public class GuiCommonInterface extends AEBaseGui {
                             .getGasDisplayName(gasName);
                     tips.add(I18n.format("ae2_utilix.common_interface.stored",
                             displayName == null ? gasName : displayName, gasAmount));
+                } else {
+                    long mana = this.container.getTile().getStoredMana(extended, storageSlot);
+                    long fe = this.container.getTile().getStoredFe(extended, storageSlot);
+                    if (mana > 0) {
+                        tips.add(com.ae2utilix.integration.BotaniaFluxIntegration.getStoredTooltip(
+                                com.ae2utilix.integration.BotaniaFluxIntegration.MANA, mana));
+                    } else if (fe > 0) {
+                        tips.add(com.ae2utilix.integration.BotaniaFluxIntegration.getStoredTooltip(
+                                com.ae2utilix.integration.BotaniaFluxIntegration.FE, fe));
+                    }
                 }
             }
             if (!tips.isEmpty()) {
@@ -318,6 +387,9 @@ public class GuiCommonInterface extends AEBaseGui {
                     String displayName = com.ae2utilix.integration.MekanismEnergisticsIntegration
                             .getGasDisplayName(gasName);
                     tips.add(I18n.format("ae2_utilix.common_interface.marked_gas", displayName == null ? gasName : displayName));
+                } else if (com.ae2utilix.item.ItemFluidMark.isManaMark(marked)
+                        || com.ae2utilix.item.ItemFluidMark.isFeMark(marked)) {
+                    tips.add(I18n.format("ae2_utilix.common_interface.marked_item", marked.getDisplayName()));
                 } else {
                     tips.add(I18n.format("ae2_utilix.common_interface.marked_item", marked.getDisplayName()));
                 }
@@ -337,7 +409,14 @@ public class GuiCommonInterface extends AEBaseGui {
                         tips.add(I18n.format("ae2_utilix.common_interface.right_click_gas",
                                 displayName == null ? gasName : displayName));
                     } else {
-                        tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                        int specialType = com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held);
+                        if (specialType != 0) {
+                            tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                            tips.add(I18n.format("ae2_utilix.common_interface.right_click_special",
+                                    com.ae2utilix.integration.BotaniaFluxIntegration.getDisplayName(specialType)));
+                        } else {
+                            tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                        }
                     }
                 }
             }
@@ -369,8 +448,18 @@ public class GuiCommonInterface extends AEBaseGui {
             }
             this.amountField.setMaxStringLength(10);
             String gasName = com.ae2utilix.item.ItemFluidMark.getGasName(slot.getStack());
-            int amount = gasName == null ? (fluid == null ? slot.getStack().getCount() : fluid.amount)
-                    : this.container.getTile().getGasConfigAmount(slotIdx % 4 >= 2, slotIdx / 4);
+            boolean extended = slotIdx % 4 >= 2;
+            int configSlot = slotIdx / 4;
+            int amount;
+            if (gasName != null) {
+                amount = this.container.getTile().getGasConfigAmount(extended, configSlot);
+            } else if (com.ae2utilix.item.ItemFluidMark.isManaMark(slot.getStack())) {
+                amount = this.container.getTile().getManaConfigAmount(extended, configSlot);
+            } else if (com.ae2utilix.item.ItemFluidMark.isFeMark(slot.getStack())) {
+                amount = this.container.getTile().getFeConfigAmount(extended, configSlot);
+            } else {
+                amount = fluid == null ? slot.getStack().getCount() : fluid.amount;
+            }
             this.amountField.setText(String.valueOf(amount));
             this.amountField.setVisible(true);
             this.amountField.setFocused(true);
@@ -434,9 +523,16 @@ public class GuiCommonInterface extends AEBaseGui {
         }
 
         String gasName = com.ae2utilix.integration.MekanismEnergisticsIntegration.getGasNameFromItem(held);
-        if (gasName == null) return false;
+        if (gasName != null) {
+            NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                    this.container.getTilePosition(), configSlot, extended, gasName));
+            return true;
+        }
+
+        int specialType = com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held);
+        if (specialType == 0) return false;
         NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
-                this.container.getTilePosition(), configSlot, extended, gasName));
+                this.container.getTilePosition(), configSlot, extended, specialType));
         return true;
     }
 
