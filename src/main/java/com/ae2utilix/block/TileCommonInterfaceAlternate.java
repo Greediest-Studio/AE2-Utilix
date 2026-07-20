@@ -1465,4 +1465,11 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     public String getCustomInventoryName() {
         return new ItemStack(com.ae2utilix.AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE).getDisplayName();
     }
+
+    @Override
+    public void getDrops(net.minecraft.world.World world,
+            net.minecraft.util.math.BlockPos pos, List<ItemStack> drops) {
+        this.interfaceDuality.addDrops(drops);
+        this.extendedDuality.addDrops(drops);
+    }
 }
