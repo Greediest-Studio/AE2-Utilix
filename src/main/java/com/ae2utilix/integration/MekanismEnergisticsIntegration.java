@@ -136,7 +136,14 @@ public final class MekanismEnergisticsIntegration {
                 storedAmount = 0;
             }
 
-            int amount = Math.min(CAPACITY, Math.max(1, configuredAmount)) - storedAmount;
+            int targetAmount = Math.min(CAPACITY, Math.max(1, configuredAmount));
+            if (storedName != null && storedAmount > targetAmount) {
+                trimStoredGasToNetwork(tile, extended, slot, storedName, storedAmount, targetAmount);
+                storedName = tile.getStoredGasName(extended, slot);
+                storedAmount = tile.getStoredGasAmount(extended, slot);
+            }
+
+            int amount = targetAmount - storedAmount;
             if (amount <= 0) continue;
 
             IAEGasStack extracted = extractFromNetwork(tile, gasName, amount);
@@ -154,7 +161,7 @@ public final class MekanismEnergisticsIntegration {
                 ItemStack marker = (extended ? tile.getExtendedConfig() : tile.getConfig()).getStackInSlot(slot);
                 String gasName = ItemFluidMark.getGasName(marker);
                 if (gasName == null) continue;
-                if (tile.getStoredGasAmount(extended, slot) < tile.getGasConfigAmount(extended, slot)) {
+                if (tile.getStoredGasAmount(extended, slot) != tile.getGasConfigAmount(extended, slot)) {
                     return true;
                 }
             }
@@ -204,7 +211,8 @@ public final class MekanismEnergisticsIntegration {
     private static IAEGasStack extractFromNetwork(TileCommonInterfaceAlternate tile, String gasName, int amount) {
         Gas gas = GasRegistry.getGas(gasName);
         IMEInventory<IAEGasStack> inventory = getNetworkInventory(tile);
-        if (gas == null || inventory == null || amount <= 0) return null;
+        if (gas == null || amount <= 0) return null;
+        if (inventory == null) return inputOrNull(gas, amount);
         try {
             IAEGasStack request = AEGasStack.of(new GasStack(gas, amount));
             return Platform.poweredExtraction(tile.getProxy().getEnergy(), inventory, request,
@@ -243,6 +251,19 @@ public final class MekanismEnergisticsIntegration {
         tile.setStoredGas(extended, slot, gasName,
                 (int) Math.min(CAPACITY, remainder.getStackSize()));
         return false;
+    }
+
+    private static void trimStoredGasToNetwork(TileCommonInterfaceAlternate tile, boolean extended,
+                                               int slot, String gasName, int storedAmount, int targetAmount) {
+        int excessAmount = storedAmount - targetAmount;
+        if (excessAmount <= 0) return;
+
+        IAEGasStack excess = insertIntoNetwork(tile, gasName, excessAmount);
+        int remainingExcess = excess == null ? 0 : (int) Math.min(CAPACITY, excess.getStackSize());
+        int newAmount = Math.min(CAPACITY, targetAmount + remainingExcess);
+        if (newAmount != storedAmount) {
+            tile.setStoredGas(extended, slot, gasName, newAmount);
+        }
     }
 
     private static boolean hasUnconfiguredGas(TileCommonInterfaceAlternate tile, boolean extended) {

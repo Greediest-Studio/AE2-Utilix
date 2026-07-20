@@ -18,6 +18,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import org.lwjgl.input.Keyboard;
 
 public class GuiCommonInterface extends AEBaseGui {
 
@@ -92,10 +93,25 @@ public class GuiCommonInterface extends AEBaseGui {
                     renderY + this.fontRenderer.FONT_HEIGHT + 2, 0xFF000000);
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             String text = this.amountField.getText();
-            this.fontRenderer.drawString(text, renderX + 2, renderY + 1, 0xFFFFFF);
+            int textX = renderX + 2;
+            int cursorPosition = Math.min(this.amountField.getCursorPosition(), text.length());
+            int selectionEnd = Math.min(this.amountField.getSelectionEnd(), text.length());
+            int selectionStart = Math.min(cursorPosition, selectionEnd);
+            int selectionFinish = Math.max(cursorPosition, selectionEnd);
+            int selectionX = textX + this.fontRenderer.getStringWidth(text.substring(0, selectionStart));
+            int selectionFinishX = textX + this.fontRenderer.getStringWidth(text.substring(0, selectionFinish));
+
+            if (selectionStart != selectionFinish) {
+                drawRect(selectionX, renderY,
+                        selectionFinishX, renderY + this.fontRenderer.FONT_HEIGHT, 0xFFFFFFFF);
+            }
+            this.fontRenderer.drawString(text.substring(0, selectionStart), textX, renderY + 1, 0xFFFFFF);
+            this.fontRenderer.drawString(text.substring(selectionStart, selectionFinish),
+                    selectionX, renderY + 1, selectionStart == selectionFinish ? 0xFFFFFF : 0x0000FF);
+            this.fontRenderer.drawString(text.substring(selectionFinish),
+                    selectionFinishX, renderY + 1, 0xFFFFFF);
             if (this.amountField.isFocused()
                     && (this.mc.ingameGUI.getUpdateCounter() / 6) % 2 == 0) {
-                int cursorPosition = Math.min(this.amountField.getCursorPosition(), text.length());
                 int cursorX = renderX + 2 + this.fontRenderer.getStringWidth(text.substring(0, cursorPosition));
                 String cursor = cursorPosition < text.length() ? "|" : "_";
                 this.fontRenderer.drawString(cursor, cursorX, renderY + 1, 0xFFFFFF);
@@ -218,6 +234,47 @@ public class GuiCommonInterface extends AEBaseGui {
             if (this.amountField.textboxKeyTyped(typedChar, keyCode)) return;
         }
         super.keyTyped(typedChar, keyCode);
+    }
+
+    @Override
+    protected void mouseWheelEvent(int x, int y, int wheel) {
+        Slot slot = this.getSlot(x, y);
+        if (this.isFluidMarkSlot(slot) && this.adjustVirtualAmount(slot, wheel)) {
+            return;
+        }
+        super.mouseWheelEvent(x, y, wheel);
+    }
+
+    private boolean adjustVirtualAmount(Slot slot, int wheel) {
+        ItemStack marker = slot.getStack();
+        if (!com.ae2utilix.item.ItemFluidMark.isVirtualMark(marker)) return false;
+
+        boolean extended = slot.slotNumber % 4 >= 2;
+        int configSlot = slot.slotNumber / 4;
+        int current;
+        net.minecraftforge.fluids.FluidStack fluid = com.ae2utilix.item.ItemFluidMark.getFluid(marker);
+        if (fluid != null) {
+            net.minecraftforge.fluids.FluidStack configured = this.container.getTile()
+                    .getFluidConfig(extended, configSlot);
+            current = configured == null ? 1000 : configured.amount;
+        } else {
+            current = this.container.getTile().getGasConfigAmount(extended, configSlot);
+        }
+
+        long next;
+        if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
+            next = wheel > 0 ? (long) current * 2L : current / 2L;
+        } else {
+            next = current + (wheel > 0 ? 1L : -1L);
+        }
+        int amount = (int) Math.min(512000L, Math.max(1L, next));
+        NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
+                this.container.getTilePosition(), configSlot, amount, extended));
+        if (this.amountFieldActive && this.amountSlot == slot) {
+            this.amountField.setText(String.valueOf(amount));
+            this.amountField.setCursorPositionEnd();
+        }
+        return true;
     }
 
     @Override

@@ -589,6 +589,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int requestedAmount = Math.min(FLUID_CAPACITY, Math.max(1, configuredFluid.amount));
             int storedAmount = storedFluid == null ? 0
                     : (int) Math.min(Integer.MAX_VALUE, storedFluid.getStackSize());
+            if (storedFluid != null && storedAmount > requestedAmount) {
+                storedFluid = this.trimStoredFluidToNetwork(
+                        inventory, storedFluids, slot, requestedAmount);
+                storedAmount = storedFluid == null ? 0
+                        : (int) Math.min(Integer.MAX_VALUE, storedFluid.getStackSize());
+            }
             int amount = requestedAmount - storedAmount;
             if (amount <= 0) continue;
 
@@ -684,6 +690,33 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.refreshFluidMonitor();
     }
 
+    private IAEFluidStack trimStoredFluidToNetwork(IMEInventory<IAEFluidStack> inventory,
+            IAEFluidStack[] storedFluids, int slot, int targetAmount) {
+        IAEFluidStack stored = storedFluids[slot];
+        if (stored == null || stored.getStackSize() <= targetAmount) return stored;
+
+        long storedAmount = stored.getStackSize();
+        IAEFluidStack excess = stored.copy();
+        excess.setStackSize(storedAmount - targetAmount);
+        IAEFluidStack remainder = this.insertFluidIntoNetwork(inventory, excess);
+        long remainingExcess = remainder == null ? 0 : remainder.getStackSize();
+        long newAmount = Math.min(FLUID_CAPACITY, targetAmount + remainingExcess);
+        if (newAmount >= storedAmount) return stored;
+
+        if (newAmount <= 0) {
+            storedFluids[slot] = null;
+        } else {
+            FluidStack trimmed = stored.getFluidStack().copy();
+            trimmed.amount = (int) newAmount;
+            storedFluids[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(trimmed);
+        }
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+        this.refreshFluidMonitor();
+        return storedFluids[slot];
+    }
+
     private boolean hasFluidWork() {
         return hasFluidWork(this.getInterfaceDuality(), false)
                 || hasFluidWork(this.extendedDuality, true);
@@ -698,7 +731,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             if (wanted == null) return true;
             long storedAmount = stored[slot] == null ? 0 : stored[slot].getStackSize();
             long targetAmount = Math.min(FLUID_CAPACITY, Math.max(1, wanted.amount));
-            if (storedAmount < targetAmount) return true;
+            if (storedAmount != targetAmount) return true;
         }
         return false;
     }
