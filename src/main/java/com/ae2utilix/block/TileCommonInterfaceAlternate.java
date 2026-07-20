@@ -310,6 +310,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return marked == null ? null : marked.copy();
     }
 
+    @Nullable
+    public FluidStack getStoredFluid(boolean extended, int slot) {
+        IAEFluidStack fluid = (extended ? this.extendedStoredFluids : this.interfaceStoredFluids)[slot];
+        return fluid == null ? null : fluid.getFluidStack();
+    }
+
     @Override
     public boolean hasCapability(Capability<?> capability, @Nullable EnumFacing facing) {
         return capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY
@@ -600,21 +606,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             return null;
         }
 
-        try {
-            IStorageGrid storage = this.getProxy().getStorage();
-            IMEInventory<IAEFluidStack> inventory = storage.getInventory(
-                    AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
-            if (inventory == null) {
-                return null;
-            }
-
-            IAEFluidStack request = appeng.fluids.util.AEFluidStack.fromFluidStack(fluid.copy());
-            request.setStackSize(amount);
-            return Platform.poweredExtraction(this.getProxy().getEnergy(), inventory, request,
-                    this.fluidRequestSource, Actionable.MODULATE);
-        } catch (GridAccessException ignored) {
-            return null;
-        }
+        IAEFluidStack request = appeng.fluids.util.AEFluidStack.fromFluidStack(fluid.copy());
+        request.setStackSize(amount);
+        return this.networkFluidHandler.extract(request, Actionable.MODULATE);
     }
 
     private void refreshFluidMonitor() {
@@ -626,6 +620,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         super.writeToStream(data);
         this.writeFluidConfigStream(data, this.interfaceFluids, this.interfaceFluidAmounts);
         this.writeFluidConfigStream(data, this.extendedFluids, this.extendedFluidAmounts);
+        this.writeFluidStateStream(data, this.interfaceStoredFluids);
+        this.writeFluidStateStream(data, this.extendedStoredFluids);
     }
 
     @Override
@@ -633,6 +629,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         boolean changed = super.readFromStream(data);
         changed |= this.readFluidConfigStream(data, this.interfaceFluids, this.interfaceFluidAmounts);
         changed |= this.readFluidConfigStream(data, this.extendedFluids, this.extendedFluidAmounts);
+        changed |= this.readFluidStateStream(data, this.interfaceStoredFluids);
+        changed |= this.readFluidStateStream(data, this.extendedStoredFluids);
         return changed;
     }
 
@@ -660,6 +658,30 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             }
             fluids[i] = next;
             amounts[i] = nextAmount;
+        }
+        return changed;
+    }
+
+    private void writeFluidStateStream(ByteBuf data, IAEFluidStack[] fluids) throws IOException {
+        for (IAEFluidStack fluid : fluids) {
+            data.writeBoolean(fluid != null);
+            if (fluid != null) {
+                fluid.writeToPacket(data);
+            }
+        }
+    }
+
+    private boolean readFluidStateStream(ByteBuf data, IAEFluidStack[] fluids) throws IOException {
+        boolean changed = false;
+        for (int i = 0; i < fluids.length; i++) {
+            boolean present = data.readBoolean();
+            IAEFluidStack next = present ? appeng.fluids.util.AEFluidStack.fromPacket(data) : null;
+            IAEFluidStack previous = fluids[i];
+            if (previous == null ? next != null : next == null
+                    || !previous.equals(next) || previous.getStackSize() != next.getStackSize()) {
+                changed = true;
+            }
+            fluids[i] = next;
         }
         return changed;
     }

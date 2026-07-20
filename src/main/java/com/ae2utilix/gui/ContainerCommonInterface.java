@@ -29,11 +29,11 @@ public class ContainerCommonInterface extends AEBaseContainer {
         for (int column = 0; column < 9; column++) {
             this.addSlotToContainer(new SlotFake(config, column,
                     8 + column * 18, 27));
-            this.addSlotToContainer(new SlotFluidStorage(storage, column,
+            this.addSlotToContainer(new SlotFluidStorage(tile, false, storage, column,
                     8 + column * 18, 45));
             this.addSlotToContainer(new SlotFake(extendedConfig, column,
                     8 + column * 18, 79));
-            this.addSlotToContainer(new SlotFluidStorage(extendedStorage, column,
+            this.addSlotToContainer(new SlotFluidStorage(tile, true, extendedStorage, column,
                     8 + column * 18, 97));
         }
         for (int i = 0; i < 4; i++) {

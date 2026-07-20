@@ -25,7 +25,7 @@ public class GuiCommonInterface extends AEBaseGui {
             new ResourceLocation("ae2_utilix", "textures/guis/common_interface.png");
 
     private final ContainerCommonInterface container;
-    private GuiTextField amountField;
+    private AmountTextField amountField;
     private Slot amountSlot;
     private boolean amountFieldActive;
     private final Set<Integer> fluidDragSlots = new HashSet<>();
@@ -82,9 +82,11 @@ public class GuiCommonInterface extends AEBaseGui {
             int renderX = this.amountField.x - this.guiLeft + 1;
             int renderY = this.amountField.y - this.guiTop - 1;
             GlStateManager.disableDepth();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             drawRect(renderX - 2, renderY - 2,
                     renderX + this.amountField.getWidth() + 2,
                     renderY + this.fontRenderer.FONT_HEIGHT + 2, 0xFF000000);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             String text = this.amountField.getText();
             this.fontRenderer.drawString(text, renderX + 2, renderY + 1, 0xFFFFFF);
             if (this.amountField.isFocused()
@@ -94,6 +96,7 @@ public class GuiCommonInterface extends AEBaseGui {
                 this.fontRenderer.drawString("|", cursorX, renderY + 1, 0xFFFFFF);
                 this.fontRenderer.drawString("_", cursorX, renderY + this.fontRenderer.FONT_HEIGHT - 1, 0xFFFFFF);
             }
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             GlStateManager.enableDepth();
         }
     }

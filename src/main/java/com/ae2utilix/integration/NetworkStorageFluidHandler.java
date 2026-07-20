@@ -78,8 +78,10 @@ public final class NetworkStorageFluidHandler implements IFluidHandler {
         IAEFluidStack available = this.monitor.getStorageList().findPrecise(requested);
         if (available == null) {
             for (IAEFluidStack candidate : this.monitor.getStorageList()) {
-                FluidStack candidateFluid = candidate.getFluidStack();
-                if (candidateFluid != null && candidateFluid.isFluidEqual(requested.getFluidStack())) {
+                // The marker represents a fluid type. If a network provider
+                // carries additional fluid NBT, use the provider's exact
+                // stack for extraction after matching its fluid type.
+                if (candidate != null && candidate.getFluid() == requested.getFluid()) {
                     available = candidate;
                     break;
                 }
