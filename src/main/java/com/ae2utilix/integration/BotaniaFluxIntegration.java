@@ -20,6 +20,7 @@ import com.flux_applied.item.ItemFluxPacket;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fml.common.Loader;
 import nyonio.ae2.ManaStack;
 import nyonio.ae2.ManaStorageChannel;
 import nyonio.item.ItemManaPacket;
@@ -42,11 +43,21 @@ public final class BotaniaFluxIntegration {
     private BotaniaFluxIntegration() {
     }
 
+    public static boolean isManaIntegrationAvailable() {
+        return Loader.isModLoaded("botania") && Loader.isModLoaded("botania_applie");
+    }
+
+    public static boolean isFeIntegrationAvailable() {
+        return Loader.isModLoaded("flux_applied");
+    }
+
     public static int getMarkedType(ItemStack stack) {
-        if (ItemManaPacket.isManaPacket(stack)) return MANA;
-        if (ItemFluxPacket.isFluxPacket(stack)) return FE;
-        if (!stack.isEmpty() && stack.getItem() instanceof IManaItem) return MANA;
-        if (!stack.isEmpty() && stack.hasCapability(CapabilityEnergy.ENERGY, null)) return FE;
+        if (isManaIntegrationAvailable()
+                && (ItemManaPacket.isManaPacket(stack)
+                || (!stack.isEmpty() && stack.getItem() instanceof IManaItem))) return MANA;
+        if (isFeIntegrationAvailable()
+                && (ItemFluxPacket.isFluxPacket(stack)
+                || (!stack.isEmpty() && stack.hasCapability(CapabilityEnergy.ENERGY, null)))) return FE;
         return 0;
     }
 
@@ -59,19 +70,21 @@ public final class BotaniaFluxIntegration {
     }
 
     public static boolean isManaChannel(IStorageChannel<?> channel) {
-        return channel == AEApi.instance().storage().getStorageChannel(ManaStorageChannel.class);
+        return isManaIntegrationAvailable()
+                && channel == AEApi.instance().storage().getStorageChannel(ManaStorageChannel.class);
     }
 
     public static boolean isFeChannel(IStorageChannel<?> channel) {
-        return channel == AEApi.instance().storage().getStorageChannel(FluxStorageChannel.class);
+        return isFeIntegrationAvailable()
+                && channel == AEApi.instance().storage().getStorageChannel(FluxStorageChannel.class);
     }
 
     public static boolean hasManaConfig(TileCommonInterfaceAlternate tile) {
-        return hasConfig(tile, MANA);
+        return isManaIntegrationAvailable() && hasConfig(tile, MANA);
     }
 
     public static boolean hasFeConfig(TileCommonInterfaceAlternate tile) {
-        return hasConfig(tile, FE);
+        return isFeIntegrationAvailable() && hasConfig(tile, FE);
     }
 
     private static boolean hasConfig(TileCommonInterfaceAlternate tile, int type) {
@@ -105,6 +118,7 @@ public final class BotaniaFluxIntegration {
 
     @Nullable
     public static IMEMonitor<ManaStack> getManaMonitor(TileCommonInterfaceAlternate tile) {
+        if (!isManaIntegrationAvailable()) return null;
         if (!hasManaConfig(tile)) return getNetworkMonitor(tile, MANA);
         IMEMonitor<ManaStack> monitor = MANA_MONITORS.get(tile);
         if (monitor == null) {
@@ -116,6 +130,7 @@ public final class BotaniaFluxIntegration {
 
     @Nullable
     public static IMEMonitor<FluxStack> getFeMonitor(TileCommonInterfaceAlternate tile) {
+        if (!isFeIntegrationAvailable()) return null;
         if (!hasFeConfig(tile)) return getNetworkMonitor(tile, FE);
         IMEMonitor<FluxStack> monitor = FE_MONITORS.get(tile);
         if (monitor == null) {
@@ -139,6 +154,8 @@ public final class BotaniaFluxIntegration {
     }
 
     public static void requestMarked(TileCommonInterfaceAlternate tile, int type) {
+        if ((type == MANA && !isManaIntegrationAvailable())
+                || (type == FE && !isFeIntegrationAvailable())) return;
         if (tile.getWorld() == null || tile.getWorld().isRemote || !tile.getProxy().isActive()) return;
         for (boolean extended : new boolean[]{false, true}) {
             net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
@@ -162,6 +179,8 @@ public final class BotaniaFluxIntegration {
     }
 
     public static void flushUnconfigured(TileCommonInterfaceAlternate tile, int type) {
+        if ((type == MANA && !isManaIntegrationAvailable())
+                || (type == FE && !isFeIntegrationAvailable())) return;
         if (!tile.getProxy().isActive()) return;
         for (boolean extended : new boolean[]{false, true}) {
             net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
@@ -235,6 +254,8 @@ public final class BotaniaFluxIntegration {
 
     public static long insertNetwork(TileCommonInterfaceAlternate tile, int type, long amount, Actionable mode) {
         if (amount <= 0) return 0;
+        if ((type == MANA && !isManaIntegrationAvailable())
+                || (type == FE && !isFeIntegrationAvailable())) return 0;
         try {
             if (type == MANA) {
                 ManaStack input = new ManaStack(amount);
@@ -251,6 +272,8 @@ public final class BotaniaFluxIntegration {
 
     public static long extractNetwork(TileCommonInterfaceAlternate tile, int type, long amount, Actionable mode) {
         if (amount <= 0) return 0;
+        if ((type == MANA && !isManaIntegrationAvailable())
+                || (type == FE && !isFeIntegrationAvailable())) return 0;
         try {
             if (type == MANA) {
                 ManaStack extracted = getManaNetworkInventory(tile).extractItems(new ManaStack(amount), mode, new MachineSource(tile));
@@ -265,19 +288,23 @@ public final class BotaniaFluxIntegration {
 
     private static IMEInventory<ManaStack> getManaNetworkInventory(
             TileCommonInterfaceAlternate tile) throws GridAccessException {
+        if (!isManaIntegrationAvailable()) return null;
         return tile.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
     }
 
     private static IMEInventory<FluxStack> getFeNetworkInventory(
             TileCommonInterfaceAlternate tile) throws GridAccessException {
+        if (!isFeIntegrationAvailable()) return null;
         return tile.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
     }
 
     public static long getCurrentMana(TileCommonInterfaceAlternate tile) {
+        if (!isManaIntegrationAvailable()) return 0;
         return getCurrent(tile, MANA);
     }
 
     public static long getCurrentFe(TileCommonInterfaceAlternate tile) {
+        if (!isFeIntegrationAvailable()) return 0;
         return getCurrent(tile, FE);
     }
 
@@ -295,6 +322,8 @@ public final class BotaniaFluxIntegration {
     }
 
     public static long getCapacity(TileCommonInterfaceAlternate tile, int type) {
+        if ((type == MANA && !isManaIntegrationAvailable())
+                || (type == FE && !isFeIntegrationAvailable())) return 0;
         int count = 0;
         for (boolean extended : new boolean[]{false, true}) {
             net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();

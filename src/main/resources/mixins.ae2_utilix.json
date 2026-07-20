@@ -23,6 +23,7 @@
   ],
   "client": [
     "MixinStackSizeRenderer",
+    "MixinRenderItemOverlay",
     "MixinAEBaseGuiRemoveFinal",
     "MixinAEBaseGuiHandleClick",
     "MixinPacketCompressedNBT",

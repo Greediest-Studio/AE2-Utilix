@@ -177,24 +177,21 @@ public class GuiCommonInterface extends AEBaseGui {
     private void drawVirtualTypeIcons() {
         for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
             Slot slot = this.inventorySlots.getSlot(slotIndex);
-            if (!this.isFluidConfigSlot(slot)) continue;
+            if (!this.isFluidStorageSlot(slot)) continue;
             boolean extended = slot.slotNumber % 4 >= 2;
             int configSlot = slot.slotNumber / 4;
-            ItemStack marker = slot.getStack();
             ItemStack icon = null;
-            if (com.ae2utilix.item.ItemFluidMark.isManaMark(marker)) {
+            if (this.container.getTile().getStoredMana(extended, configSlot) > 0) {
                 icon = nyonio.item.ItemManaPacket.create(0);
-            } else if (com.ae2utilix.item.ItemFluidMark.isFeMark(marker)) {
+            } else if (this.container.getTile().getStoredFe(extended, configSlot) > 0) {
                 icon = com.flux_applied.item.ItemFluxPacket.create(0);
-            } else if (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3) {
-                if (this.container.getTile().getStoredMana(extended, configSlot) > 0) {
-                    icon = nyonio.item.ItemManaPacket.create(0);
-                } else if (this.container.getTile().getStoredFe(extended, configSlot) > 0) {
-                    icon = com.flux_applied.item.ItemFluxPacket.create(0);
-                }
             }
             if (icon != null) {
+                net.minecraft.client.renderer.RenderHelper.enableGUIStandardItemLighting();
+                GlStateManager.enableDepth();
                 this.mc.getRenderItem().renderItemAndEffectIntoGUI(icon, slot.xPos, slot.yPos);
+                GlStateManager.disableDepth();
+                net.minecraft.client.renderer.RenderHelper.disableStandardItemLighting();
             }
         }
     }
@@ -202,7 +199,7 @@ public class GuiCommonInterface extends AEBaseGui {
     private void drawManaAndFeOverlays() {
         for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
             Slot slot = this.inventorySlots.getSlot(slotIndex);
-            if (!this.isFluidConfigSlot(slot)) continue;
+            if (!this.isFluidConfigSlot(slot) && !this.isFluidStorageSlot(slot)) continue;
             boolean extended = slot.slotNumber % 4 >= 2;
             int configSlot = slot.slotNumber / 4;
             ItemStack marker = slot.getStack();
@@ -498,6 +495,11 @@ public class GuiCommonInterface extends AEBaseGui {
 
     private boolean isFluidConfigSlot(Slot slot) {
         return this.isFluidMarkSlot(slot);
+    }
+
+    private boolean isFluidStorageSlot(Slot slot) {
+        return slot != null && slot.slotNumber < 36
+                && (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3);
     }
 
     private net.minecraftforge.fluids.FluidStack getHeldFluid(ItemStack held) {
