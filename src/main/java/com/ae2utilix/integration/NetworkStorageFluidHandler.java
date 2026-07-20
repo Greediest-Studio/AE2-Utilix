@@ -61,6 +61,44 @@ public final class NetworkStorageFluidHandler implements IFluidHandler {
         return this.monitor;
     }
 
+    /**
+     * Extracts a precise fluid stack from the network using the same monitor
+     * that is exposed through the Forge fluid capability.
+     */
+    public IAEFluidStack extract(IAEFluidStack requested, Actionable mode) {
+        if (requested == null || requested.getStackSize() <= 0) {
+            return null;
+        }
+
+        this.refresh();
+        if (this.monitor == null) {
+            return null;
+        }
+
+        IAEFluidStack available = this.monitor.getStorageList().findPrecise(requested);
+        if (available == null) {
+            for (IAEFluidStack candidate : this.monitor.getStorageList()) {
+                FluidStack candidateFluid = candidate.getFluidStack();
+                if (candidateFluid != null && candidateFluid.isFluidEqual(requested.getFluidStack())) {
+                    available = candidate;
+                    break;
+                }
+            }
+        }
+        if (available == null || available.getStackSize() <= 0) {
+            return null;
+        }
+
+        IAEFluidStack request = available.copy().setStackSize(
+                Math.min(requested.getStackSize(), available.getStackSize()));
+        try {
+            return Platform.poweredExtraction(
+                    this.proxy.getEnergy(), this.monitor, request, this.source, mode);
+        } catch (GridAccessException ignored) {
+            return null;
+        }
+    }
+
     @Override
     public IFluidTankProperties[] getTankProperties() {
         this.refresh();

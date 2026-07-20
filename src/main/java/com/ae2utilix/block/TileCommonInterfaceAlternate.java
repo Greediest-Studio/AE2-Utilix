@@ -219,6 +219,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
+        this.refreshFluidMonitor();
         this.wakeFluidRequests();
     }
 
@@ -451,17 +452,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         IItemHandler config = duality.getConfig();
         boolean extended = duality == this.extendedDuality;
         IAEFluidStack[] storedFluids = extended ? this.extendedStoredFluids : this.interfaceStoredFluids;
-        IStorageGrid storage;
-        appeng.api.networking.energy.IEnergySource energy;
-        try {
-            storage = this.getProxy().getStorage();
-            energy = this.getProxy().getEnergy();
-        } catch (GridAccessException e) {
-            return;
-        }
-
-        IMEMonitor<IAEFluidStack> inventory = storage.getInventory(
-                AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
+        IMEMonitor<IAEFluidStack> inventory = this.networkFluidHandler.getMonitor();
         if (inventory == null) return;
 
         for (int slot = 0; slot < config.getSlots(); slot++) {
@@ -488,20 +479,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int amount = requestedAmount - storedAmount;
             if (amount <= 0) continue;
 
-            IAEFluidStack available = null;
-            for (IAEFluidStack candidate : inventory.getStorageList()) {
-                FluidStack candidateFluid = candidate.getFluidStack();
-                if (candidateFluid != null && candidateFluid.isFluidEqual(markedFluid)) {
-                    available = candidate;
-                    break;
-                }
-            }
-            if (available == null) continue;
-
-            IAEFluidStack request = available.copy().setStackSize(amount);
-
-            IAEFluidStack extracted = appeng.util.Platform.poweredExtraction(
-                    energy, inventory, request, this.fluidRequestSource, Actionable.MODULATE);
+            IAEFluidStack request = appeng.fluids.util.AEFluidStack.fromFluidStack(markedFluid.copy());
+            request.setStackSize(amount);
+            IAEFluidStack extracted = this.networkFluidHandler.extract(request, Actionable.MODULATE);
             if (extracted == null || extracted.getStackSize() <= 0) continue;
 
             int extractedAmount = (int) Math.min(Integer.MAX_VALUE, extracted.getStackSize());

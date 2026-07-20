@@ -31,6 +31,18 @@ public class GuiCommonInterface extends AEBaseGui {
     private final Set<Integer> fluidDragSlots = new HashSet<>();
     private final FluidStackSizeRenderer fluidAmountRenderer = new FluidStackSizeRenderer();
 
+    private static final class AmountTextField extends GuiTextField {
+        private AmountTextField(int id, net.minecraft.client.gui.FontRenderer fontRenderer,
+                                int x, int y, int width, int height) {
+            super(id, fontRenderer, x, y, width, height);
+        }
+
+        @Override
+        public void drawTextBox() {
+            // The field is rendered manually in drawFG to match the terminal style.
+        }
+    }
+
     public GuiCommonInterface(InventoryPlayer inventory, TileCommonInterfaceAlternate tile) {
         super(new ContainerCommonInterface(inventory, tile));
         this.container = (ContainerCommonInterface) this.inventorySlots;
@@ -41,7 +53,8 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     public void initGui() {
         super.initGui();
-        this.amountField = new GuiTextField(0, this.fontRenderer, 0, 0, 54, this.fontRenderer.FONT_HEIGHT);
+        this.amountField = new AmountTextField(0, this.fontRenderer, 0, 0,
+                54, this.fontRenderer.FONT_HEIGHT);
         this.amountField.x = this.guiLeft + 8;
         this.amountField.y = this.guiTop + 6;
         this.amountField.setEnableBackgroundDrawing(false);
