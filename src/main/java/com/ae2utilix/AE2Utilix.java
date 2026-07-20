@@ -197,6 +197,9 @@ public class AE2Utilix implements IGuiHandler {
         Upgrades.FUZZY.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 1);
         Upgrades.INVERTER.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 1);
 
+        // The common interface exposes four AE2 capacity-card slots.
+        Upgrades.CAPACITY.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 4);
+
         AEApi.instance().definitions().blocks().iface().maybeItem()
                 .ifPresent(i -> Upgrades.MAGNET.registerItem(new ItemStack(i), 1));
         AEApi.instance().definitions().parts().iface().maybeItem()

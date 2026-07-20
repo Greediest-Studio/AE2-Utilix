@@ -9,7 +9,6 @@ import appeng.util.Platform;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
 public class ContainerCommonInterface extends AEBaseContainer {
@@ -38,12 +37,7 @@ public class ContainerCommonInterface extends AEBaseContainer {
         }
         for (int i = 0; i < 4; i++) {
             this.addSlotToContainer(new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
-                    upgrades, i, 187, 8 + i * 18, inventory) {
-                @Override
-                public boolean isItemValid(ItemStack stack) {
-                    return false;
-                }
-            }.setNotDraggable());
+                    upgrades, i, 187, 8 + i * 18, inventory).setNotDraggable());
         }
 
         this.bindPlayerInventory(inventory, 0, 131);

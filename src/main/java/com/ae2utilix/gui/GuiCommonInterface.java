@@ -83,7 +83,6 @@ public class GuiCommonInterface extends AEBaseGui {
         this.drawVirtualTypeIcons();
         this.drawFluidAmountOverlays();
         this.drawGasOverlays();
-        this.drawManaAndFeOverlays();
         if (this.amountFieldActive && this.amountField != null) {
             int renderX = this.amountField.x - this.guiLeft + 1;
             int renderY = this.amountField.y - this.guiTop - 1;
@@ -124,6 +123,9 @@ public class GuiCommonInterface extends AEBaseGui {
             GlStateManager.enableBlend();
             GlStateManager.enableDepth();
         }
+        // Keep the custom virtual amount above both the packet icon and any
+        // native item overlay rendered by the slot.
+        this.drawManaAndFeOverlays();
     }
 
     private void drawFluidAmountOverlays() {
@@ -219,8 +221,16 @@ public class GuiCommonInterface extends AEBaseGui {
 
     private void drawVirtualAmount(long amount, int x, int y) {
         String text = this.formatVirtualAmount(amount);
+        GlStateManager.disableDepth();
+        GlStateManager.disableLighting();
+        GlStateManager.enableBlend();
+        this.zLevel = 300.0F;
         this.fontRenderer.drawStringWithShadow(text,
                 x + 17 - this.fontRenderer.getStringWidth(text), y + 9, 0xFFFFFF);
+        this.zLevel = 0.0F;
+        GlStateManager.disableBlend();
+        GlStateManager.enableLighting();
+        GlStateManager.enableDepth();
     }
 
     private String formatVirtualAmount(long amount) {
@@ -282,7 +292,9 @@ public class GuiCommonInterface extends AEBaseGui {
             int slotIdx = this.amountSlot.slotNumber;
             boolean extended = slotIdx % 4 >= 2;
             int configSlot = slotIdx / 4;
-            int limit = com.ae2utilix.item.ItemFluidMark.isVirtualMark(this.amountSlot.getStack()) ? 512000 : 512;
+            int limit = com.ae2utilix.item.ItemFluidMark.isVirtualMark(this.amountSlot.getStack())
+                    ? this.container.getTile().getVirtualStorageCapacity()
+                    : this.container.getTile().getItemSlotCapacity();
             NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
                     this.container.getTilePosition(), configSlot, Math.min(limit, Math.max(1, amount)), extended));
         } catch (NumberFormatException ignored) {
@@ -321,6 +333,9 @@ public class GuiCommonInterface extends AEBaseGui {
     private boolean adjustVirtualAmount(Slot slot, int wheel) {
         ItemStack marker = slot.getStack();
         if (!com.ae2utilix.item.ItemFluidMark.isVirtualMark(marker)) return false;
+        if (!Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) && !Keyboard.isKeyDown(Keyboard.KEY_RSHIFT)) {
+            return false;
+        }
 
         boolean extended = slot.slotNumber % 4 >= 2;
         int configSlot = slot.slotNumber / 4;
@@ -346,7 +361,8 @@ public class GuiCommonInterface extends AEBaseGui {
         } else {
             next = current + (wheel > 0 ? 1L : -1L);
         }
-        int amount = (int) Math.min(512000L, Math.max(1L, next));
+        int amount = (int) Math.min(this.container.getTile().getVirtualStorageCapacity(),
+                Math.max(1L, next));
         NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
                 this.container.getTilePosition(), configSlot, amount, extended));
         if (this.amountFieldActive && this.amountSlot == slot) {

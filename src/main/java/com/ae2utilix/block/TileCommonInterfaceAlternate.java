@@ -37,6 +37,7 @@ import appeng.util.IConfigManagerHost;
 import appeng.util.inv.IInventoryDestination;
 import appeng.util.inv.InvOperation;
 import appeng.tile.inventory.AppEngInternalAEInventory;
+import appeng.tile.inventory.AppEngInternalInventory;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -67,7 +68,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         implements IFluidHandler, IStorageMonitorable, IInterfaceHost, IGridTickable,
         IInventoryDestination, IConfigManagerHost, IPriorityHost, IPhaseLinkHost, ITickable {
 
-    private static final int FLUID_CAPACITY = 512000;
+    private static final int ITEM_CAPACITY = 512;
+    private static final int VIRTUAL_STORAGE_CAPACITY = 512000;
     private static final String NBT_LINK_DIM = "ae2utilix_link_dim";
     private static final String NBT_LINK_X = "ae2utilix_link_x";
     private static final String NBT_LINK_Y = "ae2utilix_link_y";
@@ -152,19 +154,56 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return this.interfaceDuality;
     }
 
+    public int getCapacityUpgradeCount() {
+        return Math.min(4, this.getInstalledUpgrades(appeng.api.config.Upgrades.CAPACITY));
+    }
+
+    public int getItemSlotCapacity() {
+        return ITEM_CAPACITY << this.getCapacityUpgradeCount();
+    }
+
+    public int getVirtualStorageCapacity() {
+        return VIRTUAL_STORAGE_CAPACITY << this.getCapacityUpgradeCount();
+    }
+
+    private void refreshItemSlotCapacities() {
+        final int itemCapacity = this.getItemSlotCapacity();
+        this.refreshItemSlotCapacities(this.interfaceDuality, itemCapacity);
+        this.refreshItemSlotCapacities(this.extendedDuality, itemCapacity);
+    }
+
+    private void refreshItemSlotCapacities(DualityInterface duality, int itemCapacity) {
+        IItemHandler config = duality.getConfig();
+        if (config instanceof AppEngInternalAEInventory) {
+            ((AppEngInternalAEInventory) config).setMaxStackSize(itemCapacity);
+        }
+
+        IItemHandler storage = duality.getStorage();
+        if (storage instanceof AppEngInternalInventory) {
+            AppEngInternalInventory internal = (AppEngInternalInventory) storage;
+            for (int slot = 0; slot < internal.getSlots(); slot++) {
+                internal.setMaxStackSize(slot, itemCapacity);
+            }
+        }
+    }
+
     public IItemHandler getConfig() {
+        this.refreshItemSlotCapacities();
         return this.interfaceDuality.getConfig();
     }
 
     public IItemHandler getStorage() {
+        this.refreshItemSlotCapacities();
         return this.interfaceDuality.getStorage();
     }
 
     public IItemHandler getExtendedConfig() {
+        this.refreshItemSlotCapacities();
         return this.extendedDuality.getConfig();
     }
 
     public IItemHandler getExtendedStorage() {
+        this.refreshItemSlotCapacities();
         return this.extendedDuality.getStorage();
     }
 
@@ -286,8 +325,16 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         int[] amounts = extended ? this.extendedFluidAmounts : this.interfaceFluidAmounts;
         String[] gases = extended ? this.extendedGases : this.interfaceGases;
         int[] gasAmounts = extended ? this.extendedGasAmounts : this.interfaceGasAmounts;
-        fluids[slot] = fluid == null ? null : appeng.fluids.util.AEFluidStack.fromFluidStack(fluid);
-        amounts[slot] = fluid == null ? 0 : fluid.amount;
+        if (fluid == null) {
+            fluids[slot] = null;
+            amounts[slot] = 0;
+        } else {
+            FluidStack configured = fluid.copy();
+            configured.amount = Math.max(1,
+                    Math.min(this.getVirtualStorageCapacity(), configured.amount));
+            fluids[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(configured);
+            amounts[slot] = configured.amount;
+        }
         gases[slot] = null;
         gasAmounts[slot] = 0;
         this.markDirty();
@@ -305,7 +352,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         fluids[slot] = null;
         fluidAmounts[slot] = 0;
         gases[slot] = gasName == null || gasName.isEmpty() ? null : gasName;
-        gasAmounts[slot] = gases[slot] == null ? 0 : Math.max(1, Math.min(FLUID_CAPACITY, amount));
+        gasAmounts[slot] = gases[slot] == null ? 0 : Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
@@ -322,7 +369,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public int getGasConfigAmount(boolean extended, int slot) {
         int[] amounts = extended ? this.extendedGasAmounts : this.interfaceGasAmounts;
-        return amounts[slot] <= 0 ? 1000 : amounts[slot];
+        return Math.max(1, Math.min(this.getVirtualStorageCapacity(),
+                amounts[slot] <= 0 ? 1000 : amounts[slot]));
     }
 
     public String getStoredGasName(boolean extended, int slot) {
@@ -335,12 +383,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public int getManaConfigAmount(boolean extended, int slot) {
         long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
-        return (int) Math.max(1, Math.min(512000L, values[slot] <= 0 ? 1000L : values[slot]));
+        return (int) Math.max(1, Math.min(this.getVirtualStorageCapacity(),
+                values[slot] <= 0 ? 1000L : values[slot]));
     }
 
     public int getFeConfigAmount(boolean extended, int slot) {
         long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
-        return (int) Math.max(1, Math.min(512000L, values[slot] <= 0 ? 1000L : values[slot]));
+        return (int) Math.max(1, Math.min(this.getVirtualStorageCapacity(),
+                values[slot] <= 0 ? 1000L : values[slot]));
     }
 
     public long getStoredMana(boolean extended, int slot) {
@@ -353,7 +403,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public void setManaConfig(boolean extended, int slot, int amount) {
         long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
-        values[slot] = Math.max(1, Math.min(512000L, amount));
+        values[slot] = Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
@@ -361,7 +411,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public void setFeConfig(boolean extended, int slot, int amount) {
         long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
-        values[slot] = Math.max(1, Math.min(512000L, amount));
+        values[slot] = Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
@@ -369,7 +419,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public void setStoredMana(boolean extended, int slot, long amount) {
         long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
-        values[slot] = Math.max(0, Math.min(512000L, amount));
+        values[slot] = Math.max(0, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
@@ -377,7 +427,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public void setStoredFe(boolean extended, int slot, long amount) {
         long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
-        values[slot] = Math.max(0, Math.min(512000L, amount));
+        values[slot] = Math.max(0, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
@@ -391,7 +441,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             amounts[slot] = 0;
         } else {
             names[slot] = gasName;
-            amounts[slot] = Math.min(FLUID_CAPACITY, amount);
+            amounts[slot] = Math.min(this.getVirtualStorageCapacity(), amount);
         }
         this.markDirty();
         this.saveChanges();
@@ -674,7 +724,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 storedFluid = storedFluids[slot];
             }
 
-            int requestedAmount = Math.min(FLUID_CAPACITY, Math.max(1, configuredFluid.amount));
+            int requestedAmount = Math.min(this.getVirtualStorageCapacity(), Math.max(1, configuredFluid.amount));
             int storedAmount = storedFluid == null ? 0
                     : (int) Math.min(Integer.MAX_VALUE, storedFluid.getStackSize());
             if (storedFluid != null && storedAmount > requestedAmount) {
@@ -690,7 +740,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             if (extracted == null || extracted.getStackSize() <= 0) continue;
 
             int extractedAmount = (int) Math.min(Integer.MAX_VALUE, extracted.getStackSize());
-            int newStoredAmount = Math.min(FLUID_CAPACITY, storedAmount + extractedAmount);
+            int newStoredAmount = Math.min(this.getVirtualStorageCapacity(), storedAmount + extractedAmount);
             FluidStack storedStack = extracted.getFluidStack().copy();
             storedStack.amount = newStoredAmount;
             storedFluids[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(storedStack);
@@ -788,7 +838,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         excess.setStackSize(storedAmount - targetAmount);
         IAEFluidStack remainder = this.insertFluidIntoNetwork(inventory, excess);
         long remainingExcess = remainder == null ? 0 : remainder.getStackSize();
-        long newAmount = Math.min(FLUID_CAPACITY, targetAmount + remainingExcess);
+        long newAmount = Math.min(this.getVirtualStorageCapacity(), targetAmount + remainingExcess);
         if (newAmount >= storedAmount) return stored;
 
         if (newAmount <= 0) {
@@ -818,7 +868,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             FluidStack wanted = this.getFluidConfig(extended, slot);
             if (wanted == null) return true;
             long storedAmount = stored[slot] == null ? 0 : stored[slot].getStackSize();
-            long targetAmount = Math.min(FLUID_CAPACITY, Math.max(1, wanted.amount));
+            long targetAmount = Math.min(this.getVirtualStorageCapacity(), Math.max(1, wanted.amount));
             if (storedAmount != targetAmount) return true;
         }
         return false;
@@ -941,7 +991,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         for (int i = 0; i < fluids.length; i++) {
             boolean present = data.readBoolean();
             IAEFluidStack next = present ? appeng.fluids.util.AEFluidStack.fromPacket(data) : null;
-            int nextAmount = next == null ? 0 : (int) next.getStackSize();
+            int nextAmount = next == null ? 0
+                    : (int) Math.min(this.getVirtualStorageCapacity(), next.getStackSize());
+            if (next != null) next.setStackSize(nextAmount);
             if (fluids[i] == null ? next != null : next == null || !fluids[i].equals(next)
                     || amounts[i] != nextAmount) {
                 changed = true;
@@ -966,6 +1018,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         for (int i = 0; i < fluids.length; i++) {
             boolean present = data.readBoolean();
             IAEFluidStack next = present ? appeng.fluids.util.AEFluidStack.fromPacket(data) : null;
+            if (next != null) {
+                next.setStackSize(Math.min(this.getVirtualStorageCapacity(), next.getStackSize()));
+            }
             IAEFluidStack previous = fluids[i];
             if (previous == null ? next != null : next == null
                     || !previous.equals(next) || previous.getStackSize() != next.getStackSize()) {
@@ -995,6 +1050,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         for (int i = 0; i < fluids.length; i++) {
             if (!state.hasKey(String.valueOf(i))) continue;
             IAEFluidStack fluid = appeng.fluids.util.AEFluidStack.fromNBT(state.getCompoundTag(String.valueOf(i)));
+            fluid.setStackSize(Math.min(this.getVirtualStorageCapacity(), fluid.getStackSize()));
             fluids[i] = fluid;
             if (amounts != null) amounts[i] = (int) fluid.getStackSize();
         }
@@ -1023,7 +1079,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int amount = slot.getInteger("Amount");
             if (!name.isEmpty() && amount > 0) {
                 names[i] = name;
-                amounts[i] = Math.min(FLUID_CAPACITY, amount);
+                amounts[i] = Math.min(this.getVirtualStorageCapacity(), amount);
             }
         }
     }
@@ -1044,7 +1100,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         for (int i = 0; i < names.length; i++) {
             boolean present = data.readBoolean();
             String nextName = present ? ByteBufUtils.readUTF8String(data) : null;
-            int nextAmount = present ? data.readInt() : 0;
+            int nextAmount = present
+                    ? Math.max(0, Math.min(this.getVirtualStorageCapacity(), data.readInt())) : 0;
             if (names[i] == null ? nextName != null : !names[i].equals(nextName)
                     || amounts[i] != nextAmount) {
                 changed = true;
@@ -1074,7 +1131,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private void readLongState(NBTTagCompound data, String key, long[] values) {
         NBTTagCompound state = data.getCompoundTag("ae2utilix_energy_" + key);
         for (int i = 0; i < values.length; i++) {
-            values[i] = Math.max(0, Math.min(512000L, state.getLong(String.valueOf(i))));
+            values[i] = Math.max(0, Math.min(this.getVirtualStorageCapacity(), state.getLong(String.valueOf(i))));
         }
     }
 
@@ -1085,7 +1142,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private boolean readLongStateStream(ByteBuf data, long[] values) {
         boolean changed = false;
         for (int i = 0; i < values.length; i++) {
-            long next = Math.max(0, Math.min(512000L, data.readLong()));
+            long next = Math.max(0, Math.min(this.getVirtualStorageCapacity(), data.readLong()));
             if (values[i] != next) changed = true;
             values[i] = next;
         }
@@ -1112,7 +1169,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                     && !com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
             IAEFluidStack stored = storedFluids[i];
             FluidStack fluid = stored == null ? null : stored.getFluidStack();
-            properties.add(new FluidTankProperties(fluid, FLUID_CAPACITY, true, true));
+            properties.add(new FluidTankProperties(fluid, this.getVirtualStorageCapacity(), true, true));
         }
     }
 
@@ -1207,7 +1264,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             FluidStack resource, boolean doFill) {
         IAEFluidStack stored = storedFluids[slot];
         int current = stored == null ? 0 : (int) stored.getStackSize();
-        int accepted = Math.min(resource.amount, Math.max(0, FLUID_CAPACITY - current));
+        int accepted = Math.min(resource.amount,
+                Math.max(0, this.getVirtualStorageCapacity() - current));
         if (doFill && accepted > 0) {
             FluidStack storedStack = resource.copy();
             storedStack.amount = current + accepted;

@@ -32,7 +32,6 @@ import java.util.WeakHashMap;
 
 /** Bridges the common interface to the independent Botania and Flux AE2 channels. */
 public final class BotaniaFluxIntegration {
-    public static final int CAPACITY = 512000;
     public static final int MANA = 1;
     public static final int FE = 2;
 
@@ -202,7 +201,7 @@ public final class BotaniaFluxIntegration {
     public static int getConfiguredAmount(TileCommonInterfaceAlternate tile, boolean extended, int slot, int type) {
         long amount = type == MANA ? tile.getManaConfigAmount(extended, slot)
                 : tile.getFeConfigAmount(extended, slot);
-        return (int) Math.max(1, Math.min(CAPACITY, amount));
+        return (int) Math.max(1, Math.min(tile.getVirtualStorageCapacity(), amount));
     }
 
     public static long getStored(TileCommonInterfaceAlternate tile, boolean extended, int slot, int type) {
@@ -230,7 +229,7 @@ public final class BotaniaFluxIntegration {
                         candidate = true;
                     }
                     if (!candidate) continue;
-                    long accepted = Math.min(remaining, CAPACITY - stored);
+                    long accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
                     if (accepted <= 0) continue;
                     if (mode == Actionable.MODULATE) setStored(tile, extended, slot, type, stored + accepted);
                     remaining -= accepted;
@@ -334,7 +333,8 @@ public final class BotaniaFluxIntegration {
             net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
             for (int slot = 0; slot < 9; slot++) if (getConfiguredType(config.getStackInSlot(slot)) == type) count++;
         }
-        return count == 0 ? 18L * CAPACITY : (long) count * CAPACITY;
+        return count == 0 ? 18L * tile.getVirtualStorageCapacity()
+                : (long) count * tile.getVirtualStorageCapacity();
     }
 
     public static int receiveMana(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
@@ -445,7 +445,7 @@ public final class BotaniaFluxIntegration {
                         if (getConfiguredType(config.getStackInSlot(slot)) != type) continue;
                         long stored = getStored(tile, extended, slot, type);
                         if ((pass == 0) != (stored > 0)) continue;
-                        long accepted = Math.min(remaining, CAPACITY - stored);
+                        long accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
                         if (accepted > 0 && mode == Actionable.MODULATE) setStored(tile, extended, slot, type, stored + accepted);
                         remaining -= accepted;
                     }

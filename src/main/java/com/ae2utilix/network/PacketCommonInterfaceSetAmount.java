@@ -68,33 +68,33 @@ public class PacketCommonInterfaceSetAmount implements IMessage {
                 if (stack.isEmpty()) return;
                 net.minecraftforge.fluids.FluidStack fluid = com.ae2utilix.item.ItemFluidMark.getFluid(stack);
                 if (fluid != null) {
-                    int amount = Math.max(1, Math.min(512000, message.amount));
+                    int amount = Math.max(1, Math.min(tile.getVirtualStorageCapacity(), message.amount));
                     net.minecraftforge.fluids.FluidStack configured = fluid.copy();
                     configured.amount = amount;
                     tile.setFluidConfig(message.extended, message.slot, configured);
                 } else {
                     String gasName = com.ae2utilix.item.ItemFluidMark.getGasName(stack);
                     if (gasName != null) {
-                        int amount = Math.max(1, Math.min(512000, message.amount));
+                        int amount = Math.max(1, Math.min(tile.getVirtualStorageCapacity(), message.amount));
                         tile.setGasConfig(message.extended, message.slot, gasName, amount);
                         tile.saveChanges();
                         return;
                     }
 
                     if (com.ae2utilix.item.ItemFluidMark.isManaMark(stack)) {
-                        int amount = Math.max(1, Math.min(512000, message.amount));
+                        int amount = Math.max(1, Math.min(tile.getVirtualStorageCapacity(), message.amount));
                         tile.setManaConfig(message.extended, message.slot, amount);
                         tile.saveChanges();
                         return;
                     }
                     if (com.ae2utilix.item.ItemFluidMark.isFeMark(stack)) {
-                        int amount = Math.max(1, Math.min(512000, message.amount));
+                        int amount = Math.max(1, Math.min(tile.getVirtualStorageCapacity(), message.amount));
                         tile.setFeConfig(message.extended, message.slot, amount);
                         tile.saveChanges();
                         return;
                     }
 
-                    int amount = Math.max(1, Math.min(512, message.amount));
+                    int amount = Math.max(1, Math.min(tile.getItemSlotCapacity(), message.amount));
                     stack = stack.copy();
                     stack.setCount(amount);
                     config.setStackInSlot(message.slot, stack);

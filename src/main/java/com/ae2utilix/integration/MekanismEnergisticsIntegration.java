@@ -43,7 +43,6 @@ import java.util.WeakHashMap;
  */
 public final class MekanismEnergisticsIntegration {
 
-    private static final int CAPACITY = 512000;
     private static final Map<TileCommonInterfaceAlternate, InterfaceGasHandler> HANDLERS = new WeakHashMap<>();
     private static final Map<TileCommonInterfaceAlternate, IMEMonitor<IAEGasStack>> MONITORS = new WeakHashMap<>();
 
@@ -136,7 +135,7 @@ public final class MekanismEnergisticsIntegration {
                 storedAmount = 0;
             }
 
-            int targetAmount = Math.min(CAPACITY, Math.max(1, configuredAmount));
+            int targetAmount = Math.min(tile.getVirtualStorageCapacity(), Math.max(1, configuredAmount));
             if (storedName != null && storedAmount > targetAmount) {
                 trimStoredGasToNetwork(tile, extended, slot, storedName, storedAmount, targetAmount);
                 storedName = tile.getStoredGasName(extended, slot);
@@ -150,7 +149,7 @@ public final class MekanismEnergisticsIntegration {
             if (extracted == null || extracted.getStackSize() <= 0) continue;
             GasStack stack = extracted.getGasStack();
             tile.setStoredGas(extended, slot, stack.getGas().getName(),
-                    storedAmount + Math.min(CAPACITY - storedAmount, stack.amount));
+                    storedAmount + Math.min(tile.getVirtualStorageCapacity() - storedAmount, stack.amount));
         }
     }
 
@@ -185,7 +184,8 @@ public final class MekanismEnergisticsIntegration {
             if (gasName == null || amount <= 0 || GasRegistry.getGas(gasName) == null) continue;
 
             IAEGasStack remainder = insertIntoNetwork(tile, gasName, amount);
-            int remaining = remainder == null ? 0 : (int) Math.min(CAPACITY, remainder.getStackSize());
+            int remaining = remainder == null ? 0
+                    : (int) Math.min(tile.getVirtualStorageCapacity(), remainder.getStackSize());
             if (remaining != amount) {
                 tile.setStoredGas(extended, slot, gasName, remaining);
             }
@@ -249,7 +249,7 @@ public final class MekanismEnergisticsIntegration {
             return true;
         }
         tile.setStoredGas(extended, slot, gasName,
-                (int) Math.min(CAPACITY, remainder.getStackSize()));
+                (int) Math.min(tile.getVirtualStorageCapacity(), remainder.getStackSize()));
         return false;
     }
 
@@ -259,8 +259,9 @@ public final class MekanismEnergisticsIntegration {
         if (excessAmount <= 0) return;
 
         IAEGasStack excess = insertIntoNetwork(tile, gasName, excessAmount);
-        int remainingExcess = excess == null ? 0 : (int) Math.min(CAPACITY, excess.getStackSize());
-        int newAmount = Math.min(CAPACITY, targetAmount + remainingExcess);
+        int remainingExcess = excess == null ? 0
+                : (int) Math.min(tile.getVirtualStorageCapacity(), excess.getStackSize());
+        int newAmount = Math.min(tile.getVirtualStorageCapacity(), targetAmount + remainingExcess);
         if (newAmount != storedAmount) {
             tile.setStoredGas(extended, slot, gasName, newAmount);
         }
@@ -345,7 +346,7 @@ public final class MekanismEnergisticsIntegration {
             for (int i = 0; i < result.length; i++) {
                 boolean extended = i >= 9;
                 int slot = i % 9;
-                GasTank tank = new GasTank(CAPACITY);
+                GasTank tank = new GasTank(tile.getVirtualStorageCapacity());
                 String name = tile.getStoredGasName(extended, slot);
                 int amount = tile.getStoredGasAmount(extended, slot);
                 Gas gas = name == null ? null : GasRegistry.getGas(name);
@@ -369,7 +370,8 @@ public final class MekanismEnergisticsIntegration {
                     int storedAmount = tile.getStoredGasAmount(extended, slot);
                     if (pass == 0 && (storedName == null || !gas.getName().equals(storedName))) continue;
                     if (pass > 0 && storedName != null) continue;
-                    int accepted = Math.min(amount - total, Math.max(0, CAPACITY - storedAmount));
+                    int accepted = Math.min(amount - total,
+                            Math.max(0, tile.getVirtualStorageCapacity() - storedAmount));
                     if (accepted <= 0) continue;
                     if (doTransfer) tile.setStoredGas(extended, slot, gas.getName(), storedAmount + accepted);
                     total += accepted;
