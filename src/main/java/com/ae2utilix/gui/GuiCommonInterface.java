@@ -17,6 +17,7 @@ import appeng.fluids.util.AEFluidStack;
 import net.minecraft.client.renderer.GlStateManager;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import org.lwjgl.input.Keyboard;
 
@@ -217,9 +218,31 @@ public class GuiCommonInterface extends AEBaseGui {
     }
 
     private void drawVirtualAmount(long amount, int x, int y) {
-        String text = String.valueOf(amount);
+        String text = this.formatVirtualAmount(amount);
         this.fontRenderer.drawStringWithShadow(text,
                 x + 17 - this.fontRenderer.getStringWidth(text), y + 9, 0xFFFFFF);
+    }
+
+    private String formatVirtualAmount(long amount) {
+        if (amount < 1000L) return String.valueOf(amount);
+
+        long unit = 1000L;
+        String suffix = "k";
+        if (amount >= 1_000_000_000_000L) {
+            unit = 1_000_000_000_000L;
+            suffix = "T";
+        } else if (amount >= 1_000_000_000L) {
+            unit = 1_000_000_000L;
+            suffix = "G";
+        } else if (amount >= 1_000_000L) {
+            unit = 1_000_000L;
+            suffix = "M";
+        }
+
+        String value = String.format(Locale.ROOT, "%.2f", amount / (double) unit);
+        while (value.endsWith("0")) value = value.substring(0, value.length() - 1);
+        if (value.endsWith(".")) value = value.substring(0, value.length() - 1);
+        return value + suffix;
     }
 
     @Override

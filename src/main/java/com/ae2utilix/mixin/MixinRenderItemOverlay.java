@@ -1,6 +1,7 @@
 package com.ae2utilix.mixin;
 
 import com.ae2utilix.item.ItemFluidMark;
+import com.ae2utilix.integration.BotaniaFluxIntegration;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.RenderItem;
 import net.minecraft.item.ItemStack;
@@ -16,7 +17,7 @@ public abstract class MixinRenderItemOverlay {
             cancellable = true, remap = false, require = 0)
     private void ae2utilix$hideVirtualMarkerCount(FontRenderer font, ItemStack stack,
                                                    int x, int y, String text, CallbackInfo ci) {
-        if (ItemFluidMark.isVirtualMark(stack)) {
+        if (ItemFluidMark.isVirtualMark(stack) || BotaniaFluxIntegration.isVirtualPacket(stack)) {
             ci.cancel();
         }
     }
@@ -25,7 +26,7 @@ public abstract class MixinRenderItemOverlay {
             cancellable = true, remap = false, require = 0)
     private void ae2utilix$hideVirtualMarkerCountLegacy(FontRenderer font, ItemStack stack,
                                                          int x, int y, CallbackInfo ci) {
-        if (ItemFluidMark.isVirtualMark(stack)) {
+        if (ItemFluidMark.isVirtualMark(stack) || BotaniaFluxIntegration.isVirtualPacket(stack)) {
             ci.cancel();
         }
     }

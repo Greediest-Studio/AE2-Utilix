@@ -51,6 +51,11 @@ public final class BotaniaFluxIntegration {
         return Loader.isModLoaded("flux_applied");
     }
 
+    public static boolean isVirtualPacket(ItemStack stack) {
+        return (isManaIntegrationAvailable() && ItemManaPacket.isManaPacket(stack))
+                || (isFeIntegrationAvailable() && ItemFluxPacket.isFluxPacket(stack));
+    }
+
     public static int getMarkedType(ItemStack stack) {
         if (isManaIntegrationAvailable()
                 && (ItemManaPacket.isManaPacket(stack)
