@@ -182,6 +182,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         if (++this.fluidRequestTicker >= 5) {
             this.fluidRequestTicker = 0;
             if (this.getProxy().isActive()) {
+                this.flushUnconfiguredFluidsToNetwork();
                 this.requestMarkedFluids(this.getInterfaceDuality());
                 this.requestMarkedFluids(this.extendedDuality);
             }
@@ -232,12 +233,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public void setFluidConfig(boolean extended, int slot, FluidStack fluid) {
         IAEFluidStack[] fluids = extended ? this.extendedFluids : this.interfaceFluids;
-        IAEFluidStack[] storedFluids = extended ? this.extendedStoredFluids : this.interfaceStoredFluids;
         int[] amounts = extended ? this.extendedFluidAmounts : this.interfaceFluidAmounts;
-        FluidStack previous = fluids[slot] == null ? null : fluids[slot].getFluidStack();
-        if (previous == null || fluid == null || !previous.isFluidEqual(fluid)) {
-            storedFluids[slot] = null;
-        }
         fluids[slot] = fluid == null ? null : appeng.fluids.util.AEFluidStack.fromFluidStack(fluid);
         amounts[slot] = fluid == null ? 0 : fluid.amount;
         this.markDirty();
@@ -524,6 +520,63 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
     }
 
+    private void flushUnconfiguredFluidsToNetwork() {
+        if (!this.getProxy().isActive()) return;
+
+        IMEMonitor<IAEFluidStack> inventory = this.networkFluidHandler.getMonitor();
+        if (inventory == null) return;
+
+        this.flushUnconfiguredFluidsToNetwork(
+                this.getConfig(), this.interfaceStoredFluids, inventory);
+        this.flushUnconfiguredFluidsToNetwork(
+                this.getExtendedConfig(), this.extendedStoredFluids, inventory);
+    }
+
+    private void flushUnconfiguredFluidsToNetwork(IItemHandler config,
+            IAEFluidStack[] storedFluids, IMEInventory<IAEFluidStack> inventory) {
+        boolean changed = false;
+        for (int slot = 0; slot < storedFluids.length; slot++) {
+            // A non-empty configuration slot owns the corresponding storage
+            // slot. Only unconfigured slots behave as offline fluid tanks.
+            if (!config.getStackInSlot(slot).isEmpty()) continue;
+
+            IAEFluidStack stored = storedFluids[slot];
+            if (stored == null || stored.getStackSize() <= 0) {
+                if (stored != null) {
+                    storedFluids[slot] = null;
+                    changed = true;
+                }
+                continue;
+            }
+
+            IAEFluidStack remainder = this.insertFluidIntoNetwork(inventory, stored.copy());
+            if (remainder == null || remainder.getStackSize() <= 0) {
+                storedFluids[slot] = null;
+                changed = true;
+            } else if (remainder.getStackSize() != stored.getStackSize()) {
+                storedFluids[slot] = remainder;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.markDirty();
+            this.saveChanges();
+            this.markForUpdate();
+            this.refreshFluidMonitor();
+        }
+    }
+
+    private IAEFluidStack insertFluidIntoNetwork(IMEInventory<IAEFluidStack> inventory,
+            IAEFluidStack fluid) {
+        try {
+            return Platform.poweredInsert(this.getProxy().getEnergy(), inventory, fluid,
+                    this.fluidRequestSource, Actionable.MODULATE);
+        } catch (GridAccessException e) {
+            return fluid;
+        }
+    }
+
     private void returnStoredFluidToNetwork(IMEInventory<IAEFluidStack> inventory,
             IAEFluidStack[] storedFluids, int slot) {
         IAEFluidStack stored = storedFluids[slot];
@@ -532,7 +585,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             return;
         }
 
-        IAEFluidStack remainder = inventory.injectItems(stored.copy(), Actionable.MODULATE, this.fluidRequestSource);
+        IAEFluidStack remainder = this.insertFluidIntoNetwork(inventory, stored.copy());
         if (remainder == null || remainder.getStackSize() <= 0) {
             storedFluids[slot] = null;
         } else {
@@ -713,8 +766,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     @Override
     public IFluidTankProperties[] getTankProperties() {
         java.util.List<IFluidTankProperties> properties = new java.util.ArrayList<>();
-        addTankProperties(properties, interfaceFluids, interfaceStoredFluids);
-        addTankProperties(properties, extendedFluids, extendedStoredFluids);
+        addTankProperties(properties, this.getConfig(), interfaceStoredFluids);
+        addTankProperties(properties, this.getExtendedConfig(), extendedStoredFluids);
         IFluidTankProperties[] networkProperties = this.networkFluidHandler.getTankProperties();
         if (networkProperties != null) {
             java.util.Collections.addAll(properties, networkProperties);
@@ -723,9 +776,11 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     private void addTankProperties(java.util.List<IFluidTankProperties> properties,
-            IAEFluidStack[] configuredFluids, IAEFluidStack[] storedFluids) {
-        for (int i = 0; i < configuredFluids.length; i++) {
-            if (configuredFluids[i] == null) continue;
+            IItemHandler config, IAEFluidStack[] storedFluids) {
+        for (int i = 0; i < storedFluids.length; i++) {
+            ItemStack configStack = config.getStackInSlot(i);
+            if (!configStack.isEmpty()
+                    && !com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
             IAEFluidStack stored = storedFluids[i];
             FluidStack fluid = stored == null ? null : stored.getFluidStack();
             properties.add(new FluidTankProperties(fluid, FLUID_CAPACITY, true, true));
@@ -749,37 +804,64 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         FluidStack remaining = resource.copy();
         remaining.amount = remainingAmount;
 
-        int localFilled = fillConfigured(remaining, doFill, false);
+        int localFilled = fillLocal(remaining, doFill, false);
         if (localFilled < remainingAmount) {
             FluidStack extendedRemaining = remaining.copy();
             extendedRemaining.amount = remainingAmount - localFilled;
-            localFilled += fillConfigured(extendedRemaining, doFill, true);
+            localFilled += fillLocal(extendedRemaining, doFill, true);
         }
         return networkFilled + localFilled;
     }
 
-    private int fillConfigured(FluidStack resource, boolean doFill, boolean extended) {
+    private int fillLocal(FluidStack resource, boolean doFill, boolean extended) {
+        IItemHandler config = extended ? this.getExtendedConfig() : this.getConfig();
         IAEFluidStack[] storedFluids = extended ? extendedStoredFluids : interfaceStoredFluids;
+        int matchingMarkerSlot = -1;
+        int emptyConfigSlot = -1;
+
         for (int i = 0; i < storedFluids.length; i++) {
-            FluidStack configured = getFluidConfig(extended, i);
-            if (configured != null && configured.isFluidEqual(resource)) {
-                IAEFluidStack stored = storedFluids[i];
-                int current = stored == null ? 0 : (int) stored.getStackSize();
-                int accepted = Math.min(resource.amount, FLUID_CAPACITY - current);
-                if (doFill && accepted > 0) {
-                    FluidStack storedStack = resource.copy();
-                    storedStack.amount = current + accepted;
-                    storedFluids[i] = appeng.fluids.util.AEFluidStack.fromFluidStack(storedStack);
-                    markDirty();
-                    saveChanges();
-                    markForUpdate();
-                    refreshFluidMonitor();
-                    wakeFluidRequests();
+            ItemStack configStack = config.getStackInSlot(i);
+            if (!configStack.isEmpty()
+                    && !com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
+
+            IAEFluidStack stored = storedFluids[i];
+            if (stored != null) {
+                if (stored.getFluidStack().isFluidEqual(resource)) {
+                    return fillLocalSlot(storedFluids, i, resource, doFill);
                 }
-                return Math.max(0, accepted);
+                continue;
+            }
+
+            if (configStack.isEmpty()) {
+                if (emptyConfigSlot < 0) emptyConfigSlot = i;
+            } else {
+                FluidStack marked = com.ae2utilix.item.ItemFluidMark.getFluid(configStack);
+                if (marked != null && marked.isFluidEqual(resource) && matchingMarkerSlot < 0) {
+                    matchingMarkerSlot = i;
+                }
             }
         }
-        return 0;
+
+        int targetSlot = matchingMarkerSlot >= 0 ? matchingMarkerSlot : emptyConfigSlot;
+        return targetSlot < 0 ? 0 : fillLocalSlot(storedFluids, targetSlot, resource, doFill);
+    }
+
+    private int fillLocalSlot(IAEFluidStack[] storedFluids, int slot,
+            FluidStack resource, boolean doFill) {
+        IAEFluidStack stored = storedFluids[slot];
+        int current = stored == null ? 0 : (int) stored.getStackSize();
+        int accepted = Math.min(resource.amount, Math.max(0, FLUID_CAPACITY - current));
+        if (doFill && accepted > 0) {
+            FluidStack storedStack = resource.copy();
+            storedStack.amount = current + accepted;
+            storedFluids[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(storedStack);
+            markDirty();
+            saveChanges();
+            markForUpdate();
+            refreshFluidMonitor();
+            wakeFluidRequests();
+        }
+        return Math.max(0, accepted);
     }
 
     @Override

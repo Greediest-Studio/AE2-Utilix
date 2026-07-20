@@ -29,6 +29,7 @@ public class GuiCommonInterface extends AEBaseGui {
     private Slot amountSlot;
     private boolean amountFieldActive;
     private final Set<Integer> fluidDragSlots = new HashSet<>();
+    private boolean fluidMarkGestureActive;
     private final FluidStackSizeRenderer fluidAmountRenderer = new FluidStackSizeRenderer();
 
     private static final class AmountTextField extends GuiTextField {
@@ -126,6 +127,7 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         this.fluidDragSlots.clear();
+        this.fluidMarkGestureActive = false;
         if (mouseButton == 1) {
             if (this.amountFieldActive) {
                 return;
@@ -141,8 +143,9 @@ public class GuiCommonInterface extends AEBaseGui {
                 NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
                         this.container.getTilePosition(), configSlot, true, extended, heldFluid));
                 this.fluidDragSlots.add(slot.slotNumber);
+                this.fluidMarkGestureActive = true;
+                return;
             }
-            return;
         }
         if (this.amountFieldActive && this.amountField != null) {
             int fieldX = this.amountField.x;
@@ -233,8 +236,9 @@ public class GuiCommonInterface extends AEBaseGui {
                 NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
                         this.container.getTilePosition(), slotIdx / 4, true, extended, fluid));
                 this.fluidDragSlots.add(slotIdx);
+                this.fluidMarkGestureActive = true;
+                return;
             }
-            return;
         }
         if (slot != null && mouseButton == 2 && (slotIdx % 4 == 0 || slotIdx % 4 == 2)) {
             this.amountSlot = slot;
@@ -256,7 +260,7 @@ public class GuiCommonInterface extends AEBaseGui {
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int mouseButton, long timeSinceClick) {
-        if (mouseButton == 1 && !this.amountFieldActive) {
+        if (mouseButton == 1 && !this.amountFieldActive && this.fluidMarkGestureActive) {
             Slot slot = this.getSlot(mouseX, mouseY);
             ItemStack held = this.mc.player.inventory.getItemStack();
             net.minecraftforge.fluids.FluidStack heldFluid = this.getHeldFluid(held);
@@ -273,10 +277,10 @@ public class GuiCommonInterface extends AEBaseGui {
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
+        boolean suppressNormalRightClick = state == 1 && this.fluidMarkGestureActive;
         this.fluidDragSlots.clear();
-        if (state == 1) {
-            return;
-        }
+        this.fluidMarkGestureActive = false;
+        if (suppressNormalRightClick) return;
         super.mouseReleased(mouseX, mouseY, state);
     }
 
