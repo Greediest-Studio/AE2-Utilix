@@ -18,10 +18,12 @@ import com.flux_applied.ae2.FluxStack;
 import com.flux_applied.ae2.FluxStorageChannel;
 import com.flux_applied.item.ItemFluxPacket;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
 import nyonio.ae2.ManaStack;
 import nyonio.ae2.ManaStorageChannel;
 import nyonio.item.ItemManaPacket;
+import vazkii.botania.api.mana.IManaItem;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -43,6 +45,8 @@ public final class BotaniaFluxIntegration {
     public static int getMarkedType(ItemStack stack) {
         if (ItemManaPacket.isManaPacket(stack)) return MANA;
         if (ItemFluxPacket.isFluxPacket(stack)) return FE;
+        if (!stack.isEmpty() && stack.getItem() instanceof IManaItem) return MANA;
+        if (!stack.isEmpty() && stack.hasCapability(CapabilityEnergy.ENERGY, null)) return FE;
         return 0;
     }
 
