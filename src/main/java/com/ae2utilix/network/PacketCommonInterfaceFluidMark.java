@@ -25,6 +25,7 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
     private boolean extended;
     private String fluidName;
     private net.minecraft.nbt.NBTTagCompound fluidTag;
+    private String gasName;
 
     public PacketCommonInterfaceFluidMark() {
     }
@@ -46,6 +47,11 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         }
     }
 
+    public PacketCommonInterfaceFluidMark(BlockPos pos, int slot, boolean extended, String gasName) {
+        this(pos, slot, false, extended);
+        this.gasName = gasName;
+    }
+
     @Override
     public void fromBytes(ByteBuf buf) {
         this.x = buf.readInt();
@@ -56,6 +62,7 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         this.extended = buf.readBoolean();
         this.fluidName = ByteBufUtils.readUTF8String(buf);
         this.fluidTag = ByteBufUtils.readTag(buf);
+        this.gasName = ByteBufUtils.readUTF8String(buf);
     }
 
     @Override
@@ -68,6 +75,7 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         buf.writeBoolean(this.extended);
         ByteBufUtils.writeUTF8String(buf, this.fluidName == null ? "" : this.fluidName);
         ByteBufUtils.writeTag(buf, this.fluidTag);
+        ByteBufUtils.writeUTF8String(buf, this.gasName == null ? "" : this.gasName);
     }
 
     public static class Handler implements IMessageHandler<PacketCommonInterfaceFluidMark, IMessage> {
@@ -83,6 +91,19 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
                 if (message.slot < 0 || message.slot >= config.getSlots()) return;
                 ItemStack held = player.inventory.getItemStack();
                 if (held.isEmpty()) return;
+
+                if (message.gasName != null && !message.gasName.isEmpty()) {
+                    String heldGas = com.ae2utilix.integration.MekanismEnergisticsIntegration
+                            .getGasNameFromItem(held);
+                    if (!message.gasName.equals(heldGas)) return;
+                    config.extractItem(message.slot, 1, false);
+                    config.insertItem(message.slot, ItemFluidMark.createGas(message.gasName), false);
+                    storage.extractItem(message.slot, Integer.MAX_VALUE, false);
+                    tile.setGasConfig(message.extended, message.slot, message.gasName, 1000);
+                    tile.saveChanges();
+                    return;
+                }
+
                 FluidStack heldFluid = net.minecraftforge.fluids.FluidUtil.getFluidContained(held);
                 if (heldFluid == null) heldFluid = ItemFluidMark.getFluid(held);
                 if (heldFluid == null && held.getItem() == net.minecraft.init.Items.WATER_BUCKET) {

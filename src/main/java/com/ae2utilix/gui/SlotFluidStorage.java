@@ -22,12 +22,12 @@ public class SlotFluidStorage extends SlotOversized implements IMEFluidSlot {
 
     @Override
     public boolean canTakeStack(net.minecraft.entity.player.EntityPlayer player) {
-        return getStack().isEmpty() || !com.ae2utilix.item.ItemFluidMark.isFluidMark(getStack());
+        return getStack().isEmpty() || !com.ae2utilix.item.ItemFluidMark.isVirtualMark(getStack());
     }
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        return stack.isEmpty() || !com.ae2utilix.item.ItemFluidMark.isFluidMark(stack);
+        return stack.isEmpty() || !com.ae2utilix.item.ItemFluidMark.isVirtualMark(stack);
     }
 
     @Override

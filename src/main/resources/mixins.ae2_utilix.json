@@ -32,7 +32,6 @@
     "MixinGuiMEMonitorableAccessor",
     "MixinGuiCraftingCPU",
     "MixinApiClientHelper",
-    "MixinGasCellInfo",
     "MixinJEIPlugin",
     "MixinRecipeTransferHandler"
   ],

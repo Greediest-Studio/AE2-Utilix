@@ -79,6 +79,7 @@ public class GuiCommonInterface extends AEBaseGui {
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
         this.fontRenderer.drawString(I18n.format("tile.ae2_utilix.common_interface.name"), 8, 6, 4210752);
         this.drawFluidAmountOverlays();
+        this.drawGasOverlays();
         if (this.amountFieldActive && this.amountField != null) {
             int renderX = this.amountField.x - this.guiLeft + 1;
             int renderY = this.amountField.y - this.guiTop - 1;
@@ -124,6 +125,37 @@ public class GuiCommonInterface extends AEBaseGui {
         }
     }
 
+    private void drawGasOverlays() {
+        if (!com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()) return;
+        for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
+            Slot slot = this.inventorySlots.getSlot(slotIndex);
+            if (!this.isFluidConfigSlot(slot)) continue;
+            boolean extended = slot.slotNumber % 4 >= 2;
+            int configSlot = slot.slotNumber / 4;
+            String gasName = com.ae2utilix.item.ItemFluidMark.getGasName(slot.getStack());
+            if (gasName != null) {
+                com.ae2utilix.client.MekanismEnergisticsClientRenderer.renderGasAmount(
+                        this.fontRenderer, gasName,
+                        this.container.getTile().getGasConfigAmount(extended, configSlot),
+                        slot.xPos, slot.yPos);
+            }
+        }
+
+        for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
+            Slot slot = this.inventorySlots.getSlot(slotIndex);
+            if (slot.slotNumber % 4 != 1 && slot.slotNumber % 4 != 3) continue;
+            boolean extended = slot.slotNumber % 4 >= 2;
+            int storageSlot = slot.slotNumber / 4;
+            String gasName = this.container.getTile().getStoredGasName(extended, storageSlot);
+            if (gasName != null && this.container.getTile().getStoredGasAmount(extended, storageSlot) > 0) {
+                com.ae2utilix.client.MekanismEnergisticsClientRenderer.renderGasSlot(
+                        this.fontRenderer, gasName,
+                        this.container.getTile().getStoredGasAmount(extended, storageSlot),
+                        slot.xPos, slot.yPos);
+            }
+        }
+    }
+
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         this.fluidDragSlots.clear();
@@ -133,15 +165,9 @@ public class GuiCommonInterface extends AEBaseGui {
                 return;
             }
             Slot slot = this.getSlotUnderMouse();
-            ItemStack held = this.mc.player.inventory.getItemStack();
-            net.minecraftforge.fluids.FluidStack heldFluid = this.getHeldFluid(held);
             if (slot != null && slot.slotNumber < 36
                     && (slot.slotNumber % 4 == 0 || slot.slotNumber % 4 == 2)
-                    && heldFluid != null) {
-                boolean extended = slot.slotNumber % 4 >= 2;
-                int configSlot = slot.slotNumber / 4;
-                NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
-                        this.container.getTilePosition(), configSlot, true, extended, heldFluid));
+                    && this.sendVirtualMark(slot)) {
                 this.fluidDragSlots.add(slot.slotNumber);
                 this.fluidMarkGestureActive = true;
                 return;
@@ -167,7 +193,7 @@ public class GuiCommonInterface extends AEBaseGui {
             int slotIdx = this.amountSlot.slotNumber;
             boolean extended = slotIdx % 4 >= 2;
             int configSlot = slotIdx / 4;
-            int limit = com.ae2utilix.item.ItemFluidMark.isFluidMark(this.amountSlot.getStack()) ? 512000 : 512;
+            int limit = com.ae2utilix.item.ItemFluidMark.isVirtualMark(this.amountSlot.getStack()) ? 512000 : 512;
             NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
                     this.container.getTilePosition(), configSlot, Math.min(limit, Math.max(1, amount)), extended));
         } catch (NumberFormatException ignored) {
@@ -205,6 +231,11 @@ public class GuiCommonInterface extends AEBaseGui {
                 net.minecraftforge.fluids.FluidStack markedFluid = com.ae2utilix.item.ItemFluidMark.getFluid(marked);
                 if (markedFluid != null) {
                     tips.add(I18n.format("ae2_utilix.common_interface.marked_fluid", markedFluid.getLocalizedName()));
+                } else if (com.ae2utilix.item.ItemFluidMark.isGasMark(marked)) {
+                    String gasName = com.ae2utilix.item.ItemFluidMark.getGasName(marked);
+                    String displayName = com.ae2utilix.integration.MekanismEnergisticsIntegration
+                            .getGasDisplayName(gasName);
+                    tips.add(I18n.format("ae2_utilix.common_interface.marked_gas", displayName == null ? gasName : displayName));
                 } else {
                     tips.add(I18n.format("ae2_utilix.common_interface.marked_item", marked.getDisplayName()));
                 }
@@ -216,7 +247,16 @@ public class GuiCommonInterface extends AEBaseGui {
                     tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
                     tips.add(I18n.format("ae2_utilix.common_interface.right_click_fluid", fluid.getLocalizedName()));
                 } else {
-                    tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                    String gasName = com.ae2utilix.integration.MekanismEnergisticsIntegration.getGasNameFromItem(held);
+                    if (gasName != null) {
+                        String displayName = com.ae2utilix.integration.MekanismEnergisticsIntegration
+                                .getGasDisplayName(gasName);
+                        tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                        tips.add(I18n.format("ae2_utilix.common_interface.right_click_gas",
+                                displayName == null ? gasName : displayName));
+                    } else {
+                        tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                    }
                 }
             }
             if (!tips.isEmpty()) {
@@ -230,11 +270,7 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     protected void handleMouseClick(Slot slot, int slotIdx, int mouseButton, ClickType clickType) {
         if (mouseButton == 1) {
-            if (slot != null && this.isFluidMarkSlot(slot) && this.getHeldFluid(this.mc.player.inventory.getItemStack()) != null) {
-                boolean extended = slotIdx % 4 >= 2;
-                net.minecraftforge.fluids.FluidStack fluid = this.getHeldFluid(this.mc.player.inventory.getItemStack());
-                NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
-                        this.container.getTilePosition(), slotIdx / 4, true, extended, fluid));
+            if (slot != null && this.isFluidMarkSlot(slot) && this.sendVirtualMark(slot)) {
                 this.fluidDragSlots.add(slotIdx);
                 this.fluidMarkGestureActive = true;
                 return;
@@ -250,7 +286,10 @@ public class GuiCommonInterface extends AEBaseGui {
                 fluid = this.container.getTile().getFluidConfig(slotIdx % 4 >= 2, slotIdx / 4);
             }
             this.amountField.setMaxStringLength(10);
-            this.amountField.setText(String.valueOf(fluid == null ? slot.getStack().getCount() : fluid.amount));
+            String gasName = com.ae2utilix.item.ItemFluidMark.getGasName(slot.getStack());
+            int amount = gasName == null ? (fluid == null ? slot.getStack().getCount() : fluid.amount)
+                    : this.container.getTile().getGasConfigAmount(slotIdx % 4 >= 2, slotIdx / 4);
+            this.amountField.setText(String.valueOf(amount));
             this.amountField.setVisible(true);
             this.amountField.setFocused(true);
             return;
@@ -262,12 +301,9 @@ public class GuiCommonInterface extends AEBaseGui {
     protected void mouseClickMove(int mouseX, int mouseY, int mouseButton, long timeSinceClick) {
         if (mouseButton == 1 && !this.amountFieldActive && this.fluidMarkGestureActive) {
             Slot slot = this.getSlot(mouseX, mouseY);
-            ItemStack held = this.mc.player.inventory.getItemStack();
-            net.minecraftforge.fluids.FluidStack heldFluid = this.getHeldFluid(held);
-            if (this.isFluidMarkSlot(slot) && heldFluid != null && this.fluidDragSlots.add(slot.slotNumber)) {
-                boolean extended = slot.slotNumber % 4 >= 2;
-                NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
-                        this.container.getTilePosition(), slot.slotNumber / 4, true, extended, heldFluid));
+            if (this.isFluidMarkSlot(slot) && !this.fluidDragSlots.contains(slot.slotNumber)
+                    && this.sendVirtualMark(slot)) {
+                this.fluidDragSlots.add(slot.slotNumber);
                 return;
             }
             return;
@@ -301,6 +337,25 @@ public class GuiCommonInterface extends AEBaseGui {
             fluid = new net.minecraftforge.fluids.FluidStack(net.minecraftforge.fluids.FluidRegistry.WATER, 1000);
         }
         return fluid;
+    }
+
+    private boolean sendVirtualMark(Slot slot) {
+        if (!this.isFluidMarkSlot(slot)) return false;
+        ItemStack held = this.mc.player.inventory.getItemStack();
+        net.minecraftforge.fluids.FluidStack fluid = this.getHeldFluid(held);
+        boolean extended = slot.slotNumber % 4 >= 2;
+        int configSlot = slot.slotNumber / 4;
+        if (fluid != null) {
+            NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                    this.container.getTilePosition(), configSlot, true, extended, fluid));
+            return true;
+        }
+
+        String gasName = com.ae2utilix.integration.MekanismEnergisticsIntegration.getGasNameFromItem(held);
+        if (gasName == null) return false;
+        NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                this.container.getTilePosition(), configSlot, extended, gasName));
+        return true;
     }
 
 }

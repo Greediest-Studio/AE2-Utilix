@@ -21,6 +21,9 @@ public class AE2UtilixMixinPlugin implements ILateMixinLoader {
         if (Loader.isModLoaded("ae2fc")) {
             configs.add("mixins.ae2_utilix_ae2fc.json");
         }
+        if (Loader.isModLoaded("mekeng")) {
+            configs.add("mixins.ae2_utilix_mekeng.json");
+        }
         return configs;
     }
 }

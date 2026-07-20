@@ -65,7 +65,8 @@ public class FluidMarkModel implements IModel {
             this.state = state;
             this.format = format;
             this.overrides = new Overrides();
-            this.fallback = ((Overrides) this.overrides).resolve(null);
+            this.fallback = ((Overrides) this.overrides)
+                    .resolve(new ResourceLocation("minecraft", "blocks/water_still"));
         }
 
         @Override
@@ -90,15 +91,22 @@ public class FluidMarkModel implements IModel {
             @Override
             public IBakedModel handleItemState(IBakedModel original, ItemStack stack,
                                                @Nullable World world, @Nullable EntityLivingBase entity) {
-                return resolve(ItemFluidMark.getFluid(stack));
+                net.minecraftforge.fluids.FluidStack fluid = ItemFluidMark.getFluid(stack);
+                if (fluid != null) return resolve(fluid.getFluid().getStill(fluid));
+                String gasName = ItemFluidMark.getGasName(stack);
+                if (gasName != null && com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()) {
+                    return resolve(com.ae2utilix.client.MekanismEnergisticsClientRenderer.getGasSprite(gasName));
+                }
+                return resolve(new ResourceLocation("minecraft", "blocks/water_still"));
             }
 
-            IBakedModel resolve(@Nullable net.minecraftforge.fluids.FluidStack fluid) {
-                ResourceLocation texture = fluid == null
-                        ? new ResourceLocation("minecraft", "blocks/water_still")
-                        : fluid.getFluid().getStill(fluid);
+            IBakedModel resolve(ResourceLocation texture) {
                 TextureAtlasSprite sprite = Minecraft.getMinecraft().getTextureMapBlocks()
                         .getAtlasSprite(texture.toString());
+                return resolve(sprite);
+            }
+
+            IBakedModel resolve(TextureAtlasSprite sprite) {
                 return new SpriteModel(sprite, state, format, this);
             }
         }

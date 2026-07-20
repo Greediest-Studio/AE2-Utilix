@@ -95,7 +95,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     private void ae2utilix$skipVirtualFluidItemRequest(final int slot, final CallbackInfo ci) {
         final IItemHandler config = this.getConfig();
         if (config != null && slot >= 0 && slot < config.getSlots()
-                && ItemFluidMark.isFluidMark(config.getStackInSlot(slot))) {
+                && ItemFluidMark.isVirtualMark(config.getStackInSlot(slot))) {
             this.requireWork[slot] = null;
             ci.cancel();
         }
@@ -109,7 +109,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         final IItemHandler config = this.getConfig();
         for (int slot = 0; slot < config.getSlots(); slot++) {
             final ItemStack stack = config.getStackInSlot(slot);
-            if (ItemFluidMark.isFluidMark(stack)) {
+            if (ItemFluidMark.isVirtualMark(stack)) {
                 this.requireWork[slot] = null;
             } else if (!stack.isEmpty()) {
                 hasItemConfig = true;

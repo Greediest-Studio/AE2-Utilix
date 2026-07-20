@@ -17,7 +17,8 @@ public abstract class MixinStackSizeRenderer {
                                                    IAEItemStack stack, int x, int y, CallbackInfo ci) {
         if (stack == null) return;
         ItemStack definition = stack.getDefinition();
-        if (definition != null && !definition.isEmpty() && definition.getItem() == AE2Utilix.FLUID_MARK) {
+        if (definition != null && !definition.isEmpty()
+                && com.ae2utilix.item.ItemFluidMark.isVirtualMark(definition)) {
             ci.cancel();
         }
     }

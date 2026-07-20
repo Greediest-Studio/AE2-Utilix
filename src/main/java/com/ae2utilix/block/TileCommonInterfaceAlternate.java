@@ -54,6 +54,7 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
 import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -78,6 +79,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private final int[] extendedFluidAmounts = new int[9];
     private final IAEFluidStack[] interfaceStoredFluids = new IAEFluidStack[9];
     private final IAEFluidStack[] extendedStoredFluids = new IAEFluidStack[9];
+    private final String[] interfaceGases = new String[9];
+    private final String[] extendedGases = new String[9];
+    private final int[] interfaceGasAmounts = new int[9];
+    private final int[] extendedGasAmounts = new int[9];
+    private final String[] interfaceStoredGases = new String[9];
+    private final String[] extendedStoredGases = new String[9];
+    private final int[] interfaceStoredGasAmounts = new int[9];
+    private final int[] extendedStoredGasAmounts = new int[9];
     private final MEMonitorIFluidHandler fluidMonitor = new MEMonitorIFluidHandler(this);
     private final com.ae2utilix.integration.NetworkStorageItemHandler networkItemHandler =
             new com.ae2utilix.integration.NetworkStorageItemHandler(this.getProxy(), this);
@@ -100,6 +109,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                     return TileCommonInterfaceAlternate.this.getInterfaceDuality().getInventory(channel);
                 }
                 return (IMEMonitor<T>) networkItemHandler.getMonitor();
+            }
+            if (com.ae2utilix.integration.MekanismEnergisticsIntegration.isGasChannel(channel)) {
+                return (IMEMonitor<T>) com.ae2utilix.integration.MekanismEnergisticsIntegration
+                        .getMonitor(TileCommonInterfaceAlternate.this, hasGasConfig());
             }
             return null;
         }
@@ -183,8 +196,11 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             this.fluidRequestTicker = 0;
             if (this.getProxy().isActive()) {
                 this.flushUnconfiguredFluidsToNetwork();
+                com.ae2utilix.integration.MekanismEnergisticsIntegration.flushUnconfiguredGasesToNetwork(this);
                 this.requestMarkedFluids(this.getInterfaceDuality());
                 this.requestMarkedFluids(this.extendedDuality);
+                com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, false);
+                com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, true);
             }
         }
     }
@@ -200,6 +216,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeFluidState(data, "extended", this.extendedFluids, this.extendedFluidAmounts);
         this.writeFluidState(data, "interface_stored", this.interfaceStoredFluids, null);
         this.writeFluidState(data, "extended_stored", this.extendedStoredFluids, null);
+        this.writeGasState(data, "interface", this.interfaceGases, this.interfaceGasAmounts);
+        this.writeGasState(data, "extended", this.extendedGases, this.extendedGasAmounts);
+        this.writeGasState(data, "interface_stored", this.interfaceStoredGases, this.interfaceStoredGasAmounts);
+        this.writeGasState(data, "extended_stored", this.extendedStoredGases, this.extendedStoredGasAmounts);
         if (this.hasLinkData()) {
             data.setInteger(NBT_LINK_DIM, this.linkDim);
             data.setInteger(NBT_LINK_X, this.linkPos.getX());
@@ -221,6 +241,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.readFluidState(data, "extended", this.extendedFluids, this.extendedFluidAmounts);
         this.readFluidState(data, "interface_stored", this.interfaceStoredFluids, null);
         this.readFluidState(data, "extended_stored", this.extendedStoredFluids, null);
+        this.readGasState(data, "interface", this.interfaceGases, this.interfaceGasAmounts);
+        this.readGasState(data, "extended", this.extendedGases, this.extendedGasAmounts);
+        this.readGasState(data, "interface_stored", this.interfaceStoredGases, this.interfaceStoredGasAmounts);
+        this.readGasState(data, "extended_stored", this.extendedStoredGases, this.extendedStoredGasAmounts);
         if (data.hasKey(NBT_LINK_DIM)) {
             this.linkDim = data.getInteger(NBT_LINK_DIM);
             this.linkPos = new net.minecraft.util.math.BlockPos(
@@ -234,13 +258,68 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     public void setFluidConfig(boolean extended, int slot, FluidStack fluid) {
         IAEFluidStack[] fluids = extended ? this.extendedFluids : this.interfaceFluids;
         int[] amounts = extended ? this.extendedFluidAmounts : this.interfaceFluidAmounts;
+        String[] gases = extended ? this.extendedGases : this.interfaceGases;
+        int[] gasAmounts = extended ? this.extendedGasAmounts : this.interfaceGasAmounts;
         fluids[slot] = fluid == null ? null : appeng.fluids.util.AEFluidStack.fromFluidStack(fluid);
         amounts[slot] = fluid == null ? 0 : fluid.amount;
+        gases[slot] = null;
+        gasAmounts[slot] = 0;
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
         this.refreshFluidMonitor();
         this.wakeFluidRequests();
+    }
+
+    public void setGasConfig(boolean extended, int slot, String gasName, int amount) {
+        IAEFluidStack[] fluids = extended ? this.extendedFluids : this.interfaceFluids;
+        int[] fluidAmounts = extended ? this.extendedFluidAmounts : this.interfaceFluidAmounts;
+        String[] gases = extended ? this.extendedGases : this.interfaceGases;
+        int[] gasAmounts = extended ? this.extendedGasAmounts : this.interfaceGasAmounts;
+        fluids[slot] = null;
+        fluidAmounts[slot] = 0;
+        gases[slot] = gasName == null || gasName.isEmpty() ? null : gasName;
+        gasAmounts[slot] = gases[slot] == null ? 0 : Math.max(1, Math.min(FLUID_CAPACITY, amount));
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+        this.wakeFluidRequests();
+    }
+
+    public String getGasConfigName(boolean extended, int slot) {
+        String[] gases = extended ? this.extendedGases : this.interfaceGases;
+        String gasName = gases[slot];
+        if (gasName != null) return gasName;
+        IItemHandler config = extended ? this.extendedDuality.getConfig() : this.getConfig();
+        return com.ae2utilix.item.ItemFluidMark.getGasName(config.getStackInSlot(slot));
+    }
+
+    public int getGasConfigAmount(boolean extended, int slot) {
+        int[] amounts = extended ? this.extendedGasAmounts : this.interfaceGasAmounts;
+        return amounts[slot] <= 0 ? 1000 : amounts[slot];
+    }
+
+    public String getStoredGasName(boolean extended, int slot) {
+        return (extended ? this.extendedStoredGases : this.interfaceStoredGases)[slot];
+    }
+
+    public int getStoredGasAmount(boolean extended, int slot) {
+        return (extended ? this.extendedStoredGasAmounts : this.interfaceStoredGasAmounts)[slot];
+    }
+
+    public void setStoredGas(boolean extended, int slot, String gasName, int amount) {
+        String[] names = extended ? this.extendedStoredGases : this.interfaceStoredGases;
+        int[] amounts = extended ? this.extendedStoredGasAmounts : this.interfaceStoredGasAmounts;
+        if (gasName == null || gasName.isEmpty() || amount <= 0) {
+            names[slot] = null;
+            amounts[slot] = 0;
+        } else {
+            names[slot] = gasName;
+            amounts[slot] = Math.min(FLUID_CAPACITY, amount);
+        }
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
     }
 
     @Override
@@ -317,6 +396,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY
                 || capability == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY
                 || capability == Capabilities.STORAGE_MONITORABLE_ACCESSOR
+                || com.ae2utilix.integration.MekanismEnergisticsIntegration.isGasCapability(capability)
                 || super.hasCapability(capability, facing);
     }
 
@@ -331,6 +411,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
         if (capability == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
             return (T) this;
+        }
+        if (com.ae2utilix.integration.MekanismEnergisticsIntegration.isGasCapability(capability)) {
+            return (T) com.ae2utilix.integration.MekanismEnergisticsIntegration.getGasHandler(this);
         }
         if (capability == Capabilities.STORAGE_MONITORABLE_ACCESSOR) {
             return (T) this.storageMonitorableAccessor;
@@ -349,13 +432,17 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         TickingRequest extended = this.extendedDuality.getTickingRequest(node);
         return new TickingRequest(Math.min(primary.minTickRate, extended.minTickRate),
                 Math.min(primary.maxTickRate, extended.maxTickRate),
-                primary.isSleeping && extended.isSleeping && !this.hasFluidWork(), true);
+                primary.isSleeping && extended.isSleeping && !this.hasFluidWork()
+                        && !com.ae2utilix.integration.MekanismEnergisticsIntegration.hasGasWork(this), true);
     }
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         this.requestMarkedFluids(this.getInterfaceDuality());
         this.requestMarkedFluids(this.extendedDuality);
+        com.ae2utilix.integration.MekanismEnergisticsIntegration.flushUnconfiguredGasesToNetwork(this);
+        com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, false);
+        com.ae2utilix.integration.MekanismEnergisticsIntegration.requestMarkedGases(this, true);
         TickRateModulation primary = this.interfaceDuality.tickingRequest(node, ticksSinceLastCall);
         TickRateModulation extended = this.extendedDuality.tickingRequest(node, ticksSinceLastCall);
         if (primary == TickRateModulation.URGENT || extended == TickRateModulation.URGENT) return TickRateModulation.URGENT;
@@ -624,7 +711,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private boolean hasItemConfig(IItemHandler config) {
         for (int slot = 0; slot < config.getSlots(); slot++) {
             ItemStack stack = config.getStackInSlot(slot);
-            if (!stack.isEmpty() && !com.ae2utilix.item.ItemFluidMark.isFluidMark(stack)) {
+            if (!stack.isEmpty() && !com.ae2utilix.item.ItemFluidMark.isVirtualMark(stack)) {
                 return true;
             }
         }
@@ -639,6 +726,19 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private boolean hasFluidConfig(IItemHandler config) {
         for (int slot = 0; slot < config.getSlots(); slot++) {
             if (com.ae2utilix.item.ItemFluidMark.isFluidMark(config.getStackInSlot(slot))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasGasConfig() {
+        return hasGasConfig(this.getConfig()) || hasGasConfig(this.getExtendedConfig());
+    }
+
+    private boolean hasGasConfig(IItemHandler config) {
+        for (int slot = 0; slot < config.getSlots(); slot++) {
+            if (com.ae2utilix.item.ItemFluidMark.isGasMark(config.getStackInSlot(slot))) {
                 return true;
             }
         }
@@ -675,6 +775,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeFluidConfigStream(data, this.extendedFluids, this.extendedFluidAmounts);
         this.writeFluidStateStream(data, this.interfaceStoredFluids);
         this.writeFluidStateStream(data, this.extendedStoredFluids);
+        this.writeGasConfigStream(data, this.interfaceGases, this.interfaceGasAmounts);
+        this.writeGasConfigStream(data, this.extendedGases, this.extendedGasAmounts);
+        this.writeGasStateStream(data, this.interfaceStoredGases, this.interfaceStoredGasAmounts);
+        this.writeGasStateStream(data, this.extendedStoredGases, this.extendedStoredGasAmounts);
     }
 
     @Override
@@ -684,6 +788,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         changed |= this.readFluidConfigStream(data, this.extendedFluids, this.extendedFluidAmounts);
         changed |= this.readFluidStateStream(data, this.interfaceStoredFluids);
         changed |= this.readFluidStateStream(data, this.extendedStoredFluids);
+        changed |= this.readGasConfigStream(data, this.interfaceGases, this.interfaceGasAmounts);
+        changed |= this.readGasConfigStream(data, this.extendedGases, this.extendedGasAmounts);
+        changed |= this.readGasStateStream(data, this.interfaceStoredGases, this.interfaceStoredGasAmounts);
+        changed |= this.readGasStateStream(data, this.extendedStoredGases, this.extendedStoredGasAmounts);
         return changed;
     }
 
@@ -763,6 +871,69 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
     }
 
+    private void writeGasState(NBTTagCompound data, String key, String[] names, int[] amounts) {
+        NBTTagCompound state = new NBTTagCompound();
+        for (int i = 0; i < names.length; i++) {
+            if (names[i] == null || names[i].isEmpty() || amounts[i] <= 0) continue;
+            NBTTagCompound slot = new NBTTagCompound();
+            slot.setString("Name", names[i]);
+            slot.setInteger("Amount", amounts[i]);
+            state.setTag(String.valueOf(i), slot);
+        }
+        data.setTag("ae2utilix_gas_" + key, state);
+    }
+
+    private void readGasState(NBTTagCompound data, String key, String[] names, int[] amounts) {
+        NBTTagCompound state = data.getCompoundTag("ae2utilix_gas_" + key);
+        for (int i = 0; i < names.length; i++) {
+            names[i] = null;
+            amounts[i] = 0;
+            if (!state.hasKey(String.valueOf(i), 10)) continue;
+            NBTTagCompound slot = state.getCompoundTag(String.valueOf(i));
+            String name = slot.getString("Name");
+            int amount = slot.getInteger("Amount");
+            if (!name.isEmpty() && amount > 0) {
+                names[i] = name;
+                amounts[i] = Math.min(FLUID_CAPACITY, amount);
+            }
+        }
+    }
+
+    private void writeGasConfigStream(ByteBuf data, String[] names, int[] amounts) {
+        for (int i = 0; i < names.length; i++) {
+            boolean present = names[i] != null && !names[i].isEmpty();
+            data.writeBoolean(present);
+            if (present) {
+                ByteBufUtils.writeUTF8String(data, names[i]);
+                data.writeInt(amounts[i]);
+            }
+        }
+    }
+
+    private boolean readGasConfigStream(ByteBuf data, String[] names, int[] amounts) {
+        boolean changed = false;
+        for (int i = 0; i < names.length; i++) {
+            boolean present = data.readBoolean();
+            String nextName = present ? ByteBufUtils.readUTF8String(data) : null;
+            int nextAmount = present ? data.readInt() : 0;
+            if (names[i] == null ? nextName != null : !names[i].equals(nextName)
+                    || amounts[i] != nextAmount) {
+                changed = true;
+            }
+            names[i] = nextName;
+            amounts[i] = nextAmount;
+        }
+        return changed;
+    }
+
+    private void writeGasStateStream(ByteBuf data, String[] names, int[] amounts) {
+        this.writeGasConfigStream(data, names, amounts);
+    }
+
+    private boolean readGasStateStream(ByteBuf data, String[] names, int[] amounts) {
+        return this.readGasConfigStream(data, names, amounts);
+    }
+
     @Override
     public IFluidTankProperties[] getTankProperties() {
         java.util.List<IFluidTankProperties> properties = new java.util.ArrayList<>();
@@ -816,34 +987,62 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private int fillLocal(FluidStack resource, boolean doFill, boolean extended) {
         IItemHandler config = extended ? this.getExtendedConfig() : this.getConfig();
         IAEFluidStack[] storedFluids = extended ? extendedStoredFluids : interfaceStoredFluids;
-        int matchingMarkerSlot = -1;
-        int emptyConfigSlot = -1;
+        boolean[] used = new boolean[storedFluids.length];
+        int total = 0;
+        FluidStack remaining = resource.copy();
 
-        for (int i = 0; i < storedFluids.length; i++) {
+        // Fill existing matching marked tanks first. Each slot is independent,
+        // so a full tank does not prevent a later slot from holding the same fluid.
+        for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
             ItemStack configStack = config.getStackInSlot(i);
-            if (!configStack.isEmpty()
-                    && !com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
-
+            if (!com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
             IAEFluidStack stored = storedFluids[i];
-            if (stored != null) {
-                if (stored.getFluidStack().isFluidEqual(resource)) {
-                    return fillLocalSlot(storedFluids, i, resource, doFill);
-                }
-                continue;
-            }
-
-            if (configStack.isEmpty()) {
-                if (emptyConfigSlot < 0) emptyConfigSlot = i;
-            } else {
-                FluidStack marked = com.ae2utilix.item.ItemFluidMark.getFluid(configStack);
-                if (marked != null && marked.isFluidEqual(resource) && matchingMarkerSlot < 0) {
-                    matchingMarkerSlot = i;
-                }
-            }
+            if (stored == null || !stored.getFluidStack().isFluidEqual(resource)) continue;
+            used[i] = true;
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            total += accepted;
+            remaining.amount -= accepted;
         }
 
-        int targetSlot = matchingMarkerSlot >= 0 ? matchingMarkerSlot : emptyConfigSlot;
-        return targetSlot < 0 ? 0 : fillLocalSlot(storedFluids, targetSlot, resource, doFill);
+        // Preserve the marker's priority over an unconfigured offline tank.
+        for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
+            if (used[i]) continue;
+            ItemStack configStack = config.getStackInSlot(i);
+            if (!configStack.isEmpty() || storedFluids[i] == null
+                    || !storedFluids[i].getFluidStack().isFluidEqual(resource)) continue;
+            used[i] = true;
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            total += accepted;
+            remaining.amount -= accepted;
+        }
+
+        // Then use empty slots explicitly marked for this fluid, including
+        // multiple markers for the same fluid in one interface group.
+        for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
+            if (used[i]) continue;
+            ItemStack configStack = config.getStackInSlot(i);
+            if (!com.ae2utilix.item.ItemFluidMark.isFluidMark(configStack)) continue;
+            FluidStack marked = com.ae2utilix.item.ItemFluidMark.getFluid(configStack);
+            if (marked == null || !marked.isFluidEqual(resource) || storedFluids[i] != null) continue;
+            used[i] = true;
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            total += accepted;
+            remaining.amount -= accepted;
+        }
+
+        // Finally, an empty configuration slot behaves as an unrestricted
+        // offline tank and can hold any fluid type.
+        for (int i = 0; i < storedFluids.length && remaining.amount > 0; i++) {
+            if (used[i]) continue;
+            ItemStack configStack = config.getStackInSlot(i);
+            if (!configStack.isEmpty() || storedFluids[i] != null) continue;
+            used[i] = true;
+            int accepted = fillLocalSlot(storedFluids, i, remaining, doFill);
+            total += accepted;
+            remaining.amount -= accepted;
+        }
+
+        return total;
     }
 
     private int fillLocalSlot(IAEFluidStack[] storedFluids, int slot,

@@ -73,6 +73,14 @@ public class PacketCommonInterfaceSetAmount implements IMessage {
                     configured.amount = amount;
                     tile.setFluidConfig(message.extended, message.slot, configured);
                 } else {
+                    String gasName = com.ae2utilix.item.ItemFluidMark.getGasName(stack);
+                    if (gasName != null) {
+                        int amount = Math.max(1, Math.min(512000, message.amount));
+                        tile.setGasConfig(message.extended, message.slot, gasName, amount);
+                        tile.saveChanges();
+                        return;
+                    }
+
                     int amount = Math.max(1, Math.min(512, message.amount));
                     stack = stack.copy();
                     stack.setCount(amount);

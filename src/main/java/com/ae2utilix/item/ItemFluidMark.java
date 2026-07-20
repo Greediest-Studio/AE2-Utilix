@@ -17,6 +17,7 @@ import java.util.List;
 public class ItemFluidMark extends Item {
 
     public static final String MARK_TAG = "ae2utilix_fluid_mark";
+    private static final String GAS_KEY = "Gas";
 
     public ItemFluidMark() {
         this.setUnlocalizedName(AE2Utilix.MODID + ".fluid_mark");
@@ -31,6 +32,17 @@ public class ItemFluidMark extends Item {
         if (fluid.tag != null) {
             tag.setTag("FluidTag", fluid.tag.copy());
         }
+        return stack;
+    }
+
+    /**
+     * Creates a type-only gas token. The requested amount is kept in the
+     * interface state, rather than in this marker item.
+     */
+    public static ItemStack createGas(String gasName) {
+        ItemStack stack = new ItemStack(AE2Utilix.FLUID_MARK);
+        NBTTagCompound tag = stack.getOrCreateSubCompound(MARK_TAG);
+        tag.setString(GAS_KEY, gasName == null ? "" : gasName);
         return stack;
     }
 
@@ -61,10 +73,35 @@ public class ItemFluidMark extends Item {
         return getFluid(stack) != null;
     }
 
+    @Nullable
+    public static String getGasName(ItemStack stack) {
+        if (stack.isEmpty() || stack.getItem() != AE2Utilix.FLUID_MARK
+                || !stack.hasTagCompound()) {
+            return null;
+        }
+
+        NBTTagCompound tag = stack.getTagCompound().getCompoundTag(MARK_TAG);
+        String gasName = tag.getString(GAS_KEY);
+        return gasName.isEmpty() ? null : gasName;
+    }
+
+    public static boolean isGasMark(ItemStack stack) {
+        return getGasName(stack) != null;
+    }
+
+    public static boolean isVirtualMark(ItemStack stack) {
+        return isFluidMark(stack) || isGasMark(stack);
+    }
+
     @Override
     public String getItemStackDisplayName(ItemStack stack) {
         FluidStack fluid = getFluid(stack);
-        return fluid == null ? I18n.translateToLocal(this.getUnlocalizedName() + ".name") : fluid.getLocalizedName();
+        if (fluid != null) {
+            return fluid.getLocalizedName();
+        }
+        String gasName = getGasName(stack);
+        return gasName == null ? I18n.translateToLocal(this.getUnlocalizedName() + ".name")
+                : I18n.translateToLocal("gas." + gasName);
     }
 
     @Override
@@ -78,6 +115,13 @@ public class ItemFluidMark extends Item {
         if (fluid != null) {
             tooltip.add(fluid.getLocalizedName());
             tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.fluid_mark.tooltip"));
+            return;
+        }
+
+        String gasName = getGasName(stack);
+        if (gasName != null) {
+            tooltip.add(I18n.translateToLocal("gas." + gasName));
+            tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.gas_mark.tooltip"));
         }
     }
 }

@@ -23,7 +23,9 @@ public class FluidReturnHandler {
 
     public static boolean isFluidFakeItem(ItemStack stack) {
         if (stack.isEmpty()) return false;
-        if (stack.getItem() == com.ae2utilix.AE2Utilix.FLUID_MARK) return true;
+        if (stack.getItem() == com.ae2utilix.AE2Utilix.FLUID_MARK) {
+            return com.ae2utilix.item.ItemFluidMark.isFluidMark(stack);
+        }
         checkAE2FC();
         if (FLUID_DROP == null && FLUID_PACKET == null) return false;
         return stack.getItem() == FLUID_DROP || stack.getItem() == FLUID_PACKET;
