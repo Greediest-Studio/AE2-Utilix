@@ -199,6 +199,8 @@ public class AE2Utilix implements IGuiHandler {
 
         // The common interface exposes four AE2 capacity-card slots.
         Upgrades.CAPACITY.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 4);
+        // The common interface can request missing configured resources from AE2 crafting CPUs.
+        Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 1);
 
         AEApi.instance().definitions().blocks().iface().maybeItem()
                 .ifPresent(i -> Upgrades.MAGNET.registerItem(new ItemStack(i), 1));

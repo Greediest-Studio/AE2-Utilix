@@ -108,6 +108,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private final com.ae2utilix.integration.NetworkStorageFluidHandler networkFluidHandler =
             new com.ae2utilix.integration.NetworkStorageFluidHandler(this.getProxy(), this);
     private final IActionSource fluidRequestSource = new MachineSource(this);
+    private final com.ae2utilix.integration.VirtualCraftingTracker virtualCrafting =
+            new com.ae2utilix.integration.VirtualCraftingTracker(this);
     private final IStorageMonitorable storageMonitorable = new IStorageMonitorable() {
         @Override
         @SuppressWarnings("unchecked")
@@ -390,6 +392,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeLongState(data, "extended_mana", this.extendedManaAmounts);
         this.writeLongState(data, "interface_fe", this.interfaceFeAmounts);
         this.writeLongState(data, "extended_fe", this.extendedFeAmounts);
+        this.virtualCrafting.writeToNBT(data);
         if (this.hasLinkData()) {
             data.setInteger(NBT_LINK_DIM, this.linkDim);
             data.setInteger(NBT_LINK_X, this.linkPos.getX());
@@ -419,6 +422,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.readLongState(data, "extended_mana", this.extendedManaAmounts);
         this.readLongState(data, "interface_fe", this.interfaceFeAmounts);
         this.readLongState(data, "extended_fe", this.extendedFeAmounts);
+        this.virtualCrafting.readFromNBT(data);
         if (data.hasKey(NBT_LINK_DIM)) {
             this.linkDim = data.getInteger(NBT_LINK_DIM);
             this.linkPos = new net.minecraft.util.math.BlockPos(
@@ -626,6 +630,106 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return fluid == null ? null : fluid.getFluidStack();
     }
 
+    public void setStoredFluid(boolean extended, int slot, FluidStack fluid) {
+        IAEFluidStack[] stored = extended ? this.extendedStoredFluids : this.interfaceStoredFluids;
+        if (fluid == null || fluid.amount <= 0 || fluid.getFluid() == null) {
+            stored[slot] = null;
+        } else {
+            FluidStack copy = fluid.copy();
+            copy.amount = Math.min(this.getVirtualStorageCapacity(), copy.amount);
+            stored[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(copy);
+        }
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+        this.refreshFluidMonitor();
+        this.wakeVirtualCrafting();
+    }
+
+    public void requestVirtualFluidCrafting(boolean extended, int slot, FluidStack fluid, int amount) {
+        if (fluid == null || amount <= 0 || this.getInstalledUpgrades(appeng.api.config.Upgrades.CRAFTING) <= 0
+                || !com.ae2utilix.integration.FluidReturnHandler.hasAE2FC()) {
+            return;
+        }
+        FluidStack output = fluid.copy();
+        output.amount = Math.min(this.getVirtualStorageCapacity(), amount);
+        IAEItemStack fake = com.ae2utilix.integration.FluidReturnHandler.packFluid2AEDrops(output);
+        if (fake != null) {
+            this.virtualCrafting.request(this.virtualCraftingSlot(false, extended, slot), fake);
+        }
+    }
+
+    public void requestVirtualGasCrafting(boolean extended, int slot, String gasName, int amount) {
+        if (gasName == null || gasName.isEmpty() || amount <= 0
+                || this.getInstalledUpgrades(appeng.api.config.Upgrades.CRAFTING) <= 0
+                || !com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()
+                || !com.ae2utilix.integration.GasReturnHandler.hasGasSupport()) {
+            return;
+        }
+        IAEItemStack fake = com.ae2utilix.integration.GasReturnHandler.packGas2AEDrops(
+                gasName, Math.min(this.getVirtualStorageCapacity(), amount));
+        if (fake != null) {
+            this.virtualCrafting.request(this.virtualCraftingSlot(true, extended, slot), fake);
+        }
+    }
+
+    public IAEItemStack acceptVirtualCraftedItems(int craftingSlot, IAEItemStack stack, Actionable mode) {
+        if (stack == null || stack.getStackSize() <= 0) {
+            return stack;
+        }
+
+        boolean gas = craftingSlot >= 18;
+        int slot = gas ? craftingSlot - 18 : craftingSlot;
+        boolean extended = slot >= 9;
+        if (extended) slot -= 9;
+        if (slot < 0 || slot >= 9) return stack;
+
+        long accepted;
+        if (gas) {
+            String gasName = com.ae2utilix.integration.GasReturnHandler.getGasNameFromAEStack(stack);
+            String expected = this.getGasConfigName(extended, slot);
+            if (gasName == null || expected == null || !expected.equals(gasName)) return stack;
+            long stored = this.getStoredGasAmount(extended, slot);
+            accepted = Math.min(stack.getStackSize(),
+                    Math.max(0L, this.getVirtualStorageCapacity() - stored));
+            if (mode == Actionable.MODULATE && accepted > 0) {
+                this.setStoredGas(extended, slot, gasName, (int) (stored + accepted));
+            }
+        } else {
+            FluidStack produced = com.ae2utilix.integration.FluidReturnHandler.getFluidFromAEStack(stack);
+            FluidStack expected = this.getFluidConfig(extended, slot);
+            if (produced == null || expected == null || !expected.isFluidEqual(produced)) return stack;
+            FluidStack storedFluid = this.getStoredFluid(extended, slot);
+            if (storedFluid != null && !storedFluid.isFluidEqual(produced)) return stack;
+            long stored = storedFluid == null ? 0 : storedFluid.amount;
+            accepted = Math.min(stack.getStackSize(),
+                    Math.max(0L, this.getVirtualStorageCapacity() - stored));
+            if (mode == Actionable.MODULATE && accepted > 0) {
+                FluidStack next = storedFluid == null ? produced.copy() : storedFluid.copy();
+                next.amount = (int) (stored + accepted);
+                this.setStoredFluid(extended, slot, next);
+            }
+        }
+
+        if (accepted >= stack.getStackSize()) return null;
+        IAEItemStack remainder = stack.copy();
+        remainder.setStackSize(stack.getStackSize() - accepted);
+        return remainder;
+    }
+
+    public void wakeVirtualCrafting() {
+        try {
+            if (!this.getProxy().getTick().alertDevice(this.getProxy().getNode())) {
+                this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
+            }
+        } catch (GridAccessException ignored) {
+        }
+    }
+
+    private int virtualCraftingSlot(boolean gas, boolean extended, int slot) {
+        return (gas ? 18 : 0) + (extended ? 9 : 0) + slot;
+    }
+
     @Override
     public boolean hasCapability(Capability<?> capability, @Nullable EnumFacing facing) {
         return capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY
@@ -674,7 +778,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 primary.isSleeping && extended.isSleeping && !this.hasFluidWork()
                         && !com.ae2utilix.integration.MekanismEnergisticsIntegration.hasGasWork(this)
                         && !com.ae2utilix.integration.BotaniaFluxIntegration.hasManaConfig(this)
-                        && !com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this), true);
+                        && !com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this)
+                        && !this.virtualCrafting.hasWork(), true);
     }
 
     @Override
@@ -696,6 +801,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         if (primary == TickRateModulation.SLEEP && extended == TickRateModulation.SLEEP) {
             return this.hasFluidWork() || com.ae2utilix.integration.BotaniaFluxIntegration.hasManaConfig(this)
                     || com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this)
+                    || this.virtualCrafting.hasWork()
                     ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
         }
         return TickRateModulation.SAME;
@@ -765,31 +871,50 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     @Override
     public void provideCrafting(appeng.api.networking.crafting.ICraftingProviderHelper helper) {
         this.interfaceDuality.provideCrafting(helper);
+        this.extendedDuality.provideCrafting(helper);
     }
 
     @Override
     public boolean pushPattern(ICraftingPatternDetails details, net.minecraft.inventory.InventoryCrafting table) {
-        return this.interfaceDuality.pushPattern(details, table);
+        return this.interfaceDuality.pushPattern(details, table)
+                || this.extendedDuality.pushPattern(details, table);
     }
 
     @Override
     public boolean isBusy() {
-        return this.interfaceDuality.isBusy();
+        return this.interfaceDuality.isBusy() || this.extendedDuality.isBusy()
+                || this.virtualCrafting.hasWork();
     }
 
     @Override
     public ImmutableSet<ICraftingLink> getRequestedJobs() {
-        return this.interfaceDuality.getRequestedJobs();
+        ImmutableSet.Builder<ICraftingLink> jobs = ImmutableSet.builder();
+        jobs.addAll(this.interfaceDuality.getRequestedJobs());
+        jobs.addAll(this.extendedDuality.getRequestedJobs());
+        jobs.addAll(this.virtualCrafting.getRequestedJobs());
+        return jobs.build();
     }
 
     @Override
     public IAEItemStack injectCraftedItems(ICraftingLink link, IAEItemStack stack, Actionable mode) {
-        return this.interfaceDuality.injectCraftedItems(link, stack, mode);
+        if (this.virtualCrafting.getSlot(link) >= 0) {
+            return this.virtualCrafting.injectCraftedItems(link, stack, mode);
+        }
+        if (this.interfaceDuality.getRequestedJobs().contains(link)) {
+            return this.interfaceDuality.injectCraftedItems(link, stack, mode);
+        }
+        return this.extendedDuality.injectCraftedItems(link, stack, mode);
     }
 
     @Override
     public void jobStateChange(ICraftingLink link) {
-        this.interfaceDuality.jobStateChange(link);
+        if (this.virtualCrafting.getSlot(link) >= 0) {
+            this.virtualCrafting.jobStateChange(link);
+        } else if (this.interfaceDuality.getRequestedJobs().contains(link)) {
+            this.interfaceDuality.jobStateChange(link);
+        } else {
+            this.extendedDuality.jobStateChange(link);
+        }
     }
 
     @Override
@@ -813,7 +938,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         boolean extended = duality == this.extendedDuality;
         IAEFluidStack[] storedFluids = extended ? this.extendedStoredFluids : this.interfaceStoredFluids;
         IMEMonitor<IAEFluidStack> inventory = this.networkFluidHandler.getMonitor();
-        if (inventory == null) return;
+        boolean canCraft = this.getInstalledUpgrades(appeng.api.config.Upgrades.CRAFTING) > 0
+                && com.ae2utilix.integration.FluidReturnHandler.hasAE2FC();
+        if (inventory == null && !canCraft) return;
 
         for (int slot = 0; slot < config.getSlots(); slot++) {
             FluidStack markedFluid = com.ae2utilix.item.ItemFluidMark.getFluid(config.getStackInSlot(slot));
@@ -829,6 +956,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
             IAEFluidStack storedFluid = storedFluids[slot];
             if (storedFluid != null && !storedFluid.getFluidStack().isFluidEqual(markedFluid)) {
+                if (inventory == null) continue;
                 this.returnStoredFluidToNetwork(inventory, storedFluids, slot);
                 storedFluid = storedFluids[slot];
             }
@@ -836,7 +964,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int requestedAmount = Math.min(this.getVirtualStorageCapacity(), Math.max(1, configuredFluid.amount));
             int storedAmount = storedFluid == null ? 0
                     : (int) Math.min(Integer.MAX_VALUE, storedFluid.getStackSize());
-            if (storedFluid != null && storedAmount > requestedAmount) {
+            if (storedFluid != null && storedAmount > requestedAmount && inventory != null) {
                 storedFluid = this.trimStoredFluidToNetwork(
                         inventory, storedFluids, slot, requestedAmount);
                 storedAmount = storedFluid == null ? 0
@@ -845,18 +973,24 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int amount = requestedAmount - storedAmount;
             if (amount <= 0) continue;
 
-            IAEFluidStack extracted = this.extractFluidFromNetwork(markedFluid, amount);
-            if (extracted == null || extracted.getStackSize() <= 0) continue;
+            IAEFluidStack extracted = inventory == null ? null
+                    : this.extractFluidFromNetwork(markedFluid, amount);
+            if (extracted != null && extracted.getStackSize() > 0) {
+                int extractedAmount = (int) Math.min(Integer.MAX_VALUE, extracted.getStackSize());
+                int newStoredAmount = Math.min(this.getVirtualStorageCapacity(), storedAmount + extractedAmount);
+                FluidStack storedStack = extracted.getFluidStack().copy();
+                storedStack.amount = newStoredAmount;
+                storedFluids[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(storedStack);
+                storedAmount = newStoredAmount;
+                this.markDirty();
+                this.saveChanges();
+                this.markForUpdate();
+                this.refreshFluidMonitor();
+            }
 
-            int extractedAmount = (int) Math.min(Integer.MAX_VALUE, extracted.getStackSize());
-            int newStoredAmount = Math.min(this.getVirtualStorageCapacity(), storedAmount + extractedAmount);
-            FluidStack storedStack = extracted.getFluidStack().copy();
-            storedStack.amount = newStoredAmount;
-            storedFluids[slot] = appeng.fluids.util.AEFluidStack.fromFluidStack(storedStack);
-            this.markDirty();
-            this.saveChanges();
-            this.markForUpdate();
-            this.refreshFluidMonitor();
+            if (storedAmount < requestedAmount) {
+                this.requestVirtualFluidCrafting(extended, slot, markedFluid, requestedAmount - storedAmount);
+            }
         }
     }
 

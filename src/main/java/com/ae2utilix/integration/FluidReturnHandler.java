@@ -36,11 +36,16 @@ public class FluidReturnHandler {
         if (stack == null) return null;
         ItemStack def = stack.getDefinition();
         if (def.isEmpty()) return null;
-        return parseFluidDrop(def);
+        return parseFluidDrop(def, stack.getStackSize());
     }
 
     @Nullable
     private static FluidStack parseFluidDrop(ItemStack stack) {
+        return parseFluidDrop(stack, stack.getCount());
+    }
+
+    @Nullable
+    private static FluidStack parseFluidDrop(ItemStack stack, long stackSize) {
         if (stack.getItem() == com.ae2utilix.AE2Utilix.FLUID_MARK) {
             return com.ae2utilix.item.ItemFluidMark.getFluid(stack);
         }
@@ -51,7 +56,8 @@ public class FluidReturnHandler {
         if (stack.getItem() == FLUID_DROP) {
             net.minecraftforge.fluids.Fluid fluid = FluidRegistry.getFluid(tag.getString("Fluid"));
             if (fluid == null) return null;
-            FluidStack fs = new FluidStack(fluid, stack.getCount());
+            FluidStack fs = new FluidStack(fluid,
+                    (int) Math.min(Integer.MAX_VALUE, Math.max(1, stackSize)));
             if (tag.hasKey("FluidTag", 10)) {
                 fs.tag = tag.getCompoundTag("FluidTag");
             }

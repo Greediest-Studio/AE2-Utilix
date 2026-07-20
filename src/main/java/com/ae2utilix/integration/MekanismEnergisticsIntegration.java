@@ -147,10 +147,19 @@ public final class MekanismEnergisticsIntegration {
             if (amount <= 0) continue;
 
             IAEGasStack extracted = extractFromNetwork(tile, gasName, amount);
-            if (extracted == null || extracted.getStackSize() <= 0) continue;
-            GasStack stack = extracted.getGasStack();
-            tile.setStoredGas(extended, slot, stack.getGas().getName(),
-                    storedAmount + Math.min(tile.getVirtualStorageCapacity() - storedAmount, stack.amount));
+            if (extracted != null && extracted.getStackSize() > 0) {
+                GasStack stack = extracted.getGasStack();
+                int extractedAmount = Math.min(tile.getVirtualStorageCapacity() - storedAmount,
+                        stack == null ? 0 : stack.amount);
+                if (extractedAmount > 0) {
+                    tile.setStoredGas(extended, slot, stack.getGas().getName(), storedAmount + extractedAmount);
+                    storedAmount += extractedAmount;
+                }
+            }
+
+            if (storedAmount < targetAmount) {
+                tile.requestVirtualGasCrafting(extended, slot, gasName, targetAmount - storedAmount);
+            }
         }
     }
 
