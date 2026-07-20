@@ -52,6 +52,7 @@ import net.minecraftforge.fluids.capability.IFluidTankProperties;
 import net.minecraftforge.fluids.capability.FluidTankProperties;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ITickable;
 import io.netty.buffer.ByteBuf;
 
 import javax.annotation.Nullable;
@@ -61,7 +62,7 @@ import java.util.List;
 
 public class TileCommonInterfaceAlternate extends AENetworkInvTile
         implements IFluidHandler, IStorageMonitorable, IInterfaceHost, IGridTickable,
-        IInventoryDestination, IConfigManagerHost, IPriorityHost, IPhaseLinkHost {
+        IInventoryDestination, IConfigManagerHost, IPriorityHost, IPhaseLinkHost, ITickable {
 
     private static final int FLUID_CAPACITY = 512000;
     private static final String NBT_LINK_DIM = "ae2utilix_link_dim";
@@ -111,6 +112,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
     };
     private boolean updatingFluidState;
+    private int fluidRequestTicker;
     private int linkDim = Integer.MIN_VALUE;
     private net.minecraft.util.math.BlockPos linkPos;
     private EnumFacing linkFace;
@@ -167,6 +169,23 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.interfaceDuality.initialize();
         this.extendedDuality.initialize();
         this.fluidMonitor.setActionSource(this.fluidRequestSource);
+    }
+
+    @Override
+    public void update() {
+        if (this.getWorld() == null || this.getWorld().isRemote) {
+            return;
+        }
+
+        // Keep fluid requests alive if the older AE2 tick manager leaves a
+        // custom IGridTickable asleep after its configuration changes.
+        if (++this.fluidRequestTicker >= 5) {
+            this.fluidRequestTicker = 0;
+            if (this.getProxy().isActive()) {
+                this.requestMarkedFluids(this.getInterfaceDuality());
+                this.requestMarkedFluids(this.extendedDuality);
+            }
+        }
     }
 
     @Override
@@ -309,7 +328,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             return (T) this.networkItemHandler;
         }
         if (capability == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
-            return (T) (hasFluidConfig() ? this : this.networkFluidHandler);
+            return (T) this;
         }
         if (capability == Capabilities.STORAGE_MONITORABLE_ACCESSOR) {
             return (T) this.storageMonitorableAccessor;
@@ -484,9 +503,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int amount = requestedAmount - storedAmount;
             if (amount <= 0) continue;
 
-            IAEFluidStack request = appeng.fluids.util.AEFluidStack.fromFluidStack(markedFluid.copy());
-            request.setStackSize(amount);
-            IAEFluidStack extracted = this.networkFluidHandler.extract(request, Actionable.MODULATE);
+            IAEFluidStack extracted = this.extractFluidFromNetwork(markedFluid, amount);
             if (extracted == null || extracted.getStackSize() <= 0) continue;
 
             int extractedAmount = (int) Math.min(Integer.MAX_VALUE, extracted.getStackSize());
@@ -578,6 +595,28 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
     }
 
+    private IAEFluidStack extractFluidFromNetwork(FluidStack fluid, int amount) {
+        if (fluid == null || amount <= 0 || !this.getProxy().isActive()) {
+            return null;
+        }
+
+        try {
+            IStorageGrid storage = this.getProxy().getStorage();
+            IMEInventory<IAEFluidStack> inventory = storage.getInventory(
+                    AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
+            if (inventory == null) {
+                return null;
+            }
+
+            IAEFluidStack request = appeng.fluids.util.AEFluidStack.fromFluidStack(fluid.copy());
+            request.setStackSize(amount);
+            return Platform.poweredExtraction(this.getProxy().getEnergy(), inventory, request,
+                    this.fluidRequestSource, Actionable.MODULATE);
+        } catch (GridAccessException ignored) {
+            return null;
+        }
+    }
+
     private void refreshFluidMonitor() {
         this.fluidMonitor.onTick();
     }
@@ -654,6 +693,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         java.util.List<IFluidTankProperties> properties = new java.util.ArrayList<>();
         addTankProperties(properties, interfaceFluids, interfaceStoredFluids);
         addTankProperties(properties, extendedFluids, extendedStoredFluids);
+        IFluidTankProperties[] networkProperties = this.networkFluidHandler.getTankProperties();
+        if (networkProperties != null) {
+            java.util.Collections.addAll(properties, networkProperties);
+        }
         return properties.toArray(new IFluidTankProperties[0]);
     }
 
@@ -708,7 +751,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         for (int i = 0; i < extendedStoredFluids.length; i++) {
             if (extendedStoredFluids[i] != null) return drain(true, i, maxDrain, doDrain);
         }
-        return null;
+        return this.networkFluidHandler.drain(maxDrain, doDrain);
     }
 
     @Override
@@ -722,7 +765,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             IAEFluidStack stored = extendedStoredFluids[i];
             if (stored != null && stored.getFluidStack().isFluidEqual(resource)) return drain(true, i, resource.amount, doDrain);
         }
-        return null;
+        return this.networkFluidHandler.drain(resource, doDrain);
     }
 
     private FluidStack drain(boolean extended, int slot, int amount, boolean doDrain) {

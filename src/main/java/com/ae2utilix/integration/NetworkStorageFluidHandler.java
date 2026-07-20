@@ -111,7 +111,7 @@ public final class NetworkStorageFluidHandler implements IFluidHandler {
             IAEFluidStack stack = this.cache.get(i);
             FluidStack fluid = stack.getFluidStack();
             int amount = (int) Math.min(Integer.MAX_VALUE, stack.getStackSize());
-            properties[i] = new FluidTankProperties(fluid, amount, false, true);
+            properties[i] = new FluidTankProperties(fluid, amount, true, true);
         }
         return properties;
     }
