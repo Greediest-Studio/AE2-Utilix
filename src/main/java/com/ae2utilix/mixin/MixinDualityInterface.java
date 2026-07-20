@@ -22,6 +22,7 @@ import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
 import com.ae2utilix.IProductReturnHost;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
+import com.ae2utilix.block.IPhaseLinkHost;
 import com.ae2utilix.block.TilePhaseInterface;
 import com.ae2utilix.item.ItemPhaseCard;
 import com.ae2utilix.item.ItemFluidMark;
@@ -70,8 +71,8 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Inject(method = "getTermName", at = @At("HEAD"), cancellable = true, remap = false, require = 0)/*require=0: old ae2fc may transform target*/
     private void ae2utilix$phaseInterfaceTermName(CallbackInfoReturnable<String> cir) {
-        if (this.iHost instanceof TilePhaseInterface) {
-            String key = ((TilePhaseInterface) this.iHost).ae2utilix$getTermNameKey();
+        if (this.iHost instanceof IPhaseLinkHost) {
+            String key = ((IPhaseLinkHost) this.iHost).ae2utilix$getTermNameKey();
             if (key != null) {
                 cir.setReturnValue(key);
             }
@@ -132,15 +133,15 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     }
 
     @Unique
-    private TilePhaseInterface ae2utilix$getPhaseInterface() {
-        if (!(this.iHost instanceof TilePhaseInterface)) return null;
-        TilePhaseInterface pi = (TilePhaseInterface) this.iHost;
+    private IPhaseLinkHost ae2utilix$getPhaseInterface() {
+        if (!(this.iHost instanceof IPhaseLinkHost)) return null;
+        IPhaseLinkHost pi = (IPhaseLinkHost) this.iHost;
         return pi.hasLinkData() && pi.isLinkValid() ? pi : null;
     }
 
     @Unique
     private EnumFacing ae2utilix$getPhaseInterfaceEffectiveFace() {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi == null) return null;
         EnumFacing phaseCardFace = ae2utilix$getPhaseCardFace();
         if (phaseCardFace != null) return phaseCardFace;
@@ -439,7 +440,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Unique
     private EnumFacing ae2utilix$getEffectiveExtractFace(EnumFacing pushDir) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
             return effectiveFace != null ? effectiveFace : pushDir.getOpposite();
@@ -456,7 +457,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Inject(method = "pushPattern", at = @At("HEAD"), remap = false, require = 0)
     private void ae2utilix$onPushPatternHead(ICraftingPatternDetails patternDetails, InventoryCrafting table, CallbackInfoReturnable<Boolean> cir) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
             if (effectiveFace != null) {
@@ -467,7 +468,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Redirect(method = "pushPattern", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;", ordinal = 0), remap = false, require = 0)
     private TileEntity ae2utilix$redirectPushPatternGetTile(World world, BlockPos pos) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             BlockPos targetPos = pi.getLinkPos();
             return world.getTileEntity(targetPos);
@@ -477,7 +478,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Redirect(method = "pushItemsOut(Lnet/minecraft/util/EnumFacing;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;func_175625_s(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/tileentity/TileEntity;", ordinal = 0), remap = false, require = 0)
     private TileEntity ae2utilix$redirectPushItemsOutGetTile(World world, BlockPos pos) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             BlockPos targetPos = pi.getLinkPos();
             return world.getTileEntity(targetPos);
@@ -492,7 +493,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     private void ae2utilix$onPushItemsOutSetHead(EnumSet<EnumFacing> possibleDirections, CallbackInfo ci) {
         if (ae2utilix$inPushItemsOutRedirect) return;
 
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi == null) return;
 
         EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
@@ -510,7 +511,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Inject(method = "isBusy", at = @At(value = "INVOKE", target = "Lappeng/helpers/IInterfaceHost;getTargets()Ljava/util/EnumSet;", remap = false, shift = At.Shift.AFTER), cancellable = true, remap = false, require = 0)
     private void ae2utilix$onIsBusyAfterGetTargets(CallbackInfoReturnable<Boolean> cir) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi == null) return;
 
         EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
@@ -540,7 +541,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @ModifyArg(method = "pushPattern", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1, require = 0)
     private EnumFacing ae2utilix$modifyPushPatternAdaptorFace(EnumFacing face) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
             if (effectiveFace != null) return effectiveFace;
@@ -551,7 +552,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @ModifyArg(method = "pushPattern", at = @At(value = "INVOKE", target = "Lappeng/api/implementations/tiles/ICraftingMachine;pushPattern(Lappeng/api/networking/crafting/ICraftingPatternDetails;Lnet/minecraft/inventory/InventoryCrafting;Lnet/minecraft/util/EnumFacing;)Z", remap = false), remap = false, index = 2, require = 0)
     private EnumFacing ae2utilix$modifyPushPatternCraftingFace(EnumFacing face) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
             if (effectiveFace != null) return effectiveFace;
@@ -562,7 +563,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @ModifyArg(method = "pushItemsOut(Lnet/minecraft/util/EnumFacing;)V", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1, require = 0)
     private EnumFacing ae2utilix$modifyPushItemsOutSingleFace(EnumFacing face) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
             if (effectiveFace != null) return effectiveFace;
@@ -573,7 +574,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @ModifyArg(method = "pushItemsOut(Ljava/util/EnumSet;)V", at = @At(value = "INVOKE", target = "Lappeng/util/InventoryAdaptor;getAdaptor(Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/util/EnumFacing;)Lappeng/util/InventoryAdaptor;", remap = false), remap = false, index = 1, require = 0)
     private EnumFacing ae2utilix$modifyPushItemsOutSetFace(EnumFacing face) {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
         if (pi != null) {
             EnumFacing effectiveFace = ae2utilix$getPhaseInterfaceEffectiveFace();
             if (effectiveFace != null) return effectiveFace;
@@ -664,7 +665,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Unique
     private boolean ae2utilix$doImportWork() {
-        TilePhaseInterface pi = ae2utilix$getPhaseInterface();
+        IPhaseLinkHost pi = ae2utilix$getPhaseInterface();
 
         if (pi != null) {
             return ae2utilix$doImportWorkPhaseInterface(pi);
@@ -756,7 +757,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     }
 
     @Unique
-    private boolean ae2utilix$doImportWorkPhaseInterface(TilePhaseInterface pi) {
+    private boolean ae2utilix$doImportWorkPhaseInterface(IPhaseLinkHost pi) {
         World world = pi.getWorld();
         if (world == null) return false;
 

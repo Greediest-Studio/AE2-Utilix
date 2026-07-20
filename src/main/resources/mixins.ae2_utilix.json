@@ -21,6 +21,7 @@
     "MixinPartStorageBusAccessor"
   ],
   "client": [
+    "MixinStackSizeRenderer",
     "MixinAEBaseGuiRemoveFinal",
     "MixinAEBaseGuiHandleClick",
     "MixinPacketCompressedNBT",

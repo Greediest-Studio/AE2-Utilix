@@ -62,7 +62,7 @@ public class PacketCommonInterfaceSetAmount implements IMessage {
                 if (player.getDistanceSq(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) > 64.0D) return;
                 if (!(player.world.getTileEntity(pos) instanceof TileCommonInterfaceAlternate)) return;
                 TileCommonInterfaceAlternate tile = (TileCommonInterfaceAlternate) player.world.getTileEntity(pos);
-                IItemHandlerModifiable config = (IItemHandlerModifiable) (message.extended ? tile.getExtendedConfig() : tile.getInterfaceDuality().getConfig());
+                IItemHandlerModifiable config = (IItemHandlerModifiable) (message.extended ? tile.getExtendedConfig() : tile.getConfig());
                 if (message.slot < 0 || message.slot >= config.getSlots()) return;
                 ItemStack stack = config.getStackInSlot(message.slot);
                 if (stack.isEmpty()) return;

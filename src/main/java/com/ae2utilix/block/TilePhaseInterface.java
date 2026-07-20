@@ -18,7 +18,7 @@ import net.minecraft.world.World;
 
 import javax.annotation.Nullable;
 
-public class TilePhaseInterface extends TileInterface implements ICustomNameObject {
+public class TilePhaseInterface extends TileInterface implements ICustomNameObject, IPhaseLinkHost {
 
     private static final String NBT_CUSTOM_NAME = "CustomName";
     private static final String NBT_LINK_DIM = "ae2utilix_link_dim";

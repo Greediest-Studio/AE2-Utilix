@@ -5,7 +5,6 @@ import appeng.container.AEBaseContainer;
 import appeng.container.slot.SlotFake;
 import appeng.container.slot.SlotOversized;
 import appeng.container.slot.SlotRestrictedInput;
-import appeng.helpers.DualityInterface;
 import appeng.util.Platform;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import net.minecraft.entity.player.EntityPlayer;
@@ -16,15 +15,13 @@ import net.minecraftforge.items.IItemHandler;
 public class ContainerCommonInterface extends AEBaseContainer {
 
     private final TileCommonInterfaceAlternate tile;
-    private final DualityInterface duality;
 
     public ContainerCommonInterface(InventoryPlayer inventory, TileCommonInterfaceAlternate tile) {
         super(inventory, tile);
         this.tile = tile;
-        this.duality = tile.getInterfaceDuality();
 
-        IItemHandler config = duality.getConfig();
-        IItemHandler storage = duality.getStorage();
+        IItemHandler config = tile.getConfig();
+        IItemHandler storage = tile.getStorage();
         IItemHandler extendedConfig = tile.getExtendedConfig();
         IItemHandler extendedStorage = tile.getExtendedStorage();
         IItemHandler upgrades = tile.getInventoryByName("upgrades");

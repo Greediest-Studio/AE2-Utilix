@@ -5,13 +5,13 @@ import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.network.NetworkHandler;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.ResourceLocation;
-import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.fluids.client.render.FluidStackSizeRenderer;
 import appeng.fluids.util.AEFluidStack;
 import net.minecraft.client.renderer.GlStateManager;
@@ -25,7 +25,7 @@ public class GuiCommonInterface extends AEBaseGui {
             new ResourceLocation("ae2_utilix", "textures/guis/common_interface.png");
 
     private final ContainerCommonInterface container;
-    private MEGuiTextField amountField;
+    private GuiTextField amountField;
     private Slot amountSlot;
     private boolean amountFieldActive;
     private final Set<Integer> fluidDragSlots = new HashSet<>();
@@ -41,9 +41,11 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     public void initGui() {
         super.initGui();
-        this.amountField = new MEGuiTextField(this.fontRenderer, 8, 6, 54, 10);
+        this.amountField = new GuiTextField(0, this.fontRenderer, 0, 0, 54, this.fontRenderer.FONT_HEIGHT);
         this.amountField.x = this.guiLeft + 8;
         this.amountField.y = this.guiTop + 6;
+        this.amountField.setEnableBackgroundDrawing(false);
+        this.amountField.setTextColor(0xFFFFFF);
         this.amountField.setMaxStringLength(6);
         this.amountField.setVisible(false);
     }
@@ -64,20 +66,22 @@ public class GuiCommonInterface extends AEBaseGui {
         this.fontRenderer.drawString(I18n.format("tile.ae2_utilix.common_interface.name"), 8, 6, 4210752);
         this.drawFluidAmountOverlays();
         if (this.amountFieldActive && this.amountField != null) {
-            int fieldX = this.amountField.x - this.guiLeft;
-            int fieldY = this.amountField.y - this.guiTop;
-            int oldX = this.amountField.x;
-            int oldY = this.amountField.y;
-            int renderX = fieldX + 1;
-            int renderY = fieldY - 1;
-            this.amountField.x = renderX;
-            this.amountField.y = renderY;
+            int renderX = this.amountField.x - this.guiLeft + 1;
+            int renderY = this.amountField.y - this.guiTop - 1;
             GlStateManager.disableDepth();
-            drawRect(renderX - 1, renderY - 1, renderX + 54, renderY + 10 + 2, 0xFF000000);
-            this.fontRenderer.drawString(this.amountField.getText(), renderX + 3, renderY + 1, 0xFFFFFF);
+            drawRect(renderX - 2, renderY - 2,
+                    renderX + this.amountField.getWidth() + 2,
+                    renderY + this.fontRenderer.FONT_HEIGHT + 2, 0xFF000000);
+            String text = this.amountField.getText();
+            this.fontRenderer.drawString(text, renderX + 2, renderY + 1, 0xFFFFFF);
+            if (this.amountField.isFocused()
+                    && (this.mc.ingameGUI.getUpdateCounter() / 6) % 2 == 0) {
+                int cursorPosition = Math.min(this.amountField.getCursorPosition(), text.length());
+                int cursorX = renderX + 2 + this.fontRenderer.getStringWidth(text.substring(0, cursorPosition));
+                this.fontRenderer.drawString("|", cursorX, renderY + 1, 0xFFFFFF);
+                this.fontRenderer.drawString("_", cursorX, renderY + this.fontRenderer.FONT_HEIGHT - 1, 0xFFFFFF);
+            }
             GlStateManager.enableDepth();
-            this.amountField.x = oldX;
-            this.amountField.y = oldY;
         }
     }
 
@@ -94,8 +98,6 @@ public class GuiCommonInterface extends AEBaseGui {
                 continue;
             }
 
-            // Hide the marker's own stack count and replace it with the saved fluid amount.
-            drawRect(slot.xPos + 5, slot.yPos + 8, slot.xPos + 17, slot.yPos + 18, 0xFF000000);
             this.fluidAmountRenderer.renderStackSize(this.fontRenderer,
                     AEFluidStack.fromFluidStack(fluid), slot.xPos, slot.yPos);
         }
@@ -104,7 +106,10 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         this.fluidDragSlots.clear();
-        if (!this.amountFieldActive && mouseButton == 1) {
+        if (mouseButton == 1) {
+            if (this.amountFieldActive) {
+                return;
+            }
             Slot slot = this.getSlotUnderMouse();
             ItemStack held = this.mc.player.inventory.getItemStack();
             net.minecraftforge.fluids.FluidStack heldFluid = this.getHeldFluid(held);
@@ -116,8 +121,8 @@ public class GuiCommonInterface extends AEBaseGui {
                 NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
                         this.container.getTilePosition(), configSlot, true, extended, heldFluid));
                 this.fluidDragSlots.add(slot.slotNumber);
-                return;
             }
+            return;
         }
         if (this.amountFieldActive && this.amountField != null) {
             int fieldX = this.amountField.x;
@@ -201,14 +206,14 @@ public class GuiCommonInterface extends AEBaseGui {
 
     @Override
     protected void handleMouseClick(Slot slot, int slotIdx, int mouseButton, ClickType clickType) {
-        if (slot != null && mouseButton == 1 && slotIdx >= 0 && slotIdx < 36
-                && (slotIdx % 4 == 0 || slotIdx % 4 == 2)
-                && this.getHeldFluid(this.mc.player.inventory.getItemStack()) != null) {
-            boolean extended = slotIdx % 4 >= 2;
-            net.minecraftforge.fluids.FluidStack fluid = this.getHeldFluid(this.mc.player.inventory.getItemStack());
-            NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
-                    this.container.getTilePosition(), slotIdx / 4, true, extended, fluid));
-            this.fluidDragSlots.add(slotIdx);
+        if (mouseButton == 1) {
+            if (slot != null && this.isFluidMarkSlot(slot) && this.getHeldFluid(this.mc.player.inventory.getItemStack()) != null) {
+                boolean extended = slotIdx % 4 >= 2;
+                net.minecraftforge.fluids.FluidStack fluid = this.getHeldFluid(this.mc.player.inventory.getItemStack());
+                NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                        this.container.getTilePosition(), slotIdx / 4, true, extended, fluid));
+                this.fluidDragSlots.add(slotIdx);
+            }
             return;
         }
         if (slot != null && mouseButton == 2 && (slotIdx % 4 == 0 || slotIdx % 4 == 2)) {
@@ -241,6 +246,7 @@ public class GuiCommonInterface extends AEBaseGui {
                         this.container.getTilePosition(), slot.slotNumber / 4, true, extended, heldFluid));
                 return;
             }
+            return;
         }
         super.mouseClickMove(mouseX, mouseY, mouseButton, timeSinceClick);
     }
@@ -248,6 +254,9 @@ public class GuiCommonInterface extends AEBaseGui {
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
         this.fluidDragSlots.clear();
+        if (state == 1) {
+            return;
+        }
         super.mouseReleased(mouseX, mouseY, state);
     }
 

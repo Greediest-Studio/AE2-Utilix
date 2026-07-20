@@ -3,6 +3,9 @@ package com.ae2utilix.block;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingLink;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.security.IActionSource;
 import appeng.me.GridAccessException;
 import appeng.api.networking.storage.IStorageGrid;
@@ -19,14 +22,22 @@ import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
 import appeng.api.util.IConfigManager;
+import appeng.api.util.AECableType;
+import appeng.api.util.AEPartLocation;
 import appeng.capabilities.Capabilities;
 import appeng.helpers.DualityInterface;
+import appeng.helpers.IInterfaceHost;
+import appeng.helpers.IPriorityHost;
 import appeng.helpers.InventoryAction;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.MEMonitorIFluidHandler;
+import appeng.tile.grid.AENetworkInvTile;
 import appeng.util.Platform;
+import appeng.util.IConfigManagerHost;
+import appeng.util.inv.IInventoryDestination;
 import appeng.util.inv.InvOperation;
 import appeng.tile.inventory.AppEngInternalAEInventory;
+import com.google.common.collect.ImmutableSet;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -45,10 +56,20 @@ import io.netty.buffer.ByteBuf;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.EnumSet;
+import java.util.List;
 
-public class TileCommonInterfaceAlternate extends TilePhaseInterface implements IFluidHandler, IStorageMonitorable {
+public class TileCommonInterfaceAlternate extends AENetworkInvTile
+        implements IFluidHandler, IStorageMonitorable, IInterfaceHost, IGridTickable,
+        IInventoryDestination, IConfigManagerHost, IPriorityHost, IPhaseLinkHost {
 
     private static final int FLUID_CAPACITY = 512000;
+    private static final String NBT_LINK_DIM = "ae2utilix_link_dim";
+    private static final String NBT_LINK_X = "ae2utilix_link_x";
+    private static final String NBT_LINK_Y = "ae2utilix_link_y";
+    private static final String NBT_LINK_Z = "ae2utilix_link_z";
+    private static final String NBT_LINK_FACE = "ae2utilix_link_face";
+    private final DualityInterface interfaceDuality = new DualityInterface(this.getProxy(), this);
     private final DualityInterface extendedDuality = new DualityInterface(this.getProxy(), this);
     private final IAEFluidStack[] interfaceFluids = new IAEFluidStack[9];
     private final IAEFluidStack[] extendedFluids = new IAEFluidStack[9];
@@ -90,6 +111,25 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
         }
     };
     private boolean updatingFluidState;
+    private int linkDim = Integer.MIN_VALUE;
+    private net.minecraft.util.math.BlockPos linkPos;
+    private EnumFacing linkFace;
+
+    public TileCommonInterfaceAlternate() {
+        this.getProxy().setValidSides(EnumSet.allOf(EnumFacing.class));
+    }
+
+    public DualityInterface getInterfaceDuality() {
+        return this.interfaceDuality;
+    }
+
+    public IItemHandler getConfig() {
+        return this.interfaceDuality.getConfig();
+    }
+
+    public IItemHandler getStorage() {
+        return this.interfaceDuality.getStorage();
+    }
 
     public IItemHandler getExtendedConfig() {
         return this.extendedDuality.getConfig();
@@ -104,14 +144,22 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
     }
 
     @Override
+    public IItemHandler getInternalInventory() {
+        return this.interfaceDuality.getInternalInventory();
+    }
+
+    @Override
     public void gridChanged() {
         super.gridChanged();
+        this.interfaceDuality.gridChanged();
         this.extendedDuality.gridChanged();
     }
 
     @Override
     public void onReady() {
+        this.getProxy().setValidSides(EnumSet.allOf(EnumFacing.class));
         super.onReady();
+        this.interfaceDuality.initialize();
         this.extendedDuality.initialize();
         this.fluidMonitor.setActionSource(this.fluidRequestSource);
     }
@@ -119,6 +167,7 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound data) {
         super.writeToNBT(data);
+        this.interfaceDuality.writeToNBT(data);
         NBTTagCompound extended = new NBTTagCompound();
         this.extendedDuality.writeToNBT(extended);
         data.setTag("ae2utilix_extended_interface", extended);
@@ -126,12 +175,20 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
         this.writeFluidState(data, "extended", this.extendedFluids, this.extendedFluidAmounts);
         this.writeFluidState(data, "interface_stored", this.interfaceStoredFluids, null);
         this.writeFluidState(data, "extended_stored", this.extendedStoredFluids, null);
+        if (this.hasLinkData()) {
+            data.setInteger(NBT_LINK_DIM, this.linkDim);
+            data.setInteger(NBT_LINK_X, this.linkPos.getX());
+            data.setInteger(NBT_LINK_Y, this.linkPos.getY());
+            data.setInteger(NBT_LINK_Z, this.linkPos.getZ());
+            data.setInteger(NBT_LINK_FACE, this.linkFace.ordinal());
+        }
         return data;
     }
 
     @Override
     public void readFromNBT(NBTTagCompound data) {
         super.readFromNBT(data);
+        this.interfaceDuality.readFromNBT(data);
         if (data.hasKey("ae2utilix_extended_interface")) {
             this.extendedDuality.readFromNBT(data.getCompoundTag("ae2utilix_extended_interface"));
         }
@@ -139,6 +196,14 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
         this.readFluidState(data, "extended", this.extendedFluids, this.extendedFluidAmounts);
         this.readFluidState(data, "interface_stored", this.interfaceStoredFluids, null);
         this.readFluidState(data, "extended_stored", this.extendedStoredFluids, null);
+        if (data.hasKey(NBT_LINK_DIM)) {
+            this.linkDim = data.getInteger(NBT_LINK_DIM);
+            this.linkPos = new net.minecraft.util.math.BlockPos(
+                    data.getInteger(NBT_LINK_X), data.getInteger(NBT_LINK_Y), data.getInteger(NBT_LINK_Z));
+            int ordinal = data.getInteger(NBT_LINK_FACE);
+            this.linkFace = ordinal >= 0 && ordinal < EnumFacing.values().length
+                    ? EnumFacing.values()[ordinal] : null;
+        }
     }
 
     public void setFluidConfig(boolean extended, int slot, FluidStack fluid) {
@@ -155,6 +220,58 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
         this.saveChanges();
         this.markForUpdate();
         this.wakeFluidRequests();
+    }
+
+    @Override
+    public void setLinkData(int dimension, net.minecraft.util.math.BlockPos position, EnumFacing face) {
+        this.linkDim = dimension;
+        this.linkPos = position;
+        this.linkFace = face;
+        this.saveChanges();
+    }
+
+    @Override
+    public void clearLinkData() {
+        this.linkDim = Integer.MIN_VALUE;
+        this.linkPos = null;
+        this.linkFace = null;
+        this.saveChanges();
+    }
+
+    @Override
+    public boolean hasLinkData() {
+        return this.linkPos != null && this.linkFace != null;
+    }
+
+    @Override
+    public Integer getLinkDimension() {
+        return this.hasLinkData() ? this.linkDim : null;
+    }
+
+    @Override
+    public net.minecraft.util.math.BlockPos getLinkPos() {
+        return this.linkPos;
+    }
+
+    @Override
+    public EnumFacing getLinkFace() {
+        return this.linkFace;
+    }
+
+    @Override
+    public boolean isLinkValid() {
+        if (!this.hasLinkData() || this.getWorld() == null) return false;
+        if (this.linkDim != this.getWorld().provider.getDimension()) return false;
+        int dx = Math.abs(this.linkPos.getX() - this.getPos().getX());
+        int dy = Math.abs(this.linkPos.getY() - this.getPos().getY());
+        int dz = Math.abs(this.linkPos.getZ() - this.getPos().getZ());
+        return dx <= 16 && dy <= 16 && dz <= 16;
+    }
+
+    @Override
+    public String ae2utilix$getTermNameKey() {
+        return new ItemStack(com.ae2utilix.AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE)
+                .getUnlocalizedName() + ".name";
     }
 
     public FluidStack getFluidConfig(boolean extended, int slot) {
@@ -201,7 +318,7 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        TickingRequest primary = super.getTickingRequest(node);
+        TickingRequest primary = this.interfaceDuality.getTickingRequest(node);
         TickingRequest extended = this.extendedDuality.getTickingRequest(node);
         return new TickingRequest(Math.min(primary.minTickRate, extended.minTickRate),
                 Math.min(primary.maxTickRate, extended.maxTickRate),
@@ -212,7 +329,7 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         this.requestMarkedFluids(this.getInterfaceDuality());
         this.requestMarkedFluids(this.extendedDuality);
-        TickRateModulation primary = super.tickingRequest(node, ticksSinceLastCall);
+        TickRateModulation primary = this.interfaceDuality.tickingRequest(node, ticksSinceLastCall);
         TickRateModulation extended = this.extendedDuality.tickingRequest(node, ticksSinceLastCall);
         if (primary == TickRateModulation.URGENT || extended == TickRateModulation.URGENT) return TickRateModulation.URGENT;
         if (primary == TickRateModulation.FASTER || extended == TickRateModulation.FASTER) return TickRateModulation.FASTER;
@@ -225,7 +342,9 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
 
     @Override
     public void onChangeInventory(IItemHandler inv, int slot, InvOperation operation, ItemStack removed, ItemStack added) {
-        super.onChangeInventory(inv, slot, operation, removed, added);
+        if (inv == this.getConfig() || inv == this.getStorage()) {
+            this.interfaceDuality.onChangeInventory(inv, slot, operation, removed, added);
+        }
         if (inv == this.getExtendedConfig() || inv == this.getExtendedStorage()) {
             this.extendedDuality.onChangeInventory(inv, slot, operation, removed, added);
         }
@@ -233,8 +352,97 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
 
     @Override
     public void onStackReturnNetwork(IAEItemStack stack) {
-        super.onStackReturnNetwork(stack);
+        this.interfaceDuality.onStackReturnedToNetwork(stack);
         this.extendedDuality.onStackReturnedToNetwork(stack);
+    }
+
+    @Override
+    public EnumSet<EnumFacing> getTargets() {
+        return EnumSet.allOf(EnumFacing.class);
+    }
+
+    @Override
+    public TileEntity getTileEntity() {
+        return this;
+    }
+
+    @Override
+    public AECableType getCableConnectionType(AEPartLocation dir) {
+        return this.interfaceDuality.getCableConnectionType(dir);
+    }
+
+    @Override
+    public appeng.api.util.DimensionalCoord getLocation() {
+        return this.interfaceDuality.getLocation();
+    }
+
+    @Override
+    public boolean canInsert(ItemStack stack) {
+        return this.interfaceDuality.canInsert(stack);
+    }
+
+    @Override
+    public int getInstalledUpgrades(appeng.api.config.Upgrades upgrade) {
+        return this.interfaceDuality.getInstalledUpgrades(upgrade);
+    }
+
+    @Override
+    public IItemHandler getInventoryByName(String name) {
+        return this.interfaceDuality.getInventoryByName(name);
+    }
+
+    @Override
+    public IConfigManager getConfigManager() {
+        return this.interfaceDuality.getConfigManager();
+    }
+
+    @Override
+    public void updateSetting(IConfigManager manager, Enum settingName, Enum newValue) {
+        this.interfaceDuality.updateSetting(manager, settingName, newValue);
+    }
+
+    @Override
+    public void provideCrafting(appeng.api.networking.crafting.ICraftingProviderHelper helper) {
+        this.interfaceDuality.provideCrafting(helper);
+    }
+
+    @Override
+    public boolean pushPattern(ICraftingPatternDetails details, net.minecraft.inventory.InventoryCrafting table) {
+        return this.interfaceDuality.pushPattern(details, table);
+    }
+
+    @Override
+    public boolean isBusy() {
+        return this.interfaceDuality.isBusy();
+    }
+
+    @Override
+    public ImmutableSet<ICraftingLink> getRequestedJobs() {
+        return this.interfaceDuality.getRequestedJobs();
+    }
+
+    @Override
+    public IAEItemStack injectCraftedItems(ICraftingLink link, IAEItemStack stack, Actionable mode) {
+        return this.interfaceDuality.injectCraftedItems(link, stack, mode);
+    }
+
+    @Override
+    public void jobStateChange(ICraftingLink link) {
+        this.interfaceDuality.jobStateChange(link);
+    }
+
+    @Override
+    public int getPriority() {
+        return this.interfaceDuality.getPriority();
+    }
+
+    public void setPriority(int priority) {
+        this.interfaceDuality.setPriority(priority);
+    }
+
+    @Override
+    public appeng.core.sync.GuiBridge getGuiBridge() {
+        return appeng.core.sync.GuiBridge.GUI_INTERFACE;
     }
 
     private void requestMarkedFluids(DualityInterface duality) {
@@ -575,19 +783,6 @@ public class TileCommonInterfaceAlternate extends TilePhaseInterface implements 
 
     @Override
     public String getCustomInventoryName() {
-        String linkedName = super.getCustomInventoryName();
-        if (linkedName != null && !linkedName.equals(new ItemStack(com.ae2utilix.AE2Utilix.BLOCK_PHASE_INTERFACE).getDisplayName())) {
-            return linkedName;
-        }
         return new ItemStack(com.ae2utilix.AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE).getDisplayName();
-    }
-
-    @Override
-    public String ae2utilix$getTermNameKey() {
-        String key = super.ae2utilix$getTermNameKey();
-        String phaseKey = new ItemStack(com.ae2utilix.AE2Utilix.BLOCK_PHASE_INTERFACE).getUnlocalizedName() + ".name";
-        return phaseKey.equals(key)
-                ? new ItemStack(com.ae2utilix.AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE).getUnlocalizedName() + ".name"
-                : key;
     }
 }

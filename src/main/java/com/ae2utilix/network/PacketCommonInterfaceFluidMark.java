@@ -78,8 +78,8 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
                 if (player.getDistanceSq(message.x + 0.5D, message.y + 0.5D, message.z + 0.5D) > 64.0D) return;
                 if (!(player.world.getTileEntity(new BlockPos(message.x, message.y, message.z)) instanceof TileCommonInterfaceAlternate)) return;
                 TileCommonInterfaceAlternate tile = (TileCommonInterfaceAlternate) player.world.getTileEntity(new BlockPos(message.x, message.y, message.z));
-                IItemHandler config = message.extended ? tile.getExtendedConfig() : tile.getInterfaceDuality().getConfig();
-                IItemHandler storage = message.extended ? tile.getExtendedStorage() : tile.getInterfaceDuality().getStorage();
+                IItemHandler config = message.extended ? tile.getExtendedConfig() : tile.getConfig();
+                IItemHandler storage = message.extended ? tile.getExtendedStorage() : tile.getStorage();
                 if (message.slot < 0 || message.slot >= config.getSlots()) return;
                 ItemStack held = player.inventory.getItemStack();
                 if (held.isEmpty()) return;

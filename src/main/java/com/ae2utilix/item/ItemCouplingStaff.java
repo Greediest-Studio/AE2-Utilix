@@ -71,7 +71,8 @@ public class ItemCouplingStaff extends AEBasePoweredItem {
                 || world.getBlockState(pos).getBlock() instanceof com.ae2utilix.block.BlockCommonInterfaceAlternate) {
             if (hasRecord(held)) {
                 if (world.isRemote) return EnumActionResult.SUCCESS;
-                com.ae2utilix.block.TilePhaseInterface te = (com.ae2utilix.block.TilePhaseInterface) world.getTileEntity(pos);
+                com.ae2utilix.block.IPhaseLinkHost te = world.getTileEntity(pos) instanceof com.ae2utilix.block.IPhaseLinkHost
+                        ? (com.ae2utilix.block.IPhaseLinkHost) world.getTileEntity(pos) : null;
                 if (te != null) {
                     Integer dim = getDimension(held);
                     BlockPos linkPos = getPos(held);
@@ -89,7 +90,8 @@ public class ItemCouplingStaff extends AEBasePoweredItem {
                 return EnumActionResult.SUCCESS;
             } else {
                 if (world.isRemote) return EnumActionResult.SUCCESS;
-                com.ae2utilix.block.TilePhaseInterface te = (com.ae2utilix.block.TilePhaseInterface) world.getTileEntity(pos);
+                com.ae2utilix.block.IPhaseLinkHost te = world.getTileEntity(pos) instanceof com.ae2utilix.block.IPhaseLinkHost
+                        ? (com.ae2utilix.block.IPhaseLinkHost) world.getTileEntity(pos) : null;
                 if (te != null) {
                     if (te.hasLinkData()) {
                         BlockPos linkPos = te.getLinkPos();
