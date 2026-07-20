@@ -5,6 +5,7 @@
   "refmap": "mixins.ae2_utilix.refmap.json",
   "mixins": [
     "MixinDualityInterface",
+    "MixinNetworkEventBusEventMethod",
     "MixinAEBaseContainer",
     "MixinUpgradeInventory",
     "MixinUpgradeInvFilter",
