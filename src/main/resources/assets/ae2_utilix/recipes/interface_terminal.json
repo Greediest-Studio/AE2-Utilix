@@ -1,17 +1,14 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "pattern": [
-        "IMI",
-        "GTG",
-        "IGI"
-    ],
-    "key": {
-        "I": { "item": "minecraft:iron_ingot" },
-        "G": { "item": "minecraft:glass" },
-        "M": { "item": "appliedenergistics2:interface" },
-        "T": { "item": "appliedenergistics2:part", "data": 380 }
-    },
-    "result": {
-        "item": "ae2_utilix:interface_terminal"
-    }
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IPI",
+    "PMP",
+    "IPI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "P": { "item": "appliedenergistics2:part", "data": 16 },
+    "M": { "item": "appliedenergistics2:part", "data": 480 }
+  },
+  "result": { "item": "ae2_utilix:interface_terminal", "count": 1 }
 }

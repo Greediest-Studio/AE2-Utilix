@@ -25,7 +25,6 @@
     "MixinAEBaseGuiHandleClick",
     "MixinPacketCompressedNBT",
     "MixinGuiMEMonitorable",
-    "MixinRCGuiMEMonitorable",
     "MixinGuiCraftConfirm",
     "MixinGuiCraftingStatus",
     "MixinGuiMEMonitorableAccessor",

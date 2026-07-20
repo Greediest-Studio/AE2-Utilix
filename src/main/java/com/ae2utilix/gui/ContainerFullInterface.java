@@ -81,7 +81,7 @@ public class ContainerFullInterface extends AEBaseContainer {
             final Map<IInterfaceHost, IInterfaceHost> whichInterfaces = new HashMap<>();
 
             for (final IGridNode gn : this.grid.getMachines(TileInterface.class)) {
-                if (gn.isActive()) {
+                if (gn.isActive() && !(gn.getMachine() instanceof com.ae2utilix.block.TileCommonInterfaceAlternate)) {
                     final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
                     final DualityInterface dual = ih.getInterfaceDuality();
                     if (dual.getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) != YesNo.NO) {

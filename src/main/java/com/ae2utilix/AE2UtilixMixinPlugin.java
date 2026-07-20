@@ -15,6 +15,12 @@ public class AE2UtilixMixinPlugin implements ILateMixinLoader {
         if (Loader.isModLoaded("nae2")) {
             configs.add("mixins.ae2_utilix_nae2.json");
         }
+        if (Loader.isModLoaded("random_complement")) {
+            configs.add("mixins.ae2_utilix_random_complement.json");
+        }
+        if (Loader.isModLoaded("ae2fc")) {
+            configs.add("mixins.ae2_utilix_ae2fc.json");
+        }
         return configs;
     }
 }

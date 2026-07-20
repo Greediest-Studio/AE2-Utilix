@@ -14,6 +14,8 @@ public class NetworkHandler {
         CHANNEL.registerMessage(PacketHighlightBlock.Handler.class, PacketHighlightBlock.class, nextId++, Side.CLIENT);
         CHANNEL.registerMessage(PacketSwitchDecomposerMode.Handler.class, PacketSwitchDecomposerMode.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(PacketToggleCGCButton.Handler.class, PacketToggleCGCButton.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(PacketCommonInterfaceFluidMark.Handler.class, PacketCommonInterfaceFluidMark.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(PacketCommonInterfaceSetAmount.Handler.class, PacketCommonInterfaceSetAmount.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(PacketSwitchCpuAccessMode.Handler.class, PacketSwitchCpuAccessMode.class, nextId++, Side.SERVER);
     }
 }

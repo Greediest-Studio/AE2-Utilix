@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "appliedenergistics2:material", "data": 23 },
+    { "item": "appliedenergistics2:material", "data": 25 }
+  ],
+  "result": {
+    "item": "ae2_utilix:overflow_destruction_card",
+    "count": 1
+  }
+}

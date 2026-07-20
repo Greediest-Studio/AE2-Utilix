@@ -26,7 +26,9 @@ public class GuiFullCrafting extends GuiMEMonitorable {
     public GuiFullCrafting(InventoryPlayer inventoryPlayer, ITerminalHost te) {
         super(inventoryPlayer, te, new ContainerFullCrafting(inventoryPlayer, te));
         this.container = (ContainerFullCrafting) this.inventorySlots;
-        ((com.ae2utilix.mixin.MixinGuiMEMonitorableAccessor) this).ae2utilix$setReservedSpace(73);
+        com.ae2utilix.mixin.MixinGuiMEMonitorableAccessor accessor = (com.ae2utilix.mixin.MixinGuiMEMonitorableAccessor) this;
+        accessor.ae2utilix$setReservedSpace(73);
+        accessor.ae2utilix$setMyName(GuiText.CraftingTerminal);
     }
 
     @Override

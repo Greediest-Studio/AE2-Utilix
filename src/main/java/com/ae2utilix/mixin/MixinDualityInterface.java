@@ -21,9 +21,12 @@ import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
 import com.ae2utilix.IProductReturnHost;
+import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.block.TilePhaseInterface;
 import com.ae2utilix.item.ItemPhaseCard;
+import com.ae2utilix.item.ItemFluidMark;
 import com.ae2utilix.item.ItemProductReturnCard;
+import com.ae2utilix.integration.BMCCompat;
 import com.ae2utilix.integration.ExtractFaceHelper;
 import com.ae2utilix.integration.FluidReturnHandler;
 import com.ae2utilix.integration.GasReturnHandler;
@@ -77,6 +80,42 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
 
     @Shadow(remap = false)
     private IActionSource interfaceRequestSource;
+
+    @Shadow(remap = false)
+    private IAEItemStack[] requireWork;
+
+    @Shadow(remap = false)
+    private boolean hasConfig;
+
+    @Shadow(remap = false)
+    public abstract IItemHandler getConfig();
+
+    @Inject(method = "updatePlan", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private void ae2utilix$skipVirtualFluidItemRequest(final int slot, final CallbackInfo ci) {
+        final IItemHandler config = this.getConfig();
+        if (config != null && slot >= 0 && slot < config.getSlots()
+                && ItemFluidMark.isFluidMark(config.getStackInSlot(slot))) {
+            this.requireWork[slot] = null;
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "readConfig", at = @At("TAIL"), remap = false, require = 0)
+    private void ae2utilix$ignoreVirtualFluidAsItemConfig(final CallbackInfo ci) {
+        if (!(this.iHost instanceof TileCommonInterfaceAlternate)) return;
+
+        boolean hasItemConfig = false;
+        final IItemHandler config = this.getConfig();
+        for (int slot = 0; slot < config.getSlots(); slot++) {
+            final ItemStack stack = config.getStackInSlot(slot);
+            if (ItemFluidMark.isFluidMark(stack)) {
+                this.requireWork[slot] = null;
+            } else if (!stack.isEmpty()) {
+                hasItemConfig = true;
+            }
+        }
+        this.hasConfig = hasItemConfig;
+    }
 
     @Unique
     private boolean ae2utilix$isP2PTunnel(TileEntity te, EnumFacing face) {
@@ -345,10 +384,8 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
     @Unique
     private boolean ae2utilix$passesMagnetFilter(ItemStack magnetCard, ItemStack candidate,
             appeng.items.contents.CellConfig config, boolean isFuzzy, FuzzyMode fz, boolean inverted, boolean emptyFilter) {
-        if (net.minecraftforge.fml.common.Loader.isModLoaded("ae2bettermagnetcard")) {
-            if (me.emvoh.ae2bettermagnetcard.utils.MagnetCardFilters.hasCustomFilters(magnetCard)) {
-                return me.emvoh.ae2bettermagnetcard.utils.MagnetCardFilters.passesPickupFilter(magnetCard, candidate);
-            }
+        if (BMCCompat.isAvailable() && BMCCompat.hasCustomFilters(magnetCard)) {
+            return BMCCompat.passesPickupFilter(magnetCard, candidate);
         }
 
         boolean matched = false;
@@ -387,15 +424,12 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
         for (int i = 0; i < cellUpgrades.getSlots(); i++) {
             ItemStack up = cellUpgrades.getStackInSlot(i);
             if (up.isEmpty()) continue;
-            if (up.getItem() instanceof me.emvoh.ae2bettermagnetcard.api.IBMCUpgradeModule) {
-                me.emvoh.ae2bettermagnetcard.utils.enums.BMCUpgrades t =
-                        ((me.emvoh.ae2bettermagnetcard.api.IBMCUpgradeModule) up.getItem()).getType(up);
-                if (t == me.emvoh.ae2bettermagnetcard.utils.enums.BMCUpgrades.ADVANCED_RANGE) {
-                    hasAdvanced = true;
-                    break;
-                } else if (t == me.emvoh.ae2bettermagnetcard.utils.enums.BMCUpgrades.RANGE) {
-                    hasRange = true;
-                }
+            String typeName = BMCCompat.getTypeName(up);
+            if ("ADVANCED_RANGE".equals(typeName)) {
+                hasAdvanced = true;
+                break;
+            } else if ("RANGE".equals(typeName)) {
+                hasRange = true;
             }
         }
         if (hasAdvanced) return 3;
@@ -668,7 +702,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
                         continue;
                     }
 
-                    boolean isFluid = FluidReturnHandler.hasAE2FC() && FluidReturnHandler.isFluidFakeItem(expected.getDefinition());
+                    boolean isFluid = FluidReturnHandler.isFluidFakeItem(expected.getDefinition());
                     boolean isGas = !isFluid && GasReturnHandler.hasGasSupport() && GasReturnHandler.isGasFakeItem(expected.getDefinition());
 
                     long extractedAmount = 0;
@@ -751,7 +785,7 @@ public abstract class MixinDualityInterface implements IProductReturnHost {
                     continue;
                 }
 
-                boolean isFluid = FluidReturnHandler.hasAE2FC() && FluidReturnHandler.isFluidFakeItem(expected.getDefinition());
+                boolean isFluid = FluidReturnHandler.isFluidFakeItem(expected.getDefinition());
                 boolean isGas = !isFluid && GasReturnHandler.hasGasSupport() && GasReturnHandler.isGasFakeItem(expected.getDefinition());
 
                 long extractedAmount = 0;

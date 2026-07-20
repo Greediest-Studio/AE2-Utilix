@@ -18,11 +18,15 @@ public class FullTerminalGuiHandler implements IGuiHandler {
     public static final int GUI_CRAFTING_TERMINAL = 11;
     public static final int GUI_PATTERN_TERMINAL = 12;
     public static final int GUI_INTERFACE_TERMINAL = 13;
+    public static final int GUI_COMMON_INTERFACE = 14;
 
     @Nullable
     @Override
     public Object getServerGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
         TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+        if (ID == GUI_COMMON_INTERFACE && te instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+            return new ContainerCommonInterface(player.inventory, (com.ae2utilix.block.TileCommonInterfaceAlternate) te);
+        }
         if (!(te instanceof ITerminalHost)) {
             return null;
         }
@@ -40,6 +44,11 @@ public class FullTerminalGuiHandler implements IGuiHandler {
                     return new ContainerFullInterface(player.inventory, (TileInterfaceTerminal) te);
                 }
                 return null;
+            case GUI_COMMON_INTERFACE:
+                if (te instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+                    return new ContainerCommonInterface(player.inventory, (com.ae2utilix.block.TileCommonInterfaceAlternate) te);
+                }
+                return null;
             default:
                 return null;
         }
@@ -49,6 +58,9 @@ public class FullTerminalGuiHandler implements IGuiHandler {
     @Override
     public Object getClientGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
         TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+        if (ID == GUI_COMMON_INTERFACE && te instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+            return new GuiCommonInterface(player.inventory, (com.ae2utilix.block.TileCommonInterfaceAlternate) te);
+        }
         if (!(te instanceof ITerminalHost)) {
             return null;
         }
@@ -64,6 +76,11 @@ public class FullTerminalGuiHandler implements IGuiHandler {
             case GUI_INTERFACE_TERMINAL:
                 if (te instanceof TileInterfaceTerminal) {
                     return new GuiFullInterface(player.inventory, (TileInterfaceTerminal) te);
+                }
+                return null;
+            case GUI_COMMON_INTERFACE:
+                if (te instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+                    return new GuiCommonInterface(player.inventory, (com.ae2utilix.block.TileCommonInterfaceAlternate) te);
                 }
                 return null;
             default:

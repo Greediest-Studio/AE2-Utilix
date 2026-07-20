@@ -28,10 +28,7 @@ import appeng.util.item.AEItemStack;
 import com.ae2utilix.block.terminal.TilePatternTerminal;
 import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.integration.AE2FCRUCompat;
-import com.circulation.random_complement.client.buttonsetting.PatternTermAutoFillPattern;
-import com.circulation.random_complement.common.interfaces.PatternTermConfigs;
-import com.circulation.random_complement.common.interfaces.RCIConfigurableObject;
-
+import com.ae2utilix.integration.RandomComplementCompat;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -55,7 +52,7 @@ import java.util.Optional;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 public class ContainerFullPattern extends ContainerMEMonitorable
-        implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, PatternTermConfigs {
+        implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket {
 
     private final TilePatternTerminal patternTerminal;
 
@@ -70,6 +67,9 @@ public class ContainerFullPattern extends ContainerMEMonitorable
 
     protected SlotFakeCraftingMatrix[] craftingSlots;
     protected OptionalSlotFake[] outputSlots;
+    private boolean rc$refillBlankPatterns = true;
+    @GuiSync(66)
+    public String rc$autoFillPattern = "CLOSE";
 
     @GuiSync(97)
     public boolean craftingMode = true;
@@ -84,24 +84,10 @@ public class ContainerFullPattern extends ContainerMEMonitorable
     @GuiSync(106)
     public boolean fluidFirst = false;
 
-    // RandomComplement sync fields
-    @GuiSync(66)
-    public PatternTermAutoFillPattern rc$autoFillPattern = PatternTermAutoFillPattern.CLOSE;
-    private boolean rc$refillBlankPatterns = true;
-
     public ContainerFullPattern(InventoryPlayer ip, ITerminalHost monitorable) {
         super(ip, monitorable, false);
         this.patternTerminal = (TilePatternTerminal) monitorable;
-
-        // Initialize RC autoFillPattern from tile entity (same as RC Mixin onInit)
-        try {
-            if (monitorable instanceof RCIConfigurableObject) {
-                RCIConfigurableObject obj = (RCIConfigurableObject) monitorable;
-                this.rc$autoFillPattern = (PatternTermAutoFillPattern) obj.r$getConfigManager().getSetting(
-                        com.circulation.random_complement.client.RCSettings.PatternTermAutoFillPattern);
-            }
-        } catch (NoClassDefFoundError ignored) {
-        }
+        this.rc$autoFillPattern = RandomComplementCompat.getAutoFillName(this.patternTerminal.getRandomComplementConfigManager());
 
         this.craftingSlots = new SlotFakeCraftingMatrix[TilePatternTerminal.TOTAL_INPUT_SLOTS];
         this.outputSlots = new OptionalSlotFake[TilePatternTerminal.TOTAL_OUTPUT_SLOTS];
@@ -338,11 +324,7 @@ public class ContainerFullPattern extends ContainerMEMonitorable
     }
 
     public void encodeAndMoveToInventory() {
-        // RandomComplement auto-refill before encode
-        try {
-            this.rc$refillBlankPatternsDirect();
-        } catch (Exception ignored) {
-        }
+        rc$refillBlankPatternsDirect();
         encode();
         ItemStack output = this.patternSlotOUT.getStack();
         if (!output.isEmpty()) {
@@ -354,12 +336,7 @@ public class ContainerFullPattern extends ContainerMEMonitorable
     }
 
     public void encode() {
-        // RandomComplement auto-refill before encode
-        try {
-            this.rc$refillBlankPatternsDirect();
-        } catch (Exception ignored) {
-        }
-
+        rc$refillBlankPatternsDirect();
         ItemStack output = this.patternSlotOUT.getStack();
 
         // AE2FCRU: Check for fluid pattern FIRST (before getInputs/getOutputs)
@@ -707,54 +684,35 @@ public class ContainerFullPattern extends ContainerMEMonitorable
             // Sync AE2FCRU fields
             this.combine = this.patternTerminal.getCombineMode();
             this.fluidFirst = this.patternTerminal.getFluidPlaceMode();
-
-            // Sync RandomComplement fields
-            try {
-                if (this.getTarget() instanceof RCIConfigurableObject) {
-                    RCIConfigurableObject obj = (RCIConfigurableObject) this.getTarget();
-                    this.rc$autoFillPattern = (PatternTermAutoFillPattern) obj.r$getConfigManager().getSetting(
-                            com.circulation.random_complement.client.RCSettings.PatternTermAutoFillPattern);
-                }
-                // First-tick refill: fill blank patterns from ME network when container opens
-                if (this.rc$refillBlankPatterns) {
-                    this.rc$refillBlankPatternsDirect();
-                    this.rc$refillBlankPatterns = false;
-                }
-            } catch (NoClassDefFoundError ignored) {
+            this.rc$autoFillPattern = RandomComplementCompat.getAutoFillName(this.patternTerminal.getRandomComplementConfigManager());
+            if (this.rc$refillBlankPatterns) {
+                this.rc$refillBlankPatternsDirect();
+                this.rc$refillBlankPatterns = false;
             }
         }
     }
 
-    // PatternTermConfigs implementation (RandomComplement)
-    @Override
-    public PatternTermAutoFillPattern r$getAutoFillPattern() {
+    public String r$getAutoFillPatternName() {
         return this.rc$autoFillPattern;
     }
 
-    // Direct refill implementation (same logic as MEHandler.refillBlankPatterns, avoids class loading issues)
     private void rc$refillBlankPatternsDirect() {
-        if (this.rc$autoFillPattern == PatternTermAutoFillPattern.CLOSE) return;
-        if (!Platform.isServer()) return;
-
+        if (!"OPEN".equals(this.rc$autoFillPattern) || !Platform.isServer()) return;
         ItemStack blanks = this.patternSlotIN.getStack();
         int blanksToRefill = 64 - blanks.getCount();
         if (blanksToRefill <= 0) return;
-
         Optional<ItemStack> blankPattern = AEApi.instance().definitions().materials().blankPattern().maybeStack(blanksToRefill);
-        if (blankPattern.isPresent()) {
-            final AEItemStack request = AEItemStack.fromItemStack(blankPattern.get());
-            final IAEItemStack extracted = Platform.poweredExtraction(
-                    this.getPowerSource(), this.getCellInventory(), request, this.getActionSource());
-            if (extracted != null) {
-                if (blanks.isEmpty()) {
-                    blanks = request.getDefinition().copy();
-                    blanks.setCount((int) extracted.getStackSize());
-                } else {
-                    blanks.setCount((int) (blanks.getCount() + extracted.getStackSize()));
-                }
-                this.patternSlotIN.putStack(blanks);
-            }
+        if (!blankPattern.isPresent()) return;
+        IAEItemStack request = AEItemStack.fromItemStack(blankPattern.get());
+        IAEItemStack extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), request, this.getActionSource());
+        if (extracted == null) return;
+        if (blanks.isEmpty()) {
+            blanks = request.getDefinition().copy();
+            blanks.setCount((int) extracted.getStackSize());
+        } else {
+            blanks.setCount((int) (blanks.getCount() + extracted.getStackSize()));
         }
+        this.patternSlotIN.putStack(blanks);
     }
 
     // FCFluidPatternContainer equivalent methods (not interface implementations)

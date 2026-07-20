@@ -66,6 +66,6 @@ public class BMCMagnetHelper {
 
     private static boolean isBMCUpgrade(ItemStack stack) {
         if (stack.isEmpty()) return false;
-        return stack.getItem() instanceof me.emvoh.ae2bettermagnetcard.api.IBMCUpgradeModule;
+        return BMCCompat.isUpgrade(stack);
     }
 }

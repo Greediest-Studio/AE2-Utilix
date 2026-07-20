@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "omnidirectional=true": { "model": "ae2_utilix:common_interface" },
+    "omnidirectional=false": { "model": "ae2_utilix:common_interface_oriented", "x": 90 }
+  }
+}

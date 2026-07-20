@@ -2,8 +2,10 @@ package com.ae2utilix;
 
 import com.ae2utilix.block.BlockCrystalGrowthChamber;
 import com.ae2utilix.block.BlockPhaseInterface;
+import com.ae2utilix.block.BlockCommonInterfaceAlternate;
 import com.ae2utilix.block.TileCrystalGrowthChamber;
 import com.ae2utilix.block.TilePhaseInterface;
+import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.block.terminal.*;
 import com.ae2utilix.gui.FullTerminalGuiHandler;
 import com.ae2utilix.integration.FluidReturnHandler;
@@ -71,12 +73,14 @@ public class AE2Utilix implements IGuiHandler {
     public static final ItemPhaseCard PHASE_CARD = new ItemPhaseCard();
     public static final ItemParallelCard PARALLEL_CARD = new ItemParallelCard();
     public static final ItemOverflowDestructionCard OVERFLOW_DESTRUCTION_CARD = new ItemOverflowDestructionCard();
+    public static final com.ae2utilix.item.ItemFluidMark FLUID_MARK = new com.ae2utilix.item.ItemFluidMark();
     public static final ItemCouplingStaff COUPLING_STAFF = new ItemCouplingStaff();
     public static final ItemMatterDecomposer MATTER_DECOMPOSER = new ItemMatterDecomposer();
     public static final ItemFluixResonancePivotCore FLUIX_RESONANCE_PIVOT_CORE = new ItemFluixResonancePivotCore();
     public static final ItemPartBlockStorageBus BLOCK_STORAGE_BUS = new ItemPartBlockStorageBus();
 
     public static final BlockPhaseInterface BLOCK_PHASE_INTERFACE = new BlockPhaseInterface();
+    public static final BlockCommonInterfaceAlternate BLOCK_COMMON_INTERFACE_ALTERNATE = new BlockCommonInterfaceAlternate();
     public static final BlockCrystalGrowthChamber BLOCK_CRYSTAL_GROWTH_CHAMBER = new BlockCrystalGrowthChamber();
 
     public static final BlockStorageTerminal BLOCK_STORAGE_TERMINAL = new BlockStorageTerminal();
@@ -106,7 +110,16 @@ public class AE2Utilix implements IGuiHandler {
         GameRegistry.findRegistry(Block.class).register(BLOCK_PHASE_INTERFACE);
         GameRegistry.findRegistry(Item.class).register(itemBlock);
 
+        BLOCK_COMMON_INTERFACE_ALTERNATE.setRegistryName(MODID, "common_interface");
+        BLOCK_COMMON_INTERFACE_ALTERNATE.setUnlocalizedName(MODID + ".common_interface");
+        Item itemBlockCommonInterfaceAlternate = new AEBaseItemBlock(BLOCK_COMMON_INTERFACE_ALTERNATE);
+        itemBlockCommonInterfaceAlternate.setRegistryName(MODID, "common_interface");
+
+        GameRegistry.findRegistry(Block.class).register(BLOCK_COMMON_INTERFACE_ALTERNATE);
+        GameRegistry.findRegistry(Item.class).register(itemBlockCommonInterfaceAlternate);
+
         GameRegistry.registerTileEntity(TilePhaseInterface.class, MODID + ":phase_interface");
+        GameRegistry.registerTileEntity(TileCommonInterfaceAlternate.class, MODID + ":common_interface");
 
         BLOCK_CRYSTAL_GROWTH_CHAMBER.setRegistryName(MODID, "crystal_growth_chamber");
         BLOCK_CRYSTAL_GROWTH_CHAMBER.setUnlocalizedName(MODID + ".crystal_growth_chamber");
@@ -128,6 +141,7 @@ public class AE2Utilix implements IGuiHandler {
         GameRegistry.findRegistry(Item.class).register(PHASE_CARD);
         GameRegistry.findRegistry(Item.class).register(PARALLEL_CARD);
         GameRegistry.findRegistry(Item.class).register(OVERFLOW_DESTRUCTION_CARD);
+        GameRegistry.findRegistry(Item.class).register(FLUID_MARK);
         GameRegistry.findRegistry(Item.class).register(COUPLING_STAFF);
         GameRegistry.findRegistry(Item.class).register(MATTER_DECOMPOSER);
         GameRegistry.findRegistry(Item.class).register(FLUIX_RESONANCE_PIVOT_CORE);
@@ -141,6 +155,9 @@ public class AE2Utilix implements IGuiHandler {
         AEBaseTile.registerTileItem(TilePhaseInterface.class,
                 new BlockStackSrc(BLOCK_PHASE_INTERFACE, 0, ActivityState.Enabled));
 
+        AEBaseTile.registerTileItem(TileCommonInterfaceAlternate.class,
+                new BlockStackSrc(BLOCK_COMMON_INTERFACE_ALTERNATE, 0, ActivityState.Enabled));
+
         AEBaseTile.registerTileItem(TileStorageTerminal.class,
                 new BlockStackSrc(BLOCK_STORAGE_TERMINAL, 0, ActivityState.Enabled));
         AEBaseTile.registerTileItem(TileCraftingTerminal.class,
@@ -150,7 +167,9 @@ public class AE2Utilix implements IGuiHandler {
         AEBaseTile.registerTileItem(TileInterfaceTerminal.class,
                 new BlockStackSrc(BLOCK_INTERFACE_TERMINAL, 0, ActivityState.Enabled));
 
-        com.ae2utilix.integration.BMCInteractionHandler.register();
+        if (Loader.isModLoaded("ae2bettermagnetcard")) {
+            com.ae2utilix.integration.BMCInteractionHandler.register();
+        }
 
         MinecraftForge.EVENT_BUS.register(com.ae2utilix.integration.CGCMemoryCardHandler.class);
 
@@ -261,9 +280,13 @@ public class AE2Utilix implements IGuiHandler {
     @Override
     public Object getServerGuiElement(int ID, net.minecraft.entity.player.EntityPlayer player, net.minecraft.world.World world, int x, int y, int z) {
         net.minecraft.tileentity.TileEntity te = world.getTileEntity(new net.minecraft.util.math.BlockPos(x, y, z));
-        if (te instanceof com.ae2utilix.block.TileCrystalGrowthChamber) {
+        if (te instanceof TileCrystalGrowthChamber) {
             return new com.ae2utilix.gui.ContainerCrystalGrowthChamber(player.inventory,
                     (com.ae2utilix.block.TileCrystalGrowthChamber) te);
+        }
+        if (te instanceof TileCommonInterfaceAlternate && ID == FullTerminalGuiHandler.GUI_COMMON_INTERFACE) {
+            return new com.ae2utilix.gui.ContainerCommonInterface(player.inventory,
+                    (TileCommonInterfaceAlternate) te);
         }
         if (te instanceof appeng.api.storage.ITerminalHost) {
             appeng.api.storage.ITerminalHost host = (appeng.api.storage.ITerminalHost) te;
@@ -305,6 +328,10 @@ public class AE2Utilix implements IGuiHandler {
         if (te instanceof com.ae2utilix.block.TileCrystalGrowthChamber) {
             return new com.ae2utilix.gui.GuiCrystalGrowthChamber(player.inventory,
                     (com.ae2utilix.block.TileCrystalGrowthChamber) te);
+        }
+        if (te instanceof TileCommonInterfaceAlternate && ID == FullTerminalGuiHandler.GUI_COMMON_INTERFACE) {
+            return new com.ae2utilix.gui.GuiCommonInterface(player.inventory,
+                    (TileCommonInterfaceAlternate) te);
         }
         if (te instanceof appeng.api.storage.ITerminalHost) {
             appeng.api.storage.ITerminalHost host = (appeng.api.storage.ITerminalHost) te;

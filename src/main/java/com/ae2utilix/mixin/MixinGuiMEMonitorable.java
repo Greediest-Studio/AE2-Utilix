@@ -17,10 +17,8 @@ public class MixinGuiMEMonitorable {
     @Shadow
     private GuiText myName;
 
-    @Inject(method = "<init>(Lnet/minecraft/entity/player/InventoryPlayer;Lappeng/api/storage/ITerminalHost;Lappeng/container/implementations/ContainerMEMonitorable;)V",
-            at = @At("RETURN"), remap = false)
-    private void ae2utilix$fixMyName(InventoryPlayer inventoryPlayer, ITerminalHost te,
-                                     ContainerMEMonitorable c, CallbackInfo ci) {
+    @Inject(method = "drawFG", at = @At("HEAD"), remap = false, require = 0)
+    private void ae2utilix$fixMyName(int offsetX, int offsetY, int mouseX, int mouseY, CallbackInfo ci) {
         if (this.myName == null) {
             this.myName = GuiText.Terminal;
         }

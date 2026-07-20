@@ -6,6 +6,8 @@ import net.minecraft.item.Item;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
+import net.minecraftforge.client.model.ModelLoaderRegistry;
+import com.ae2utilix.client.FluidMarkModel;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -16,6 +18,7 @@ public class ClientEventHandler {
 
     @SubscribeEvent
     public static void registerModels(ModelRegistryEvent event) {
+        ModelLoaderRegistry.registerLoader(new FluidMarkModel.Loader());
         ModelLoader.setCustomModelResourceLocation(AE2Utilix.PRODUCT_RETURN_CARD, 0,
                 new ModelResourceLocation(AE2Utilix.MODID + ":product_return_card", "inventory"));
 
@@ -31,6 +34,9 @@ public class ClientEventHandler {
         ModelLoader.setCustomModelResourceLocation(AE2Utilix.OVERFLOW_DESTRUCTION_CARD, 0,
                 new ModelResourceLocation(AE2Utilix.MODID + ":overflow_destruction_card", "inventory"));
 
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.FLUID_MARK, 0,
+                new ModelResourceLocation(FluidMarkModel.MODEL, "inventory"));
+
         ModelLoader.setCustomModelResourceLocation(AE2Utilix.MATTER_DECOMPOSER, 0,
                 new ModelResourceLocation(AE2Utilix.MODID + ":matter_decomposer", "inventory"));
 
@@ -41,6 +47,12 @@ public class ClientEventHandler {
         if (phaseInterfaceItem != null) {
             ModelLoader.setCustomModelResourceLocation(phaseInterfaceItem, 0,
                     new ModelResourceLocation(AE2Utilix.MODID + ":phase_interface", "inventory"));
+        }
+
+        Item commonInterfaceAlternateItem = Item.getItemFromBlock(AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE);
+        if (commonInterfaceAlternateItem != null) {
+            ModelLoader.setCustomModelResourceLocation(commonInterfaceAlternateItem, 0,
+                    new ModelResourceLocation(AE2Utilix.MODID + ":common_interface", "inventory"));
         }
 
         Item cgcItem = Item.getItemFromBlock(AE2Utilix.BLOCK_CRYSTAL_GROWTH_CHAMBER);

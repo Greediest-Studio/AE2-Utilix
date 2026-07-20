@@ -7,12 +7,7 @@ import appeng.api.storage.data.IAEItemStack;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.InvOperation;
 import com.ae2utilix.integration.AE2FCRUCompat;
-import com.circulation.random_complement.client.RCSettings;
-import com.circulation.random_complement.client.buttonsetting.PatternTermAutoFillPattern;
-import com.circulation.random_complement.common.interfaces.RCIConfigManager;
-import com.circulation.random_complement.common.interfaces.RCIConfigManagerHost;
-import com.circulation.random_complement.common.interfaces.RCIConfigurableObject;
-import com.circulation.random_complement.common.util.RCConfigManager;
+import com.ae2utilix.integration.RandomComplementCompat;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -20,7 +15,7 @@ import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
-public class TilePatternTerminal extends TileStorageTerminal implements RCIConfigurableObject, RCIConfigManagerHost {
+public class TilePatternTerminal extends TileStorageTerminal {
 
     public static final int PAGE_COUNT = 9;
     public static final int SLOTS_PER_PAGE_INPUT = 9;
@@ -46,17 +41,15 @@ public class TilePatternTerminal extends TileStorageTerminal implements RCIConfi
     // AE2FCRU fields
     private boolean fc$combine = false;
     private boolean fc$fluidFirst = false;
-
-    // RandomComplement fields
-    private final RCConfigManager rc$configManager;
+    private Object rc$configManager;
 
     public TilePatternTerminal() {
-        this.rc$configManager = new RCConfigManager(this);
-        try {
-            this.rc$configManager.registerSetting(RCSettings.PatternTermAutoFillPattern, PatternTermAutoFillPattern.CLOSE);
-        } catch (NoClassDefFoundError ignored) {
-            // RandomComplement not loaded
-        }
+        this.rc$configManager = RandomComplementCompat.createManager((Runnable) this::saveChanges);
+        RandomComplementCompat.registerAutoFill(this.rc$configManager);
+    }
+
+    public Object getRandomComplementConfigManager() {
+        return this.rc$configManager;
     }
 
     public boolean isCraftingRecipe() {
@@ -200,12 +193,8 @@ public class TilePatternTerminal extends TileStorageTerminal implements RCIConfi
         if (data.hasKey(NBT_FLUID_FIRST)) {
             this.fc$fluidFirst = data.getBoolean(NBT_FLUID_FIRST);
         }
-        // RandomComplement config
-        try {
-            if (data.hasKey("rcConfig")) {
-                this.rc$configManager.readFromNBT(data.getCompoundTag("rcConfig"));
-            }
-        } catch (NoClassDefFoundError ignored) {
+        if (data.hasKey("rcConfig")) {
+            RandomComplementCompat.read(this.rc$configManager, data.getCompoundTag("rcConfig"));
         }
     }
 
@@ -219,12 +208,10 @@ public class TilePatternTerminal extends TileStorageTerminal implements RCIConfi
         data.setBoolean(NBT_SUBSTITUTE, this.isSubstitute);
         data.setBoolean(NBT_COMBINE, this.fc$combine);
         data.setBoolean(NBT_FLUID_FIRST, this.fc$fluidFirst);
-        // RandomComplement config
-        try {
-            NBTTagCompound rcTag = new NBTTagCompound();
-            this.rc$configManager.writeToNBT(rcTag);
+        NBTTagCompound rcTag = new NBTTagCompound();
+        RandomComplementCompat.write(this.rc$configManager, rcTag);
+        if (!rcTag.hasNoTags()) {
             data.setTag("rcConfig", rcTag);
-        } catch (NoClassDefFoundError ignored) {
         }
         return data;
     }
@@ -283,17 +270,5 @@ public class TilePatternTerminal extends TileStorageTerminal implements RCIConfi
                 }
             }
         }
-    }
-
-    // RCIConfigurableObject implementation
-    @Override
-    public RCIConfigManager r$getConfigManager() {
-        return this.rc$configManager;
-    }
-
-    // RCIConfigManagerHost implementation
-    @Override
-    public void r$updateSetting(RCIConfigManager manager, Enum<?> setting, Enum<?> value) {
-        this.saveChanges();
     }
 }

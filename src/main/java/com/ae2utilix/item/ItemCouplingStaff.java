@@ -67,7 +67,8 @@ public class ItemCouplingStaff extends AEBasePoweredItem {
         ItemStack held = player.getHeldItem(hand);
         if (held.isEmpty() || held.getItem() != this) return EnumActionResult.PASS;
 
-        if (world.getBlockState(pos).getBlock() instanceof com.ae2utilix.block.BlockPhaseInterface) {
+        if (world.getBlockState(pos).getBlock() instanceof com.ae2utilix.block.BlockPhaseInterface
+                || world.getBlockState(pos).getBlock() instanceof com.ae2utilix.block.BlockCommonInterfaceAlternate) {
             if (hasRecord(held)) {
                 if (world.isRemote) return EnumActionResult.SUCCESS;
                 com.ae2utilix.block.TilePhaseInterface te = (com.ae2utilix.block.TilePhaseInterface) world.getTileEntity(pos);

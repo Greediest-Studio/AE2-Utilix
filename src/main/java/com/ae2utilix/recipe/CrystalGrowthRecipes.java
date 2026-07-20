@@ -7,8 +7,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.items.IItemHandler;
 
-import net.minecraftforge.fml.common.Loader;
-
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -24,12 +22,6 @@ public class CrystalGrowthRecipes {
         recipeFiles.add("assets/ae2_utilix/recipes/pure_certus_quartz.json");
         recipeFiles.add("assets/ae2_utilix/recipes/pure_nether_quartz.json");
         recipeFiles.add("assets/ae2_utilix/recipes/pure_fluix.json");
-
-        if (Loader.isModLoaded("ae2_meteorite_addon")) {
-            recipeFiles.add("assets/ae2_utilix/recipes/meteorite_damaged_budding.json");
-            recipeFiles.add("assets/ae2_utilix/recipes/meteorite_chipped_budding.json");
-            recipeFiles.add("assets/ae2_utilix/recipes/meteorite_flawed_budding.json");
-        }
 
         for (String path : recipeFiles) {
             try (InputStreamReader reader = new InputStreamReader(

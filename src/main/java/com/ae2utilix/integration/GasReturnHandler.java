@@ -5,6 +5,7 @@ import appeng.util.item.AEItemStack;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.fml.common.Loader;
 
 import javax.annotation.Nullable;
 
@@ -62,6 +63,7 @@ public class GasReturnHandler {
     private static void check() {
         if (checked) return;
         checked = true;
+        if (!Loader.isModLoaded("ae2fc")) return;
         try {
             GAS_DROP = Item.getByNameOrId("ae2fc:gas_drop");
             GAS_PACKET = Item.getByNameOrId("ae2fc:gas_packet");

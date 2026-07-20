@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "package": "com.ae2utilix.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "MixinTilePatternTerminalRandomComplement",
+    "MixinContainerFullPatternRandomComplement"
+  ],
+  "client": [
+    "MixinRCGuiMEMonitorable"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

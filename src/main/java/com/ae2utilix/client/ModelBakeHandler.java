@@ -17,7 +17,8 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 public class ModelBakeHandler {
 
     private static final java.util.Set<String> ORIENTED_BLOCKS = new java.util.HashSet<>(java.util.Arrays.asList(
-            "phase_interface"
+            "phase_interface",
+            "common_interface"
     ));
 
     private static final String[] TERMINAL_TYPES = {

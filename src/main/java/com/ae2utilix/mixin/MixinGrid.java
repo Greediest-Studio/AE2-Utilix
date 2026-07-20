@@ -4,6 +4,7 @@ import appeng.api.networking.IGridHost;
 import appeng.api.networking.IMachineSet;
 import appeng.me.Grid;
 import appeng.tile.misc.TileInterface;
+import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.block.TilePhaseInterface;
 import com.ae2utilix.util.UnionMachineSet;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,8 +20,10 @@ public class MixinGrid {
         if (c == TileInterface.class) {
             IMachineSet original = cir.getReturnValue();
             IMachineSet phaseSet = ((Grid) (Object) this).getMachines(TilePhaseInterface.class);
-            if (!phaseSet.isEmpty()) {
-                cir.setReturnValue(new UnionMachineSet(TileInterface.class, original, phaseSet));
+            IMachineSet commonSet = ((Grid) (Object) this).getMachines(TileCommonInterfaceAlternate.class);
+            if (!phaseSet.isEmpty() || !commonSet.isEmpty()) {
+                IMachineSet combined = new UnionMachineSet(TileInterface.class, original, phaseSet);
+                cir.setReturnValue(new UnionMachineSet(TileInterface.class, combined, commonSet));
             }
         }
     }

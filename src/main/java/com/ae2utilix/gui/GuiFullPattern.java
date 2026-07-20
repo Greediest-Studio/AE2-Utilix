@@ -55,11 +55,11 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
     private GuiScrollbar patternScrollbar;
 
     // AE2FCRU buttons
-    private GuiImgButton combineEnableBtn;
-    private GuiImgButton combineDisableBtn;
-    private GuiImgButton fluidEnableBtn;
-    private GuiImgButton fluidDisableBtn;
-    private GuiImgButton craftingFluidBtn;
+    private GuiButton combineEnableBtn;
+    private GuiButton combineDisableBtn;
+    private GuiButton fluidEnableBtn;
+    private GuiButton fluidDisableBtn;
+    private GuiButton craftingFluidBtn;
 
     // Middle-click quantity input
     private GuiTextField amountField;
@@ -72,7 +72,9 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
     public GuiFullPattern(InventoryPlayer inventoryPlayer, ITerminalHost te) {
         super(inventoryPlayer, te, new ContainerFullPattern(inventoryPlayer, te));
         this.container = (ContainerFullPattern) this.inventorySlots;
-        ((com.ae2utilix.mixin.MixinGuiMEMonitorableAccessor) this).ae2utilix$setReservedSpace(81);
+        com.ae2utilix.mixin.MixinGuiMEMonitorableAccessor accessor = (com.ae2utilix.mixin.MixinGuiMEMonitorableAccessor) this;
+        accessor.ae2utilix$setReservedSpace(81);
+        accessor.ae2utilix$setMyName(GuiText.PatternTerminal);
     }
 
     @Override
@@ -158,25 +160,25 @@ public class GuiFullPattern extends GuiMEMonitorable implements IJEIGhostIngredi
         if (AE2FCRUCompat.isLoaded()) {
             this.combineEnableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, "FORCE_COMBINE", "DO_COMBINE");
             if (this.combineEnableBtn != null) {
-                this.combineEnableBtn.setHalfSize(true);
+                AE2FCRUCompat.setButtonHalfSize(this.combineEnableBtn, true);
                 this.buttonList.add(this.combineEnableBtn);
             }
 
             this.combineDisableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, "NOT_COMBINE", "DONT_COMBINE");
             if (this.combineDisableBtn != null) {
-                this.combineDisableBtn.setHalfSize(true);
+                AE2FCRUCompat.setButtonHalfSize(this.combineDisableBtn, true);
                 this.buttonList.add(this.combineDisableBtn);
             }
 
             this.fluidEnableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 153, "FLUID_FIRST", "FLUID");
             if (this.fluidEnableBtn != null) {
-                this.fluidEnableBtn.setHalfSize(true);
+                AE2FCRUCompat.setButtonHalfSize(this.fluidEnableBtn, true);
                 this.buttonList.add(this.fluidEnableBtn);
             }
 
             this.fluidDisableBtn = AE2FCRUCompat.createGuiFCImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 153, "ORIGIN_ORDER", "ITEM");
             if (this.fluidDisableBtn != null) {
-                this.fluidDisableBtn.setHalfSize(true);
+                AE2FCRUCompat.setButtonHalfSize(this.fluidDisableBtn, true);
                 this.buttonList.add(this.fluidDisableBtn);
             }
 

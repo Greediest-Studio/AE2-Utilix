@@ -11,6 +11,7 @@ import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fml.common.Loader;
 
 import javax.annotation.Nullable;
 
@@ -22,6 +23,7 @@ public class FluidReturnHandler {
 
     public static boolean isFluidFakeItem(ItemStack stack) {
         if (stack.isEmpty()) return false;
+        if (stack.getItem() == com.ae2utilix.AE2Utilix.FLUID_MARK) return true;
         checkAE2FC();
         if (FLUID_DROP == null && FLUID_PACKET == null) return false;
         return stack.getItem() == FLUID_DROP || stack.getItem() == FLUID_PACKET;
@@ -37,6 +39,9 @@ public class FluidReturnHandler {
 
     @Nullable
     private static FluidStack parseFluidDrop(ItemStack stack) {
+        if (stack.getItem() == com.ae2utilix.AE2Utilix.FLUID_MARK) {
+            return com.ae2utilix.item.ItemFluidMark.getFluid(stack);
+        }
         if (!stack.hasTagCompound()) return null;
         NBTTagCompound tag = stack.getTagCompound();
         if (tag == null || !tag.hasKey("Fluid", 8)) return null;
@@ -130,6 +135,7 @@ public class FluidReturnHandler {
     private static void checkAE2FC() {
         if (ae2fcChecked) return;
         ae2fcChecked = true;
+        if (!Loader.isModLoaded("ae2fc")) return;
         try {
             FLUID_DROP = Item.getByNameOrId("ae2fc:fluid_drop");
             FLUID_PACKET = Item.getByNameOrId("ae2fc:fluid_packet");

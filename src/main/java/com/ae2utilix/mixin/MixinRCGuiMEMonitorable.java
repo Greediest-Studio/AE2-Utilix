@@ -7,7 +7,6 @@ import com.circulation.random_complement.RandomComplement;
 import com.circulation.random_complement.client.RCGuiButton;
 import com.circulation.random_complement.client.RCSettings;
 import com.circulation.random_complement.client.buttonsetting.PatternTermAutoFillPattern;
-import com.circulation.random_complement.common.interfaces.PatternTermConfigs;
 import com.circulation.random_complement.common.network.RCConfigButton;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -74,10 +73,9 @@ public abstract class MixinRCGuiMEMonitorable extends GuiContainer {
         if (this.monitorableContainer instanceof ContainerFullPattern && this.ae2utilix$AutoFillPattern != null) {
             try {
                 ContainerFullPattern cpt = (ContainerFullPattern) this.monitorableContainer;
-                if (cpt instanceof PatternTermConfigs) {
-                    PatternTermConfigs ptc = (PatternTermConfigs) cpt;
-                    this.ae2utilix$AutoFillPattern.set(ptc.r$getAutoFillPattern());
-                }
+                PatternTermAutoFillPattern value = "OPEN".equals(cpt.rc$autoFillPattern)
+                        ? PatternTermAutoFillPattern.OPEN : PatternTermAutoFillPattern.CLOSE;
+                this.ae2utilix$AutoFillPattern.set(value);
             } catch (NoClassDefFoundError ignored) {
             }
         }

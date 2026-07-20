@@ -1,0 +1,273 @@
+package com.ae2utilix.gui;
+
+import appeng.client.gui.AEBaseGui;
+import com.ae2utilix.AE2Utilix;
+import com.ae2utilix.block.TileCommonInterfaceAlternate;
+import com.ae2utilix.network.NetworkHandler;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.util.ResourceLocation;
+import appeng.client.gui.widgets.MEGuiTextField;
+import appeng.fluids.client.render.FluidStackSizeRenderer;
+import appeng.fluids.util.AEFluidStack;
+import net.minecraft.client.renderer.GlStateManager;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+
+public class GuiCommonInterface extends AEBaseGui {
+
+    private static final ResourceLocation BACKGROUND =
+            new ResourceLocation("ae2_utilix", "textures/guis/common_interface.png");
+
+    private final ContainerCommonInterface container;
+    private MEGuiTextField amountField;
+    private Slot amountSlot;
+    private boolean amountFieldActive;
+    private final Set<Integer> fluidDragSlots = new HashSet<>();
+    private final FluidStackSizeRenderer fluidAmountRenderer = new FluidStackSizeRenderer();
+
+    public GuiCommonInterface(InventoryPlayer inventory, TileCommonInterfaceAlternate tile) {
+        super(new ContainerCommonInterface(inventory, tile));
+        this.container = (ContainerCommonInterface) this.inventorySlots;
+        this.xSize = 246;
+        this.ySize = 216;
+    }
+
+    @Override
+    public void initGui() {
+        super.initGui();
+        this.amountField = new MEGuiTextField(this.fontRenderer, 8, 6, 54, 10);
+        this.amountField.x = this.guiLeft + 8;
+        this.amountField.y = this.guiTop + 6;
+        this.amountField.setMaxStringLength(6);
+        this.amountField.setVisible(false);
+    }
+
+    @Override
+    public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY) {
+        this.mc.getTextureManager().bindTexture(BACKGROUND);
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
+    }
+
+    @Override
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        this.drawBG(this.guiLeft, this.guiTop, mouseX, mouseY);
+    }
+
+    @Override
+    public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
+        this.fontRenderer.drawString(I18n.format("tile.ae2_utilix.common_interface.name"), 8, 6, 4210752);
+        this.drawFluidAmountOverlays();
+        if (this.amountFieldActive && this.amountField != null) {
+            int fieldX = this.amountField.x - this.guiLeft;
+            int fieldY = this.amountField.y - this.guiTop;
+            int oldX = this.amountField.x;
+            int oldY = this.amountField.y;
+            int renderX = fieldX + 1;
+            int renderY = fieldY - 1;
+            this.amountField.x = renderX;
+            this.amountField.y = renderY;
+            GlStateManager.disableDepth();
+            drawRect(renderX - 1, renderY - 1, renderX + 54, renderY + 10 + 2, 0xFF000000);
+            this.fontRenderer.drawString(this.amountField.getText(), renderX + 3, renderY + 1, 0xFFFFFF);
+            GlStateManager.enableDepth();
+            this.amountField.x = oldX;
+            this.amountField.y = oldY;
+        }
+    }
+
+    private void drawFluidAmountOverlays() {
+        for (int slotIndex = 0; slotIndex < 36; slotIndex++) {
+            Slot slot = this.inventorySlots.getSlot(slotIndex);
+            if (!this.isFluidConfigSlot(slot) || !com.ae2utilix.item.ItemFluidMark.isFluidMark(slot.getStack())) {
+                continue;
+            }
+
+            net.minecraftforge.fluids.FluidStack fluid = this.container.getTile().getFluidConfig(
+                    slot.slotNumber % 4 >= 2, slot.slotNumber / 4);
+            if (fluid == null) {
+                continue;
+            }
+
+            // Hide the marker's own stack count and replace it with the saved fluid amount.
+            drawRect(slot.xPos + 5, slot.yPos + 8, slot.xPos + 17, slot.yPos + 18, 0xFF000000);
+            this.fluidAmountRenderer.renderStackSize(this.fontRenderer,
+                    AEFluidStack.fromFluidStack(fluid), slot.xPos, slot.yPos);
+        }
+    }
+
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        this.fluidDragSlots.clear();
+        if (!this.amountFieldActive && mouseButton == 1) {
+            Slot slot = this.getSlotUnderMouse();
+            ItemStack held = this.mc.player.inventory.getItemStack();
+            net.minecraftforge.fluids.FluidStack heldFluid = this.getHeldFluid(held);
+            if (slot != null && slot.slotNumber < 36
+                    && (slot.slotNumber % 4 == 0 || slot.slotNumber % 4 == 2)
+                    && heldFluid != null) {
+                boolean extended = slot.slotNumber % 4 >= 2;
+                int configSlot = slot.slotNumber / 4;
+                NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                        this.container.getTilePosition(), configSlot, true, extended, heldFluid));
+                this.fluidDragSlots.add(slot.slotNumber);
+                return;
+            }
+        }
+        if (this.amountFieldActive && this.amountField != null) {
+            int fieldX = this.amountField.x;
+            int fieldY = this.amountField.y;
+            if (mouseX >= fieldX && mouseX <= fieldX + this.amountField.getWidth()
+                    && mouseY >= fieldY && mouseY <= fieldY + this.fontRenderer.FONT_HEIGHT) {
+                this.amountField.mouseClicked(mouseX, mouseY, mouseButton);
+                return;
+            }
+            this.confirmAmountField();
+        }
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+    }
+
+    private void confirmAmountField() {
+        if (this.amountSlot == null || this.amountField == null) return;
+        try {
+            int amount = Integer.parseInt(this.amountField.getText());
+            int slotIdx = this.amountSlot.slotNumber;
+            boolean extended = slotIdx % 4 >= 2;
+            int configSlot = slotIdx / 4;
+            int limit = com.ae2utilix.item.ItemFluidMark.isFluidMark(this.amountSlot.getStack()) ? 512000 : 512;
+            NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
+                    this.container.getTilePosition(), configSlot, Math.min(limit, Math.max(1, amount)), extended));
+        } catch (NumberFormatException ignored) {
+        }
+        this.amountFieldActive = false;
+        this.amountField.setVisible(false);
+        this.amountSlot = null;
+    }
+
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (this.amountFieldActive) {
+            if (keyCode == org.lwjgl.input.Keyboard.KEY_RETURN || keyCode == org.lwjgl.input.Keyboard.KEY_NUMPADENTER) {
+                this.confirmAmountField();
+                return;
+            }
+            if (keyCode == org.lwjgl.input.Keyboard.KEY_ESCAPE) {
+                this.amountFieldActive = false;
+                this.amountField.setVisible(false);
+                return;
+            }
+            if (this.amountField.textboxKeyTyped(typedChar, keyCode)) return;
+        }
+        super.keyTyped(typedChar, keyCode);
+    }
+
+    @Override
+    protected void renderHoveredToolTip(int mouseX, int mouseY) {
+        Slot slot = this.getSlotUnderMouse();
+        if (slot != null && slot.slotNumber < 36
+                && (slot.slotNumber % 4 == 0 || slot.slotNumber % 4 == 2)) {
+            java.util.List<String> tips = new java.util.ArrayList<>();
+            ItemStack marked = slot.getStack();
+            if (!marked.isEmpty()) {
+                net.minecraftforge.fluids.FluidStack markedFluid = com.ae2utilix.item.ItemFluidMark.getFluid(marked);
+                if (markedFluid != null) {
+                    tips.add(I18n.format("ae2_utilix.common_interface.marked_fluid", markedFluid.getLocalizedName()));
+                } else {
+                    tips.add(I18n.format("ae2_utilix.common_interface.marked_item", marked.getDisplayName()));
+                }
+            }
+            ItemStack held = this.mc.player.inventory.getItemStack();
+            if (!held.isEmpty()) {
+                net.minecraftforge.fluids.FluidStack fluid = this.getHeldFluid(held);
+                if (fluid != null) {
+                    tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                    tips.add(I18n.format("ae2_utilix.common_interface.right_click_fluid", fluid.getLocalizedName()));
+                } else {
+                    tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                }
+            }
+            if (!tips.isEmpty()) {
+                this.drawHoveringText(tips, mouseX, mouseY);
+                return;
+            }
+        }
+        super.renderHoveredToolTip(mouseX, mouseY);
+    }
+
+    @Override
+    protected void handleMouseClick(Slot slot, int slotIdx, int mouseButton, ClickType clickType) {
+        if (slot != null && mouseButton == 1 && slotIdx >= 0 && slotIdx < 36
+                && (slotIdx % 4 == 0 || slotIdx % 4 == 2)
+                && this.getHeldFluid(this.mc.player.inventory.getItemStack()) != null) {
+            boolean extended = slotIdx % 4 >= 2;
+            net.minecraftforge.fluids.FluidStack fluid = this.getHeldFluid(this.mc.player.inventory.getItemStack());
+            NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                    this.container.getTilePosition(), slotIdx / 4, true, extended, fluid));
+            this.fluidDragSlots.add(slotIdx);
+            return;
+        }
+        if (slot != null && mouseButton == 2 && (slotIdx % 4 == 0 || slotIdx % 4 == 2)) {
+            this.amountSlot = slot;
+            this.amountFieldActive = true;
+            this.amountField.x = this.guiLeft + slot.xPos;
+            this.amountField.y = this.guiTop + slot.yPos - 12;
+            net.minecraftforge.fluids.FluidStack fluid = com.ae2utilix.item.ItemFluidMark.getFluid(slot.getStack());
+            if (fluid != null) {
+                fluid = this.container.getTile().getFluidConfig(slotIdx % 4 >= 2, slotIdx / 4);
+            }
+            this.amountField.setMaxStringLength(10);
+            this.amountField.setText(String.valueOf(fluid == null ? slot.getStack().getCount() : fluid.amount));
+            this.amountField.setVisible(true);
+            this.amountField.setFocused(true);
+            return;
+        }
+        super.handleMouseClick(slot, slotIdx, mouseButton, clickType);
+    }
+
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int mouseButton, long timeSinceClick) {
+        if (mouseButton == 1 && !this.amountFieldActive) {
+            Slot slot = this.getSlot(mouseX, mouseY);
+            ItemStack held = this.mc.player.inventory.getItemStack();
+            net.minecraftforge.fluids.FluidStack heldFluid = this.getHeldFluid(held);
+            if (this.isFluidMarkSlot(slot) && heldFluid != null && this.fluidDragSlots.add(slot.slotNumber)) {
+                boolean extended = slot.slotNumber % 4 >= 2;
+                NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                        this.container.getTilePosition(), slot.slotNumber / 4, true, extended, heldFluid));
+                return;
+            }
+        }
+        super.mouseClickMove(mouseX, mouseY, mouseButton, timeSinceClick);
+    }
+
+    @Override
+    protected void mouseReleased(int mouseX, int mouseY, int state) {
+        this.fluidDragSlots.clear();
+        super.mouseReleased(mouseX, mouseY, state);
+    }
+
+    private boolean isFluidMarkSlot(Slot slot) {
+        return slot != null && slot.slotNumber < 36
+                && (slot.slotNumber % 4 == 0 || slot.slotNumber % 4 == 2);
+    }
+
+    private boolean isFluidConfigSlot(Slot slot) {
+        return this.isFluidMarkSlot(slot);
+    }
+
+    private net.minecraftforge.fluids.FluidStack getHeldFluid(ItemStack held) {
+        if (held == null || held.isEmpty()) return null;
+        net.minecraftforge.fluids.FluidStack fluid = FluidUtil.getFluidContained(held);
+        if (fluid == null) fluid = com.ae2utilix.item.ItemFluidMark.getFluid(held);
+        if (fluid == null && held.getItem() == net.minecraft.init.Items.WATER_BUCKET) {
+            fluid = new net.minecraftforge.fluids.FluidStack(net.minecraftforge.fluids.FluidRegistry.WATER, 1000);
+        }
+        return fluid;
+    }
+
+}
