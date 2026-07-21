@@ -73,15 +73,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     public static final int VIRTUAL_TRANSFER = 1000;
     public static final int ITEM_TRANSFER = 64;
     public static final int MAX_VIRTUAL_AMOUNT = 512000;
-    private static final int MARKER_ITEM = 0;
-    private static final int MARKER_FLUID = 1;
-    private static final int MARKER_GAS = 2;
-    private static final int MARKER_MANA = 3;
-    private static final int MARKER_FE = 4;
 
     private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, CONFIG_SLOTS);
     private final int[] virtualAmounts = new int[CONFIG_SLOTS];
-    private int virtualResourceRate = VIRTUAL_TRANSFER;
     protected final IActionSource source = new MachineSource(this);
 
     protected PartCommonBus(ItemStack stack) {
@@ -124,17 +118,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     }
 
     private int getVirtualResourceAmount(int slot) {
-        int configured = slot >= 0 && slot < CONFIG_SLOTS ? this.getVirtualAmount(slot) : VIRTUAL_TRANSFER;
-        return Math.min(MAX_VIRTUAL_AMOUNT, Math.max(configured, this.virtualResourceRate));
-    }
-
-    private void updateVirtualResourceRate(boolean worked) {
-        if (!worked) {
-            this.virtualResourceRate = VIRTUAL_TRANSFER;
-            return;
-        }
-        this.virtualResourceRate = Math.min(MAX_VIRTUAL_AMOUNT,
-                Math.max(VIRTUAL_TRANSFER, this.virtualResourceRate * 2));
+        return MAX_VIRTUAL_AMOUNT;
     }
 
     public void setMarker(int slot, ItemStack marker) {
@@ -167,9 +151,6 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                         ? Math.min(MAX_VIRTUAL_AMOUNT, saved[i]) : VIRTUAL_TRANSFER;
             }
         }
-        this.virtualResourceRate = data.hasKey("virtualResourceRate")
-                ? Math.max(VIRTUAL_TRANSFER, Math.min(MAX_VIRTUAL_AMOUNT, data.getInteger("virtualResourceRate")))
-                : VIRTUAL_TRANSFER;
     }
 
     @Override
@@ -177,7 +158,6 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         super.writeToNBT(data);
         this.config.writeToNBT(data, "config");
         data.setIntArray("virtualAmounts", this.virtualAmounts);
-        data.setInteger("virtualResourceRate", this.virtualResourceRate);
     }
 
     @Override
@@ -214,8 +194,6 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         if (!this.getProxy().isActive() || !this.canDoBusWork()) return TickRateModulation.IDLE;
 
         boolean worked = false;
-        boolean virtualResourceAttempted = false;
-        boolean virtualResourceWorked = false;
         for (int slot = 0; slot < CONFIG_SLOTS; slot++) {
             ItemStack marker = this.config.getStackInSlot(slot);
             if (marker.isEmpty()) continue;
@@ -227,74 +205,39 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                 }
             } else if (ItemFluidMark.isManaMark(marker)) {
                 if (BotaniaFluxIntegration.isManaIntegrationAvailable()) {
-                    virtualResourceAttempted = true;
-                    boolean step = this.isExportBus() ? this.exportMana(slot) : this.importMana(slot);
-                    worked |= step;
-                    virtualResourceWorked |= step;
+                    worked |= this.isExportBus() ? this.exportMana(slot) : this.importMana(slot);
                 }
             } else if (ItemFluidMark.isFeMark(marker)) {
                 if (BotaniaFluxIntegration.isFeIntegrationAvailable()) {
-                    virtualResourceAttempted = true;
-                    boolean step = this.isExportBus() ? this.exportFe(slot) : this.importFe(slot);
-                    worked |= step;
-                    virtualResourceWorked |= step;
+                    worked |= this.isExportBus() ? this.exportFe(slot) : this.importFe(slot);
                 }
             } else {
                 worked |= this.isExportBus() ? this.exportItem(marker) : this.importItem(marker);
             }
         }
 
-        // Every empty resource channel imports all matching resources. A marker
-        // only filters its own channel; it must not disable the other channels.
-        if (!this.isExportBus()) {
-            if (!this.hasMarkerOfType(MARKER_ITEM)) worked |= this.importItem(null);
-            if (!this.hasMarkerOfType(MARKER_FLUID)) worked |= this.importFluid(null, -1);
-            if (MekanismEnergisticsIntegration.isAvailable() && !this.hasMarkerOfType(MARKER_GAS)) {
+        // An entirely unconfigured import bus imports all resource channels.
+        // Once one marker exists, empty slots stay inactive so an explicit
+        // mana/FE marker cannot silently enable unrelated imports.
+        if (!this.isExportBus() && !this.hasAnyMarker()) {
+            worked |= this.importItem(null);
+            worked |= this.importFluid(null, -1);
+            if (MekanismEnergisticsIntegration.isAvailable()) {
                 worked |= this.importGas(null, -1);
             }
-            if (BotaniaFluxIntegration.isManaIntegrationAvailable() && !this.hasMarkerOfType(MARKER_MANA)) {
-                virtualResourceAttempted = true;
-                boolean step = this.importMana(-1);
-                worked |= step;
-                virtualResourceWorked |= step;
+            if (BotaniaFluxIntegration.isManaIntegrationAvailable()) {
+                worked |= this.importMana(-1);
             }
-            if (BotaniaFluxIntegration.isFeIntegrationAvailable() && !this.hasMarkerOfType(MARKER_FE)) {
-                virtualResourceAttempted = true;
-                boolean step = this.importFe(-1);
-                worked |= step;
-                virtualResourceWorked |= step;
+            if (BotaniaFluxIntegration.isFeIntegrationAvailable()) {
+                worked |= this.importFe(-1);
             }
-        }
-        if (virtualResourceAttempted) {
-            this.updateVirtualResourceRate(virtualResourceWorked);
         }
         return worked ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
     }
 
-    private boolean hasMarkerOfType(int type) {
+    private boolean hasAnyMarker() {
         for (int i = 0; i < CONFIG_SLOTS; i++) {
-            ItemStack marker = this.config.getStackInSlot(i);
-            if (marker.isEmpty()) continue;
-            boolean matches;
-            switch (type) {
-                case MARKER_FLUID:
-                    matches = ItemFluidMark.isFluidMark(marker);
-                    break;
-                case MARKER_GAS:
-                    matches = ItemFluidMark.isGasMark(marker);
-                    break;
-                case MARKER_MANA:
-                    matches = ItemFluidMark.isManaMark(marker);
-                    break;
-                case MARKER_FE:
-                    matches = ItemFluidMark.isFeMark(marker);
-                    break;
-                case MARKER_ITEM:
-                default:
-                    matches = !ItemFluidMark.isVirtualMark(marker);
-                    break;
-            }
-            if (matches) return true;
+            if (!this.config.getStackInSlot(i).isEmpty()) return true;
         }
         return false;
     }
@@ -528,26 +471,42 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private boolean importMana(int slot) {
         TileEntity target = this.getConnectedTile();
         if (!(target instanceof IManaReceiver)) return false;
-        int amount = this.getVirtualResourceAmount(slot);
-        long accepted = this.insertMana(amount, Actionable.SIMULATE);
-        if (accepted <= 0) return false;
-        int actual = this.extractManaFromTarget(target, (int) Math.min(amount, accepted));
-        if (actual <= 0) return false;
-        long failed = this.insertMana(actual, Actionable.MODULATE);
-        if (failed > 0) this.insertManaIntoTarget(target, (int) failed);
-        return actual - failed > 0;
+        long remaining = this.getVirtualResourceAmount(slot);
+        boolean worked = false;
+        while (remaining > 0) {
+            int request = (int) Math.min(remaining, Integer.MAX_VALUE);
+            long accepted = this.insertMana(request, Actionable.SIMULATE);
+            if (accepted <= 0) break;
+            int actual = this.extractManaFromTarget(target, (int) Math.min(request, accepted));
+            if (actual <= 0) break;
+            long failed = this.insertMana(actual, Actionable.MODULATE);
+            long rejected = Math.max(0, Math.min((long) actual, failed));
+            int inserted = (int) (actual - rejected);
+            if (rejected > 0) this.insertManaIntoTarget(target, (int) rejected);
+            if (inserted <= 0) break;
+            remaining -= inserted;
+            worked = true;
+            if (failed > 0) break;
+        }
+        return worked;
     }
 
     private boolean exportMana(int slot) {
         TileEntity target = this.getConnectedTile();
         if (!(target instanceof ISparkAttachable)) return false;
         ISparkAttachable receiver = (ISparkAttachable) target;
-        int amount = Math.min(this.getVirtualResourceAmount(slot), receiver.getAvailableSpaceForMana());
-        if (amount <= 0) return false;
-        long extracted = this.extractMana(amount, Actionable.MODULATE);
-        if (extracted <= 0) return false;
-        receiver.recieveMana((int) extracted);
-        return true;
+        long remaining = this.getVirtualResourceAmount(slot);
+        boolean worked = false;
+        while (remaining > 0) {
+            int amount = (int) Math.min(remaining, receiver.getAvailableSpaceForMana());
+            if (amount <= 0) break;
+            long extracted = this.extractMana(amount, Actionable.MODULATE);
+            if (extracted <= 0) break;
+            receiver.recieveMana((int) extracted);
+            remaining -= extracted;
+            worked = true;
+        }
+        return worked;
     }
 
     private int extractManaFromTarget(TileEntity target, int amount) {
@@ -576,27 +535,49 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         TileEntity target = this.getConnectedTile();
         IEnergyStorage energy = target == null ? null : target.getCapability(CapabilityEnergy.ENERGY, this.getTargetFace());
         if (energy == null) return false;
-        int available = energy.extractEnergy(this.getVirtualResourceAmount(slot), true);
-        if (available <= 0) return false;
-        long accepted = this.insertFe(available, Actionable.SIMULATE);
-        if (accepted <= 0) return false;
-        int actual = energy.extractEnergy((int) Math.min(available, accepted), false);
-        long failed = this.insertFe(actual, Actionable.MODULATE);
-        if (failed > 0) energy.receiveEnergy((int) failed, false);
-        return actual - failed > 0;
+        long remaining = this.getVirtualResourceAmount(slot);
+        boolean worked = false;
+        while (remaining > 0) {
+            int request = (int) Math.min(remaining, Integer.MAX_VALUE);
+            int available = energy.extractEnergy(request, true);
+            if (available <= 0) break;
+            long accepted = this.insertFe(available, Actionable.SIMULATE);
+            if (accepted <= 0) break;
+            int actual = energy.extractEnergy((int) Math.min(available, accepted), false);
+            if (actual <= 0) break;
+            long failed = this.insertFe(actual, Actionable.MODULATE);
+            long rejected = Math.max(0, Math.min((long) actual, failed));
+            int inserted = (int) (actual - rejected);
+            if (rejected > 0) energy.receiveEnergy((int) rejected, false);
+            if (inserted <= 0) break;
+            remaining -= inserted;
+            worked = true;
+            if (failed > 0) break;
+        }
+        return worked;
     }
 
     private boolean exportFe(int slot) {
         TileEntity target = this.getConnectedTile();
         IEnergyStorage energy = target == null ? null : target.getCapability(CapabilityEnergy.ENERGY, this.getTargetFace());
         if (energy == null) return false;
-        int accepted = energy.receiveEnergy(this.getVirtualResourceAmount(slot), true);
-        if (accepted <= 0) return false;
-        long extracted = this.extractFe(accepted, Actionable.MODULATE);
-        if (extracted <= 0) return false;
-        int inserted = energy.receiveEnergy((int) extracted, false);
-        if (inserted < extracted) this.insertFe(extracted - inserted, Actionable.MODULATE);
-        return inserted > 0;
+        long remaining = this.getVirtualResourceAmount(slot);
+        boolean worked = false;
+        while (remaining > 0) {
+            int accepted = energy.receiveEnergy((int) Math.min(remaining, Integer.MAX_VALUE), true);
+            if (accepted <= 0) break;
+            long extracted = this.extractFe(accepted, Actionable.MODULATE);
+            if (extracted <= 0) break;
+            int inserted = energy.receiveEnergy((int) extracted, false);
+            if (inserted < extracted) {
+                this.insertFe(extracted - inserted, Actionable.MODULATE);
+            }
+            if (inserted <= 0) break;
+            remaining -= inserted;
+            worked = true;
+            if (inserted < extracted) break;
+        }
+        return worked;
     }
 
     private long insertMana(long amount, Actionable mode) {
@@ -605,7 +586,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
             ManaStack remainder = inventory.injectItems(new ManaStack(amount), mode, this.source);
             return amount - (remainder == null ? 0 : remainder.getStackSize());
         } catch (GridAccessException e) {
-            return 0;
+            return amount;
         }
     }
 
@@ -625,7 +606,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
             FluxStack remainder = inventory.injectItems(new FluxStack(amount), mode, this.source);
             return amount - (remainder == null ? 0 : remainder.getStackSize());
         } catch (GridAccessException e) {
-            return 0;
+            return amount;
         }
     }
 
