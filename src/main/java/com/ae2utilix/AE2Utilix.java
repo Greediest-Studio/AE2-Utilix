@@ -46,7 +46,8 @@ import appeng.core.features.BlockStackSrc;
 import appeng.tile.AEBaseTile;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = AE2Utilix.MODID, name = AE2Utilix.NAME, version = AE2Utilix.VERSION, dependencies = "required-after:appliedenergistics2")
+@Mod(modid = AE2Utilix.MODID, name = AE2Utilix.NAME, version = AE2Utilix.VERSION,
+        dependencies = "required-after:appliedenergistics2;after:mekeng")
 public class AE2Utilix implements IGuiHandler {
     public static final String MODID = "ae2_utilix";
     public static final String NAME = "AE2\u5B9E\u7528\u5668\u68B0";

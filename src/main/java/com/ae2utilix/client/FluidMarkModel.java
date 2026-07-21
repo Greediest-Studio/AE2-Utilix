@@ -93,13 +93,21 @@ public class FluidMarkModel implements IModel {
                                                @Nullable World world, @Nullable EntityLivingBase entity) {
                 if (ItemFluidMark.isManaMark(stack)
                         && com.ae2utilix.integration.BotaniaFluxIntegration.isManaIntegrationAvailable()) {
-                    return Minecraft.getMinecraft().getRenderItem().getItemModelWithOverrides(
-                            nyonio.item.ItemManaPacket.create(0), world, entity);
+                    ItemStack packet = com.ae2utilix.integration.BotaniaFluxIntegration
+                            .getPacketStack(com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
+                    if (packet != null) {
+                        return Minecraft.getMinecraft().getRenderItem()
+                                .getItemModelWithOverrides(packet, world, entity);
+                    }
                 }
                 if (ItemFluidMark.isFeMark(stack)
                         && com.ae2utilix.integration.BotaniaFluxIntegration.isFeIntegrationAvailable()) {
-                    return Minecraft.getMinecraft().getRenderItem().getItemModelWithOverrides(
-                            com.flux_applied.item.ItemFluxPacket.create(0), world, entity);
+                    ItemStack packet = com.ae2utilix.integration.BotaniaFluxIntegration
+                            .getPacketStack(com.ae2utilix.integration.BotaniaFluxIntegration.FE);
+                    if (packet != null) {
+                        return Minecraft.getMinecraft().getRenderItem()
+                                .getItemModelWithOverrides(packet, world, entity);
+                    }
                 }
                 net.minecraftforge.fluids.FluidStack fluid = ItemFluidMark.getFluid(stack);
                 if (fluid != null) return resolve(fluid.getFluid().getStill(fluid));

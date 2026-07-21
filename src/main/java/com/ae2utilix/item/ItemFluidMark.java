@@ -1,6 +1,7 @@
 package com.ae2utilix.item;
 
 import com.ae2utilix.AE2Utilix;
+import com.ae2utilix.integration.BotaniaFluxIntegration;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -132,10 +133,10 @@ public class ItemFluidMark extends Item {
             return I18n.translateToLocal("gas." + gasName);
         }
         if (isManaMark(stack)) {
-            return nyonio.item.ItemManaPacket.create(0).getDisplayName();
+            return BotaniaFluxIntegration.getPacketDisplayName(BotaniaFluxIntegration.MANA);
         }
         if (isFeMark(stack)) {
-            return com.flux_applied.item.ItemFluxPacket.create(0).getDisplayName();
+            return BotaniaFluxIntegration.getPacketDisplayName(BotaniaFluxIntegration.FE);
         }
         return I18n.translateToLocal(this.getUnlocalizedName() + ".name");
     }
@@ -161,12 +162,12 @@ public class ItemFluidMark extends Item {
             return;
         }
         if (isManaMark(stack)) {
-            tooltip.add(nyonio.item.ItemManaPacket.create(0).getDisplayName());
+            tooltip.add(BotaniaFluxIntegration.getPacketDisplayName(BotaniaFluxIntegration.MANA));
             tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.mana_mark.tooltip"));
             return;
         }
         if (isFeMark(stack)) {
-            tooltip.add(com.flux_applied.item.ItemFluxPacket.create(0).getDisplayName());
+            tooltip.add(BotaniaFluxIntegration.getPacketDisplayName(BotaniaFluxIntegration.FE));
             tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.fe_mark.tooltip"));
         }
     }

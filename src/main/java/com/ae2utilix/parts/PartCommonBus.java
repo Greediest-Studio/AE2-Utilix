@@ -29,9 +29,6 @@ import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.integration.BotaniaFluxIntegration;
 import com.ae2utilix.integration.MekanismEnergisticsIntegration;
 import com.ae2utilix.item.ItemFluidMark;
-import com.flux_applied.ae2.FluxStack;
-import com.flux_applied.ae2.FluxStorageChannel;
-import com.mekeng.github.common.me.data.IAEGasStack;
 import mekanism.api.gas.Gas;
 import mekanism.api.gas.GasRegistry;
 import mekanism.api.gas.GasStack;
@@ -52,10 +49,6 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
-import nyonio.FluixPoolManaHelper;
-import nyonio.IFluixManaReceiver;
-import nyonio.ae2.ManaStack;
-import nyonio.ae2.ManaStorageChannel;
 import vazkii.botania.api.mana.IManaReceiver;
 import vazkii.botania.api.mana.spark.ISparkAttachable;
 
@@ -494,9 +487,13 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         if (accepted <= 0) return false;
         GasStack actual = target.drawGas(this.getTargetFace(), accepted, true);
         if (actual == null || actual.amount <= 0) return false;
-        IAEGasStack failed = this.insertGas(actual, Actionable.MODULATE);
-        if (failed != null && failed.getStackSize() > 0) target.receiveGas(this.getTargetFace(), failed.getGasStack(), true);
-        return failed == null || failed.getStackSize() < actual.amount;
+        int inserted = this.insertGas(actual, false);
+        if (inserted < actual.amount) {
+            GasStack remainder = actual.copy();
+            remainder.amount = actual.amount - inserted;
+            target.receiveGas(this.getTargetFace(), remainder, true);
+        }
+        return inserted > 0;
     }
 
     private boolean importGasFromInterface(TileCommonInterfaceAlternate target,
@@ -505,23 +502,27 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         Gas gas = gasName == null ? null : GasRegistry.getGas(gasName);
         int amount = this.getVirtualAmount(slot);
         GasStack simulated = gas == null
-                ? MekanismEnergisticsIntegration.drawLocalGas(target, amount, false)
-                : MekanismEnergisticsIntegration.drawLocalGas(target, new GasStack(gas, amount), false);
+                ? (GasStack) MekanismEnergisticsIntegration.drawLocalGas(target, amount, false)
+                : (GasStack) MekanismEnergisticsIntegration.drawLocalGas(
+                        target, new GasStack(gas, amount), false);
         if (simulated == null || simulated.amount <= 0
                 || (gas != null && simulated.getGas() != gas)) return false;
 
         int accepted = this.simulateGasInsert(simulated);
         if (accepted <= 0) return false;
         GasStack actual = gas == null
-                ? MekanismEnergisticsIntegration.drawLocalGas(target, accepted, true)
-                : MekanismEnergisticsIntegration.drawLocalGas(target, new GasStack(gas, accepted), true);
+                ? (GasStack) MekanismEnergisticsIntegration.drawLocalGas(target, accepted, true)
+                : (GasStack) MekanismEnergisticsIntegration.drawLocalGas(
+                        target, new GasStack(gas, accepted), true);
         if (actual == null || actual.amount <= 0) return false;
 
-        IAEGasStack failed = this.insertGas(actual, Actionable.MODULATE);
-        if (failed != null && failed.getStackSize() > 0) {
-            MekanismEnergisticsIntegration.receiveLocalGas(target, failed.getGasStack(), true);
+        int inserted = this.insertGas(actual, false);
+        if (inserted < actual.amount) {
+            GasStack remainder = actual.copy();
+            remainder.amount = actual.amount - inserted;
+            MekanismEnergisticsIntegration.receiveLocalGas(target, remainder, true);
         }
-        return failed == null || failed.getStackSize() < actual.amount;
+        return inserted > 0;
     }
 
     private boolean exportGas(ItemStack marker, int slot) {
@@ -532,38 +533,33 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         GasStack probe = new GasStack(gas, this.getVirtualAmount(slot));
         int accepted = target.receiveGas(this.getTargetFace(), probe, false);
         if (accepted <= 0) return false;
-        IAEGasStack extracted = this.extractGas(gas, accepted, Actionable.MODULATE);
-        if (extracted == null || extracted.getStackSize() <= 0) return false;
-        GasStack actual = extracted.getGasStack();
+        GasStack actual = this.extractGas(gas, accepted, false);
+        if (actual == null || actual.amount <= 0) return false;
         int inserted = target.receiveGas(this.getTargetFace(), actual, true);
         if (inserted < actual.amount) {
-            this.insertGas(new GasStack(gas, actual.amount - inserted), Actionable.MODULATE);
+            this.insertGas(new GasStack(gas, actual.amount - inserted), false);
         }
         return inserted > 0;
     }
 
     private int simulateGasInsert(GasStack stack) {
-        IAEGasStack input = this.insertGas(stack, Actionable.SIMULATE);
-        return input == null ? stack.amount : Math.max(0, stack.amount - (int) input.getStackSize());
+        return this.insertGas(stack, true);
     }
 
-    private IAEGasStack insertGas(GasStack stack, Actionable mode) {
+    private int insertGas(GasStack stack, boolean simulate) {
         try {
-            IMEInventory<IAEGasStack> inventory = this.getProxy().getStorage().getInventory(
-                    AEApi.instance().storage().getStorageChannel(com.mekeng.github.common.me.storage.IGasStorageChannel.class));
-            com.mekeng.github.common.me.data.IAEGasStack input = com.mekeng.github.common.me.data.impl.AEGasStack.of(stack.copy());
-            return Platform.poweredInsert(this.getProxy().getEnergy(), inventory, input, this.source, mode);
+            return MekanismEnergisticsIntegration.insertGasToNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source, stack, simulate);
         } catch (GridAccessException e) {
-            return com.mekeng.github.common.me.data.impl.AEGasStack.of(stack.copy());
+            return 0;
         }
     }
 
-    private IAEGasStack extractGas(Gas gas, int amount, Actionable mode) {
+    private GasStack extractGas(Gas gas, int amount, boolean simulate) {
         try {
-            IMEInventory<IAEGasStack> inventory = this.getProxy().getStorage().getInventory(
-                    AEApi.instance().storage().getStorageChannel(com.mekeng.github.common.me.storage.IGasStorageChannel.class));
-            com.mekeng.github.common.me.data.IAEGasStack request = com.mekeng.github.common.me.data.impl.AEGasStack.of(new GasStack(gas, amount));
-            return Platform.poweredExtraction(this.getProxy().getEnergy(), inventory, request, this.source, mode);
+            return (GasStack) MekanismEnergisticsIntegration.extractGasFromNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    gas.getName(), amount, simulate);
         } catch (GridAccessException e) {
             return null;
         }
@@ -642,16 +638,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
             return BotaniaFluxIntegration.extractManaLocal(
                     (TileCommonInterfaceAlternate) target, amount, false);
         }
-        if (target instanceof IFluixManaReceiver) {
-            return FluixPoolManaHelper.extract(target, amount);
-        }
-        if (!(target instanceof IManaReceiver)) return 0;
-        IManaReceiver receiver = (IManaReceiver) target;
-        int before = Math.max(0, receiver.getCurrentMana());
-        int toExtract = Math.min(amount, before);
-        if (toExtract <= 0) return 0;
-        receiver.recieveMana(-toExtract);
-        return Math.max(0, before - receiver.getCurrentMana());
+        return BotaniaFluxIntegration.extractManaFromTarget(target, amount);
     }
 
     private void insertManaIntoTarget(TileEntity target, int amount) {
@@ -661,12 +648,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                     (TileCommonInterfaceAlternate) target, amount, false);
             return;
         }
-        if (!(target instanceof IManaReceiver)) return;
-        if (target instanceof IFluixManaReceiver) {
-            FluixPoolManaHelper.insert(target, amount);
-        } else {
-            ((IManaReceiver) target).recieveMana(amount);
-        }
+        BotaniaFluxIntegration.insertManaIntoTarget(target, amount);
     }
 
     private boolean importFe(int slot) {
@@ -735,11 +717,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private long insertMana(long amount, Actionable mode) {
         try {
-            IMEInventory<ManaStack> inventory = this.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
-            if (inventory == null) return 0;
-            ManaStack remainder = Platform.poweredInsert(this.getProxy().getEnergy(), inventory,
-                    new ManaStack(amount), this.source, mode);
-            return amount - (remainder == null ? 0 : remainder.getStackSize());
+            return BotaniaFluxIntegration.insertNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    BotaniaFluxIntegration.MANA, amount, mode);
         } catch (GridAccessException e) {
             return 0;
         }
@@ -747,11 +727,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private long extractMana(long amount, Actionable mode) {
         try {
-            IMEInventory<ManaStack> inventory = this.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
-            if (inventory == null) return 0;
-            ManaStack extracted = Platform.poweredExtraction(this.getProxy().getEnergy(), inventory,
-                    new ManaStack(amount), this.source, mode);
-            return extracted == null ? 0 : extracted.getStackSize();
+            return BotaniaFluxIntegration.extractNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    BotaniaFluxIntegration.MANA, amount, mode);
         } catch (GridAccessException e) {
             return 0;
         }
@@ -759,11 +737,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private long insertFe(long amount, Actionable mode) {
         try {
-            IMEInventory<FluxStack> inventory = this.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
-            if (inventory == null) return 0;
-            FluxStack remainder = Platform.poweredInsert(this.getProxy().getEnergy(), inventory,
-                    new FluxStack(amount), this.source, mode);
-            return amount - (remainder == null ? 0 : remainder.getStackSize());
+            return BotaniaFluxIntegration.insertNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    BotaniaFluxIntegration.FE, amount, mode);
         } catch (GridAccessException e) {
             return 0;
         }
@@ -771,11 +747,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private long extractFe(long amount, Actionable mode) {
         try {
-            IMEInventory<FluxStack> inventory = this.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
-            if (inventory == null) return 0;
-            FluxStack extracted = Platform.poweredExtraction(this.getProxy().getEnergy(), inventory,
-                    new FluxStack(amount), this.source, mode);
-            return extracted == null ? 0 : extracted.getStackSize();
+            return BotaniaFluxIntegration.extractNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    BotaniaFluxIntegration.FE, amount, mode);
         } catch (GridAccessException e) {
             return 0;
         }

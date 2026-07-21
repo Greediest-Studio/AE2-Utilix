@@ -1,44 +1,37 @@
 package com.ae2utilix.integration;
 
 import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IMEInventory;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.storage.IMEMonitor;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.data.IAEStack;
-import appeng.me.GridAccessException;
-import appeng.me.helpers.MEMonitorHandler;
-import appeng.me.helpers.MachineSource;
-import appeng.util.Platform;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.item.ItemFluidMark;
-import com.flux_applied.ae2.FluxStack;
-import com.flux_applied.ae2.FluxStorageChannel;
-import com.flux_applied.item.ItemFluxPacket;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.fml.common.Loader;
-import nyonio.ae2.ManaStack;
-import nyonio.ae2.ManaStorageChannel;
-import nyonio.item.ItemManaPacket;
-import vazkii.botania.api.mana.IManaItem;
 
 import javax.annotation.Nullable;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
-/** Bridges the common interface to the independent Botania and Flux AE2 channels. */
+/**
+ * Safe entry point for Botania Applie and Flux Applied.
+ *
+ * The optional implementations are deliberately reached through reflection.
+ * A missing optional mod must not make a common interface, its GUI, or its
+ * marker item unloadable just because a method contains that mod's types.
+ */
 public final class BotaniaFluxIntegration {
     public static final int MANA = 1;
     public static final int FE = 2;
 
-    private static final Map<TileCommonInterfaceAlternate, IMEMonitor<ManaStack>> MANA_MONITORS = new WeakHashMap<>();
-    private static final Map<TileCommonInterfaceAlternate, IMEMonitor<FluxStack>> FE_MONITORS = new WeakHashMap<>();
-    private static final Map<TileCommonInterfaceAlternate, IEnergyStorage> ENERGY_HANDLERS = new WeakHashMap<>();
+    private static final String OPTIONAL_IMPL =
+            "com.ae2utilix.integration.BotaniaFluxOptional";
 
     private BotaniaFluxIntegration() {
     }
@@ -52,17 +45,19 @@ public final class BotaniaFluxIntegration {
     }
 
     public static boolean isVirtualPacket(ItemStack stack) {
-        return (isManaIntegrationAvailable() && ItemManaPacket.isManaPacket(stack))
-                || (isFeIntegrationAvailable() && ItemFluxPacket.isFluxPacket(stack));
+        return getMarkedType(stack) != 0 && isPacket(stack, getMarkedType(stack));
     }
 
     public static int getMarkedType(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return 0;
         if (isManaIntegrationAvailable()
-                && (ItemManaPacket.isManaPacket(stack)
-                || (!stack.isEmpty() && stack.getItem() instanceof IManaItem))) return MANA;
+                && (isPacket(stack, MANA) || isInstance(stack, "vazkii.botania.api.mana.IManaItem"))) {
+            return MANA;
+        }
         if (isFeIntegrationAvailable()
-                && (ItemFluxPacket.isFluxPacket(stack)
-                || (!stack.isEmpty() && stack.hasCapability(CapabilityEnergy.ENERGY, null)))) return FE;
+                && (isPacket(stack, FE) || stack.hasCapability(CapabilityEnergy.ENERGY, null))) {
+            return FE;
+        }
         return 0;
     }
 
@@ -75,38 +70,19 @@ public final class BotaniaFluxIntegration {
     }
 
     public static boolean isManaChannel(IStorageChannel<?> channel) {
-        return isManaIntegrationAvailable()
-                && channel == AEApi.instance().storage().getStorageChannel(ManaStorageChannel.class);
+        return isChannel(channel, MANA, "nyonio.ae2.ManaStorageChannel");
     }
 
     public static boolean isFeChannel(IStorageChannel<?> channel) {
-        return isFeIntegrationAvailable()
-                && channel == AEApi.instance().storage().getStorageChannel(FluxStorageChannel.class);
+        return isChannel(channel, FE, "com.flux_applied.ae2.FluxStorageChannel");
     }
 
     public static boolean hasManaConfig(TileCommonInterfaceAlternate tile) {
-        return isManaIntegrationAvailable() && hasConfig(tile, MANA);
+        return isManaIntegrationAvailable() && invokeBoolean("hasManaConfig", tile);
     }
 
     public static boolean hasFeConfig(TileCommonInterfaceAlternate tile) {
-        return isFeIntegrationAvailable() && hasConfig(tile, FE);
-    }
-
-    private static boolean hasConfig(TileCommonInterfaceAlternate tile, int type) {
-        return hasConfig(tile.getConfig(), type) || hasConfig(tile.getExtendedConfig(), type);
-    }
-
-    private static boolean hasConfig(net.minecraftforge.items.IItemHandler config, int type) {
-        for (int i = 0; i < config.getSlots(); i++) {
-            if (getConfiguredType(config.getStackInSlot(i)) == type) return true;
-        }
-        return false;
-    }
-
-    private static int getConfiguredType(ItemStack stack) {
-        if (ItemFluidMark.isManaMark(stack)) return MANA;
-        if (ItemFluidMark.isFeMark(stack)) return FE;
-        return 0;
+        return isFeIntegrationAvailable() && invokeBoolean("hasFeConfig", tile);
     }
 
     @Nullable
@@ -122,418 +98,270 @@ public final class BotaniaFluxIntegration {
     }
 
     @Nullable
-    public static IMEMonitor<ManaStack> getManaMonitor(TileCommonInterfaceAlternate tile) {
-        if (!isManaIntegrationAvailable()) return null;
-        if (!hasManaConfig(tile)) return getNetworkMonitor(tile, MANA);
-        IMEMonitor<ManaStack> monitor = MANA_MONITORS.get(tile);
-        if (monitor == null) {
-            monitor = new MEMonitorHandler<>(new LocalStackHandler<ManaStack>(tile, MANA));
-            MANA_MONITORS.put(tile, monitor);
+    public static ItemStack getPacketStack(int type) {
+        if ((type == MANA && !isManaIntegrationAvailable())
+                || (type == FE && !isFeIntegrationAvailable())) return null;
+        String className = type == MANA
+                ? "nyonio.item.ItemManaPacket" : "com.flux_applied.item.ItemFluxPacket";
+        try {
+            Class<?> itemClass = Class.forName(className);
+            Object result = itemClass.getMethod("create", int.class).invoke(null, 0);
+            return result instanceof ItemStack ? (ItemStack) result : null;
+        } catch (Throwable ignored) {
+            return null;
         }
-        return monitor;
+    }
+
+    public static String getPacketDisplayName(int type) {
+        ItemStack stack = getPacketStack(type);
+        return stack == null ? getDisplayName(type) : stack.getDisplayName();
     }
 
     @Nullable
-    public static IMEMonitor<FluxStack> getFeMonitor(TileCommonInterfaceAlternate tile) {
-        if (!isFeIntegrationAvailable()) return null;
-        if (!hasFeConfig(tile)) return getNetworkMonitor(tile, FE);
-        IMEMonitor<FluxStack> monitor = FE_MONITORS.get(tile);
-        if (monitor == null) {
-            monitor = new MEMonitorHandler<>(new LocalStackHandler<FluxStack>(tile, FE));
-            FE_MONITORS.put(tile, monitor);
-        }
-        return monitor;
+    public static IMEMonitor<?> getManaMonitor(TileCommonInterfaceAlternate tile) {
+        if (!isManaIntegrationAvailable()) return null;
+        Object monitor = invoke("getManaMonitor", tile);
+        return monitor instanceof IMEMonitor ? (IMEMonitor<?>) monitor : null;
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T extends IAEStack<T>> IMEMonitor<T> getNetworkMonitor(
-            TileCommonInterfaceAlternate tile, int type) {
-        try {
-            if (!tile.getProxy().isActive()) return null;
-            IStorageChannel<T> channel = (IStorageChannel<T>) (type == MANA
-                    ? ManaStorageChannel.INSTANCE : FluxStorageChannel.INSTANCE);
-            return tile.getProxy().getStorage().getInventory(channel);
-        } catch (GridAccessException ignored) {
-            return null;
-        }
+    @Nullable
+    public static IMEMonitor<?> getFeMonitor(TileCommonInterfaceAlternate tile) {
+        if (!isFeIntegrationAvailable()) return null;
+        Object monitor = invoke("getFeMonitor", tile);
+        return monitor instanceof IMEMonitor ? (IMEMonitor<?>) monitor : null;
     }
 
     public static void requestMarked(TileCommonInterfaceAlternate tile, int type) {
         if ((type == MANA && !isManaIntegrationAvailable())
                 || (type == FE && !isFeIntegrationAvailable())) return;
-        if (tile.getWorld() == null || tile.getWorld().isRemote || !tile.getProxy().isActive()) return;
-        for (boolean extended : new boolean[]{false, true}) {
-            net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
-            for (int slot = 0; slot < 9; slot++) {
-                if (getConfiguredType(config.getStackInSlot(slot)) != type) continue;
-                if (type == MANA
-                        ? !tile.canStoreManaInSlot(extended, slot)
-                        : !tile.canStoreFeInSlot(extended, slot)) continue;
-                long stored = getStored(tile, extended, slot, type);
-                int target = getConfiguredAmount(tile, extended, slot, type);
-                if (stored > target) {
-                    long excess = stored - target;
-                    long inserted = insertNetwork(tile, type, excess, Actionable.MODULATE);
-                    if (inserted > 0) {
-                        setStored(tile, extended, slot, type, stored - inserted);
-                        stored -= inserted;
-                    }
-                }
-                if (stored >= target) continue;
-                long extracted = extractNetwork(tile, type, target - stored, Actionable.MODULATE);
-                if (extracted > 0) setStored(tile, extended, slot, type, stored + extracted);
-            }
-        }
+        invoke("requestMarked", tile, type);
     }
 
     public static void flushUnconfigured(TileCommonInterfaceAlternate tile, int type) {
         if ((type == MANA && !isManaIntegrationAvailable())
                 || (type == FE && !isFeIntegrationAvailable())) return;
-        if (!tile.getProxy().isActive()) return;
-        for (boolean extended : new boolean[]{false, true}) {
-            net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
-            for (int slot = 0; slot < 9; slot++) {
-                if (!config.getStackInSlot(slot).isEmpty()) continue;
-                long stored = getStored(tile, extended, slot, type);
-                if (stored <= 0) continue;
-                long inserted = insertNetwork(tile, type, stored, Actionable.MODULATE);
-                if (inserted > 0) setStored(tile, extended, slot, type, stored - inserted);
-            }
-        }
-    }
-
-    public static int getConfiguredAmount(TileCommonInterfaceAlternate tile, boolean extended, int slot, int type) {
-        long amount = type == MANA ? tile.getManaConfigAmount(extended, slot)
-                : tile.getFeConfigAmount(extended, slot);
-        return (int) Math.max(1, Math.min(tile.getVirtualStorageCapacity(), amount));
-    }
-
-    public static long getStored(TileCommonInterfaceAlternate tile, boolean extended, int slot, int type) {
-        return type == MANA ? tile.getStoredMana(extended, slot) : tile.getStoredFe(extended, slot);
-    }
-
-    private static void setStored(TileCommonInterfaceAlternate tile, boolean extended, int slot, int type, long amount) {
-        if (type == MANA) tile.setStoredMana(extended, slot, amount);
-        else tile.setStoredFe(extended, slot, amount);
-    }
-
-    private static long insertLocal(TileCommonInterfaceAlternate tile, int type, long amount,
-            Actionable mode, boolean allowUnconfigured) {
-        long remaining = Math.max(0, amount);
-        for (boolean extended : new boolean[]{false, true}) {
-            net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
-            for (int pass = 0; pass < 2 && remaining > 0; pass++) {
-                for (int slot = 0; slot < 9 && remaining > 0; slot++) {
-                    ItemStack marker = config.getStackInSlot(slot);
-                    int configuredType = getConfiguredType(marker);
-                    if (type == MANA
-                            ? !tile.canStoreManaInSlot(extended, slot)
-                            : !tile.canStoreFeInSlot(extended, slot)) continue;
-                    long stored = getStored(tile, extended, slot, type);
-                    boolean candidate = configuredType == type && (pass == 0 ? stored > 0 : stored == 0);
-                    if (!candidate && allowUnconfigured && configuredType == 0 && marker.isEmpty()
-                            && (pass == 1 || stored > 0)) {
-                        candidate = true;
-                    }
-                    if (!candidate) continue;
-                    long accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
-                    if (accepted <= 0) continue;
-                    if (mode == Actionable.MODULATE) setStored(tile, extended, slot, type, stored + accepted);
-                    remaining -= accepted;
-                }
-            }
-        }
-        return amount - remaining;
-    }
-
-    private static long extractLocal(TileCommonInterfaceAlternate tile, int type, long amount,
-            Actionable mode) {
-        long remaining = Math.max(0, amount);
-        long extracted = 0;
-        for (boolean extended : new boolean[]{false, true}) {
-            for (int slot = 0; slot < 9 && remaining > 0; slot++) {
-                boolean canExtract = type == MANA
-                        ? tile.canStoreManaInSlot(extended, slot)
-                        : tile.canStoreFeInSlot(extended, slot);
-                if (!canExtract) continue;
-                long stored = getStored(tile, extended, slot, type);
-                if (stored <= 0) continue;
-                long taken = Math.min(remaining, stored);
-                if (mode == Actionable.MODULATE) setStored(tile, extended, slot, type, stored - taken);
-                extracted += taken;
-                remaining -= taken;
-            }
-        }
-        return extracted;
-    }
-
-    public static long insertNetwork(TileCommonInterfaceAlternate tile, int type, long amount, Actionable mode) {
-        if (amount <= 0) return 0;
-        if ((type == MANA && !isManaIntegrationAvailable())
-                || (type == FE && !isFeIntegrationAvailable())) return 0;
-        try {
-            if (type == MANA) {
-                IMEInventory<ManaStack> inventory = getManaNetworkInventory(tile);
-                if (inventory == null) return 0;
-                ManaStack input = new ManaStack(amount);
-                ManaStack remainder = Platform.poweredInsert(tile.getProxy().getEnergy(), inventory, input,
-                        new MachineSource(tile), mode);
-                return Math.max(0, Math.min(amount, amount - (remainder == null ? 0 : remainder.getStackSize())));
-            }
-            IMEInventory<FluxStack> inventory = getFeNetworkInventory(tile);
-            if (inventory == null) return 0;
-            FluxStack input = new FluxStack(amount);
-            FluxStack remainder = Platform.poweredInsert(tile.getProxy().getEnergy(), inventory, input,
-                    new MachineSource(tile), mode);
-            return Math.max(0, Math.min(amount, amount - (remainder == null ? 0 : remainder.getStackSize())));
-        } catch (Exception ignored) {
-            return 0;
-        }
-    }
-
-    public static long extractNetwork(TileCommonInterfaceAlternate tile, int type, long amount, Actionable mode) {
-        if (amount <= 0) return 0;
-        if ((type == MANA && !isManaIntegrationAvailable())
-                || (type == FE && !isFeIntegrationAvailable())) return 0;
-        try {
-            if (type == MANA) {
-                IMEInventory<ManaStack> inventory = getManaNetworkInventory(tile);
-                if (inventory == null) return 0;
-                ManaStack extracted = Platform.poweredExtraction(tile.getProxy().getEnergy(), inventory,
-                        new ManaStack(amount), new MachineSource(tile), mode);
-                return extracted == null ? 0 : Math.min(amount, extracted.getStackSize());
-            }
-            IMEInventory<FluxStack> inventory = getFeNetworkInventory(tile);
-            if (inventory == null) return 0;
-            FluxStack extracted = Platform.poweredExtraction(tile.getProxy().getEnergy(), inventory,
-                    new FluxStack(amount), new MachineSource(tile), mode);
-            return extracted == null ? 0 : Math.min(amount, extracted.getStackSize());
-        } catch (Exception ignored) {
-            return 0;
-        }
-    }
-
-    private static IMEInventory<ManaStack> getManaNetworkInventory(
-            TileCommonInterfaceAlternate tile) throws GridAccessException {
-        if (!isManaIntegrationAvailable()) return null;
-        return tile.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
-    }
-
-    private static IMEInventory<FluxStack> getFeNetworkInventory(
-            TileCommonInterfaceAlternate tile) throws GridAccessException {
-        if (!isFeIntegrationAvailable()) return null;
-        return tile.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
+        invoke("flushUnconfigured", tile, type);
     }
 
     public static long getCurrentMana(TileCommonInterfaceAlternate tile) {
-        if (!isManaIntegrationAvailable()) return 0;
-        return getCurrent(tile, MANA);
+        return isManaIntegrationAvailable() ? invokeLong("getCurrentMana", tile) : 0;
     }
 
     public static long getCurrentFe(TileCommonInterfaceAlternate tile) {
-        if (!isFeIntegrationAvailable()) return 0;
-        return getCurrent(tile, FE);
-    }
-
-    private static long getCurrent(TileCommonInterfaceAlternate tile, int type) {
-        if (hasConfig(tile, type)) {
-            long total = 0;
-            for (boolean extended : new boolean[]{false, true}) {
-                for (int slot = 0; slot < 9; slot++) total += getStored(tile, extended, slot, type);
-            }
-            return total;
-        }
-        long local = extractLocal(tile, type, Long.MAX_VALUE, Actionable.SIMULATE);
-        return local + (tile.getProxy().isActive()
-                ? extractNetwork(tile, type, Long.MAX_VALUE, Actionable.SIMULATE) : 0);
+        return isFeIntegrationAvailable() ? invokeLong("getCurrentFe", tile) : 0;
     }
 
     public static long getCapacity(TileCommonInterfaceAlternate tile, int type) {
         if ((type == MANA && !isManaIntegrationAvailable())
                 || (type == FE && !isFeIntegrationAvailable())) return 0;
-        int count = 0;
-        for (boolean extended : new boolean[]{false, true}) {
-            net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
-            for (int slot = 0; slot < 9; slot++) if (getConfiguredType(config.getStackInSlot(slot)) == type) count++;
-        }
-        return count == 0 ? 18L * tile.getVirtualStorageCapacity()
-                : (long) count * tile.getVirtualStorageCapacity();
+        return invokeLong("getCapacity", tile, type);
+    }
+
+    public static long insertNetwork(TileCommonInterfaceAlternate tile, int type,
+            long amount, Actionable mode) {
+        if (amount <= 0 || !isAvailable(type)) return 0;
+        return invokeLong("insertNetwork", tile, type, amount, mode);
+    }
+
+    public static long extractNetwork(TileCommonInterfaceAlternate tile, int type,
+            long amount, Actionable mode) {
+        if (amount <= 0 || !isAvailable(type)) return 0;
+        return invokeLong("extractNetwork", tile, type, amount, mode);
+    }
+
+    public static long insertNetwork(IStorageGrid storage, IEnergySource energy,
+            IActionSource source, int type, long amount, Actionable mode) {
+        if (amount <= 0 || !isAvailable(type)) return 0;
+        return invokeLong("insertNetwork", storage, energy, source, type, amount, mode);
+    }
+
+    public static long extractNetwork(IStorageGrid storage, IEnergySource energy,
+            IActionSource source, int type, long amount, Actionable mode) {
+        if (amount <= 0 || !isAvailable(type)) return 0;
+        return invokeLong("extractNetwork", storage, energy, source, type, amount, mode);
     }
 
     public static int receiveMana(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
-        return transfer(tile, MANA, amount, simulate, true);
+        return isManaIntegrationAvailable()
+                ? invokeInt("receiveMana", tile, amount, simulate) : 0;
     }
 
     public static int extractMana(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
-        return transfer(tile, MANA, amount, simulate, false);
+        return isManaIntegrationAvailable()
+                ? invokeInt("extractMana", tile, amount, simulate) : 0;
     }
 
     public static int receiveManaLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
-        if (!isManaIntegrationAvailable() || tile == null || amount <= 0) return 0;
-        return (int) Math.min(amount, insertLocal(tile, MANA, amount,
-                simulate ? Actionable.SIMULATE : Actionable.MODULATE, true));
+        return isManaIntegrationAvailable()
+                ? invokeInt("receiveManaLocal", tile, amount, simulate) : 0;
     }
 
     public static int extractManaLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
-        if (!isManaIntegrationAvailable() || tile == null || amount <= 0) return 0;
-        return (int) Math.min(amount, extractLocal(tile, MANA, amount,
-                simulate ? Actionable.SIMULATE : Actionable.MODULATE));
+        return isManaIntegrationAvailable()
+                ? invokeInt("extractManaLocal", tile, amount, simulate) : 0;
     }
 
     public static int receiveFeLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
-        if (!isFeIntegrationAvailable() || tile == null || amount <= 0) return 0;
-        return (int) Math.min(amount, insertLocal(tile, FE, amount,
-                simulate ? Actionable.SIMULATE : Actionable.MODULATE, true));
+        return isFeIntegrationAvailable()
+                ? invokeInt("receiveFeLocal", tile, amount, simulate) : 0;
     }
 
     public static int extractFeLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
-        if (!isFeIntegrationAvailable() || tile == null || amount <= 0) return 0;
-        return (int) Math.min(amount, extractLocal(tile, FE, amount,
-                simulate ? Actionable.SIMULATE : Actionable.MODULATE));
-    }
-
-    private static int transfer(TileCommonInterfaceAlternate tile, int type, int amount,
-            boolean simulate, boolean receive) {
-        if (amount <= 0) return 0;
-        if (receive) {
-            long transferred = insertNetwork(tile, type, amount,
-                    simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-            long local = insertLocal(tile, type, amount - transferred,
-                    simulate ? Actionable.SIMULATE : Actionable.MODULATE, true);
-            transferred += local;
-            return (int) Math.min(amount, transferred);
-        }
-
-        long transferred = extractLocal(tile, type, amount,
-                simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-        if (transferred < amount) {
-            transferred += extractNetwork(tile, type, amount - transferred,
-                    simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-        }
-        return (int) Math.min(amount, transferred);
+        return isFeIntegrationAvailable()
+                ? invokeInt("extractFeLocal", tile, amount, simulate) : 0;
     }
 
     public static IEnergyStorage getEnergyHandler(TileCommonInterfaceAlternate tile) {
-        IEnergyStorage handler = ENERGY_HANDLERS.get(tile);
-        if (handler == null) {
-            handler = new InterfaceEnergyStorage(tile);
-            ENERGY_HANDLERS.put(tile, handler);
-        }
-        return handler;
+        if (!isFeIntegrationAvailable()) return EmptyEnergyStorage.INSTANCE;
+        Object handler = invoke("getEnergyHandler", tile);
+        return handler instanceof IEnergyStorage ? (IEnergyStorage) handler : EmptyEnergyStorage.INSTANCE;
     }
 
-    private static final class InterfaceEnergyStorage implements IEnergyStorage {
-        private final TileCommonInterfaceAlternate tile;
-
-        private InterfaceEnergyStorage(TileCommonInterfaceAlternate tile) {
-            this.tile = tile;
+    public static int extractManaFromTarget(TileEntity target, int amount) {
+        if (target == null || amount <= 0) return 0;
+        if (isFluixReceiver(target)) {
+            Object result = invokeStatic("nyonio.FluixPoolManaHelper", "extract", target, amount);
+            if (result instanceof Number) return Math.max(0, ((Number) result).intValue());
         }
-
-        @Override
-        public int receiveEnergy(int maxReceive, boolean simulate) {
-            if (maxReceive <= 0) return 0;
-            long network = insertNetwork(tile, FE, maxReceive, simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-            long local = insertLocal(tile, FE, maxReceive - network,
-                    simulate ? Actionable.SIMULATE : Actionable.MODULATE, true);
-            return (int) Math.min(maxReceive, network + local);
-        }
-
-        @Override
-        public int extractEnergy(int maxExtract, boolean simulate) {
-            if (maxExtract <= 0) return 0;
-            long local = extractLocal(tile, FE, maxExtract,
-                    simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-            long network = extractNetwork(tile, FE, maxExtract - local,
-                    simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-            return (int) Math.min(maxExtract, local + network);
-        }
-
-        @Override
-        public int getEnergyStored() {
-            return (int) Math.min(Integer.MAX_VALUE, getCurrentFe(tile));
-        }
-
-        @Override
-        public int getMaxEnergyStored() {
-            return (int) Math.min(Integer.MAX_VALUE, getCapacity(tile, FE));
-        }
-
-        @Override public boolean canExtract() { return true; }
-        @Override public boolean canReceive() { return true; }
+        if (!(target instanceof vazkii.botania.api.mana.IManaReceiver)) return 0;
+        vazkii.botania.api.mana.IManaReceiver receiver =
+                (vazkii.botania.api.mana.IManaReceiver) target;
+        int before = Math.max(0, receiver.getCurrentMana());
+        int toExtract = Math.min(amount, before);
+        if (toExtract <= 0) return 0;
+        receiver.recieveMana(-toExtract);
+        return Math.max(0, before - receiver.getCurrentMana());
     }
 
-    private static final class LocalStackHandler<T extends IAEStack<T>> implements IMEInventoryHandler<T> {
-        private final TileCommonInterfaceAlternate tile;
-        private final int type;
-
-        private LocalStackHandler(TileCommonInterfaceAlternate tile, int type) {
-            this.tile = tile;
-            this.type = type;
+    public static void insertManaIntoTarget(TileEntity target, int amount) {
+        if (target == null || amount <= 0) return;
+        if (isFluixReceiver(target)
+                && invokeStatic("nyonio.FluixPoolManaHelper", "insert", target, amount) != null) return;
+        if (target instanceof vazkii.botania.api.mana.IManaReceiver) {
+            ((vazkii.botania.api.mana.IManaReceiver) target).recieveMana(amount);
         }
+    }
 
-        @SuppressWarnings("unchecked")
-        private T create(long amount) {
-            return (T) (type == MANA ? new ManaStack(amount) : new FluxStack(amount));
+    private static boolean isAvailable(int type) {
+        return type == MANA ? isManaIntegrationAvailable() : type == FE && isFeIntegrationAvailable();
+    }
+
+    private static boolean isChannel(IStorageChannel<?> channel, int type, String className) {
+        if (!isAvailable(type) || channel == null) return false;
+        try {
+            Class<?> storageClass = Class.forName(className);
+            @SuppressWarnings({"rawtypes", "unchecked"})
+            IStorageChannel<?> expected = AEApi.instance().storage()
+                    .getStorageChannel((Class) storageClass);
+            return channel == expected;
+        } catch (Throwable ignored) {
+            return false;
         }
+    }
 
-        private boolean accepts(T stack) {
-            return (type == MANA && stack instanceof ManaStack) || (type == FE && stack instanceof FluxStack);
+    private static boolean isPacket(ItemStack stack, int type) {
+        String className = type == MANA
+                ? "nyonio.item.ItemManaPacket" : "com.flux_applied.item.ItemFluxPacket";
+        try {
+            Class<?> itemClass = Class.forName(className);
+            return Boolean.TRUE.equals(itemClass.getMethod(
+                    type == MANA ? "isManaPacket" : "isFluxPacket", ItemStack.class)
+                    .invoke(null, stack));
+        } catch (Throwable ignored) {
+            return false;
         }
+    }
 
-        @Override
-        public T injectItems(T input, Actionable mode, IActionSource source) {
-            if (input == null || !accepts(input) || input.getStackSize() <= 0) return input;
-            long remaining = input.getStackSize();
-            for (boolean extended : new boolean[]{false, true}) {
-                for (int pass = 0; pass < 2 && remaining > 0; pass++) {
-                    net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
-                    for (int slot = 0; slot < 9 && remaining > 0; slot++) {
-                        if (getConfiguredType(config.getStackInSlot(slot)) != type) continue;
-                        if (type == MANA
-                                ? !tile.canStoreManaInSlot(extended, slot)
-                                : !tile.canStoreFeInSlot(extended, slot)) continue;
-                        long stored = getStored(tile, extended, slot, type);
-                        if ((pass == 0) != (stored > 0)) continue;
-                        long accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
-                        if (accepted > 0 && mode == Actionable.MODULATE) setStored(tile, extended, slot, type, stored + accepted);
-                        remaining -= accepted;
-                    }
-                }
+    private static boolean isInstance(ItemStack stack, String className) {
+        try {
+            return Class.forName(className).isInstance(stack.getItem());
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isFluixReceiver(Object target) {
+        try {
+            return Class.forName("nyonio.IFluixManaReceiver").isInstance(target);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static Object invokeStatic(String className, String name, Object... args) {
+        try {
+            return invoke(Class.forName(className), name, args);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Object invoke(String name, Object... args) {
+        try {
+            return invoke(Class.forName(OPTIONAL_IMPL), name, args);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Object invoke(Class<?> type, String name, Object... args) throws Exception {
+        for (Method method : type.getMethods()) {
+            if (!Modifier.isStatic(method.getModifiers()) || !method.getName().equals(name)
+                    || method.getParameterTypes().length != args.length) continue;
+            if (!matches(method.getParameterTypes(), args)) continue;
+            return method.invoke(null, args);
+        }
+        return null;
+    }
+
+    private static boolean invokeBoolean(String name, Object... args) {
+        Object result = invoke(name, args);
+        return Boolean.TRUE.equals(result);
+    }
+
+    private static int invokeInt(String name, Object... args) {
+        Object result = invoke(name, args);
+        return result instanceof Number ? ((Number) result).intValue() : 0;
+    }
+
+    private static long invokeLong(String name, Object... args) {
+        Object result = invoke(name, args);
+        return result instanceof Number ? ((Number) result).longValue() : 0;
+    }
+
+    private static boolean matches(Class<?>[] types, Object[] args) {
+        for (int i = 0; i < types.length; i++) {
+            if (args[i] == null) {
+                if (types[i].isPrimitive()) return false;
+                continue;
             }
-            return remaining <= 0 ? null : create(remaining);
+            Class<?> expected = wrap(types[i]);
+            if (!expected.isAssignableFrom(args[i].getClass())) return false;
         }
+        return true;
+    }
 
-        @Override
-        public T extractItems(T request, Actionable mode, IActionSource source) {
-            if (request == null || !accepts(request) || request.getStackSize() <= 0) return null;
-            long remaining = request.getStackSize();
-            long extracted = 0;
-            for (boolean extended : new boolean[]{false, true}) {
-                for (int slot = 0; slot < 9 && remaining > 0; slot++) {
-                    long stored = getStored(tile, extended, slot, type);
-                    if (stored <= 0) continue;
-                    long taken = Math.min(remaining, stored);
-                    if (mode == Actionable.MODULATE) setStored(tile, extended, slot, type, stored - taken);
-                    extracted += taken;
-                    remaining -= taken;
-                }
-            }
-            return extracted <= 0 ? null : create(extracted);
-        }
+    private static Class<?> wrap(Class<?> type) {
+        if (!type.isPrimitive()) return type;
+        if (type == boolean.class) return Boolean.class;
+        if (type == int.class) return Integer.class;
+        if (type == long.class) return Long.class;
+        if (type == double.class) return Double.class;
+        if (type == float.class) return Float.class;
+        if (type == short.class) return Short.class;
+        if (type == byte.class) return Byte.class;
+        if (type == char.class) return Character.class;
+        return type;
+    }
 
-        @Override public appeng.api.storage.data.IItemList<T> getAvailableItems(appeng.api.storage.data.IItemList<T> out) {
-            long amount = 0;
-            for (boolean extended : new boolean[]{false, true}) for (int slot = 0; slot < 9; slot++) amount += getStored(tile, extended, slot, type);
-            if (amount > 0) out.addStorage(create(amount));
-            return out;
-        }
-        @Override public IStorageChannel<T> getChannel() { return (IStorageChannel<T>) (type == MANA ? ManaStorageChannel.INSTANCE : FluxStorageChannel.INSTANCE); }
-        @Override public AccessRestriction getAccess() { return AccessRestriction.READ_WRITE; }
-        @Override public boolean isPrioritized(T stack) { return true; }
-        @Override public boolean canAccept(T stack) { return accepts(stack); }
-        @Override public int getPriority() { return 0; }
-        @Override public int getSlot() { return -1; }
-        @Override public boolean validForPass(int pass) { return true; }
-        @Override public boolean isSticky() { return false; }
+    private enum EmptyEnergyStorage implements IEnergyStorage {
+        INSTANCE;
+
+        @Override public int receiveEnergy(int maxReceive, boolean simulate) { return 0; }
+        @Override public int extractEnergy(int maxExtract, boolean simulate) { return 0; }
+        @Override public int getEnergyStored() { return 0; }
+        @Override public int getMaxEnergyStored() { return 0; }
+        @Override public boolean canExtract() { return false; }
+        @Override public boolean canReceive() { return false; }
     }
 }

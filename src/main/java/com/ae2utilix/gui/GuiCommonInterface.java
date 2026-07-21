@@ -185,9 +185,11 @@ public class GuiCommonInterface extends AEBaseGui {
             int configSlot = slot.slotNumber / 4;
             ItemStack icon = null;
             if (this.container.getTile().getStoredMana(extended, configSlot) > 0) {
-                icon = nyonio.item.ItemManaPacket.create(0);
+                icon = com.ae2utilix.integration.BotaniaFluxIntegration
+                        .getPacketStack(com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
             } else if (this.container.getTile().getStoredFe(extended, configSlot) > 0) {
-                icon = com.flux_applied.item.ItemFluxPacket.create(0);
+                icon = com.ae2utilix.integration.BotaniaFluxIntegration
+                        .getPacketStack(com.ae2utilix.integration.BotaniaFluxIntegration.FE);
             }
             if (icon != null) {
                 net.minecraft.client.renderer.RenderHelper.enableGUIStandardItemLighting();
