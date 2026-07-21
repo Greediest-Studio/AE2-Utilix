@@ -367,21 +367,20 @@ public final class BotaniaFluxIntegration {
     private static int transfer(TileCommonInterfaceAlternate tile, int type, int amount,
             boolean simulate, boolean receive) {
         if (amount <= 0) return 0;
-        long transferred = receive
-                ? insertNetwork(tile, type, amount, simulate ? Actionable.SIMULATE : Actionable.MODULATE)
-                : extractNetwork(tile, type, amount, simulate ? Actionable.SIMULATE : Actionable.MODULATE);
         if (receive) {
+            long transferred = insertNetwork(tile, type, amount,
+                    simulate ? Actionable.SIMULATE : Actionable.MODULATE);
             long local = insertLocal(tile, type, amount - transferred,
                     simulate ? Actionable.SIMULATE : Actionable.MODULATE, true);
             transferred += local;
-        } else {
-            long local = extractLocal(tile, type, amount,
+            return (int) Math.min(amount, transferred);
+        }
+
+        long transferred = extractLocal(tile, type, amount,
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE);
+        if (transferred < amount) {
+            transferred += extractNetwork(tile, type, amount - transferred,
                     simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-            transferred = local;
-            if (transferred < amount) {
-                transferred += extractNetwork(tile, type, amount - transferred,
-                        simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-            }
         }
         return (int) Math.min(amount, transferred);
     }
