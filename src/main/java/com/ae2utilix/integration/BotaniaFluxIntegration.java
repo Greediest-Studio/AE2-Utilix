@@ -364,6 +364,30 @@ public final class BotaniaFluxIntegration {
         return transfer(tile, MANA, amount, simulate, false);
     }
 
+    public static int receiveManaLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
+        if (!isManaIntegrationAvailable() || tile == null || amount <= 0) return 0;
+        return (int) Math.min(amount, insertLocal(tile, MANA, amount,
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE, true));
+    }
+
+    public static int extractManaLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
+        if (!isManaIntegrationAvailable() || tile == null || amount <= 0) return 0;
+        return (int) Math.min(amount, extractLocal(tile, MANA, amount,
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE));
+    }
+
+    public static int receiveFeLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
+        if (!isFeIntegrationAvailable() || tile == null || amount <= 0) return 0;
+        return (int) Math.min(amount, insertLocal(tile, FE, amount,
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE, true));
+    }
+
+    public static int extractFeLocal(TileCommonInterfaceAlternate tile, int amount, boolean simulate) {
+        if (!isFeIntegrationAvailable() || tile == null || amount <= 0) return 0;
+        return (int) Math.min(amount, extractLocal(tile, FE, amount,
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE));
+    }
+
     private static int transfer(TileCommonInterfaceAlternate tile, int type, int amount,
             boolean simulate, boolean receive) {
         if (amount <= 0) return 0;

@@ -1482,13 +1482,20 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         FluidStack remaining = resource.copy();
         remaining.amount = remainingAmount;
 
-        int localFilled = fillLocal(remaining, doFill, false);
-        if (localFilled < remainingAmount) {
-            FluidStack extendedRemaining = remaining.copy();
-            extendedRemaining.amount = remainingAmount - localFilled;
+        int localFilled = fillLocal(remaining, doFill);
+        return networkFilled + localFilled;
+    }
+
+    /** Fills only the fluid buffers owned by this interface. */
+    public int fillLocal(FluidStack resource, boolean doFill) {
+        if (resource == null || resource.amount <= 0) return 0;
+        int localFilled = fillLocal(resource, doFill, false);
+        if (localFilled < resource.amount) {
+            FluidStack extendedRemaining = resource.copy();
+            extendedRemaining.amount = resource.amount - localFilled;
             localFilled += fillLocal(extendedRemaining, doFill, true);
         }
-        return networkFilled + localFilled;
+        return localFilled;
     }
 
     private int fillLocal(FluidStack resource, boolean doFill, boolean extended) {
@@ -1578,17 +1585,34 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     @Override
     public FluidStack drain(int maxDrain, boolean doDrain) {
+        FluidStack local = this.drainLocal(maxDrain, doDrain);
+        return local == null ? this.networkFluidHandler.drain(maxDrain, doDrain) : local;
+    }
+
+    /**
+     * Drains only the fluid buffers owned by this interface. This is used by
+     * adjacent automation that must not tunnel through the interface into its
+     * ME network.
+     */
+    public FluidStack drainLocal(int maxDrain, boolean doDrain) {
         for (int i = 0; i < interfaceStoredFluids.length; i++) {
             if (interfaceStoredFluids[i] != null) return drain(false, i, maxDrain, doDrain);
         }
         for (int i = 0; i < extendedStoredFluids.length; i++) {
             if (extendedStoredFluids[i] != null) return drain(true, i, maxDrain, doDrain);
         }
-        return this.networkFluidHandler.drain(maxDrain, doDrain);
+        return null;
     }
 
     @Override
     public FluidStack drain(FluidStack resource, boolean doDrain) {
+        if (resource == null) return null;
+        FluidStack local = this.drainLocal(resource, doDrain);
+        return local == null ? this.networkFluidHandler.drain(resource, doDrain) : local;
+    }
+
+    /** Drains only local fluid buffers for the requested fluid type. */
+    public FluidStack drainLocal(FluidStack resource, boolean doDrain) {
         if (resource == null) return null;
         for (int i = 0; i < interfaceStoredFluids.length; i++) {
             IAEFluidStack stored = interfaceStoredFluids[i];
@@ -1598,7 +1622,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             IAEFluidStack stored = extendedStoredFluids[i];
             if (stored != null && stored.getFluidStack().isFluidEqual(resource)) return drain(true, i, resource.amount, doDrain);
         }
-        return this.networkFluidHandler.drain(resource, doDrain);
+        return null;
     }
 
     private FluidStack drain(boolean extended, int slot, int amount, boolean doDrain) {

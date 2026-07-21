@@ -111,6 +111,23 @@ public final class MekanismEnergisticsIntegration {
         return handler;
     }
 
+    public static GasStack drawLocalGas(TileCommonInterfaceAlternate tile, int amount, boolean doTransfer) {
+        if (!isAvailable() || tile == null || amount <= 0) return null;
+        return new InterfaceGasHandler(tile, false).drawGas(null, amount, doTransfer);
+    }
+
+    public static GasStack drawLocalGas(TileCommonInterfaceAlternate tile, GasStack requested,
+            boolean doTransfer) {
+        if (!isAvailable() || tile == null || requested == null) return null;
+        return new InterfaceGasHandler(tile, false).drawGas(null, requested, doTransfer);
+    }
+
+    public static int receiveLocalGas(TileCommonInterfaceAlternate tile, GasStack stack,
+            boolean doTransfer) {
+        if (!isAvailable() || tile == null || stack == null) return 0;
+        return new InterfaceGasHandler(tile, false).receiveGas(null, stack, doTransfer);
+    }
+
     public static void requestMarkedGases(TileCommonInterfaceAlternate tile, boolean extended) {
         if (!isAvailable() || tile == null || tile.getWorld() == null || tile.getWorld().isRemote
                 || !tile.getProxy().isActive()) return;

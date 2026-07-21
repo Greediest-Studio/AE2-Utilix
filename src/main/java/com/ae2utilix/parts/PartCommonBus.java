@@ -25,6 +25,7 @@ import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
 import com.ae2utilix.AE2Utilix;
+import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.integration.BotaniaFluxIntegration;
 import com.ae2utilix.integration.MekanismEnergisticsIntegration;
 import com.ae2utilix.item.ItemFluidMark;
@@ -265,6 +266,10 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     }
 
     private boolean importItem(ItemStack filter) {
+        TileEntity connected = this.getConnectedTile();
+        if (connected instanceof TileCommonInterfaceAlternate) {
+            return this.importItemFromInterface((TileCommonInterfaceAlternate) connected, filter);
+        }
         InventoryAdaptor target = this.getItemTarget();
         if (target == null) return false;
         ItemStack simulated = filter == null
@@ -283,6 +288,46 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         IAEItemStack failed = this.insertItems(AEItemStack.fromItemStack(extracted), Actionable.MODULATE);
         if (failed != null && failed.getStackSize() > 0) target.addItems(failed.createItemStack());
         return failed == null || failed.getStackSize() < extracted.getCount();
+    }
+
+    private boolean importItemFromInterface(TileCommonInterfaceAlternate target, ItemStack filter) {
+        IItemHandler[] storages = new IItemHandler[]{target.getStorage(), target.getExtendedStorage()};
+        for (IItemHandler storage : storages) {
+            for (int slot = 0; slot < storage.getSlots(); slot++) {
+                ItemStack simulated = storage.extractItem(slot, ITEM_TRANSFER, true);
+                if (simulated.isEmpty() || !matchesItemFilter(simulated, filter)) continue;
+
+                IAEItemStack aeStack = AEItemStack.fromItemStack(simulated);
+                if (aeStack == null) continue;
+                long accepted = this.simulateItemInsert(aeStack);
+                if (accepted <= 0) continue;
+
+                int amount = (int) Math.min(simulated.getCount(), accepted);
+                ItemStack extracted = storage.extractItem(slot, amount, false);
+                if (extracted.isEmpty()) continue;
+                IAEItemStack failed = this.insertItems(AEItemStack.fromItemStack(extracted), Actionable.MODULATE);
+                if (failed != null && failed.getStackSize() > 0) {
+                    this.restoreItemToInterface(target, failed.createItemStack());
+                }
+                return failed == null || failed.getStackSize() < extracted.getCount();
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesItemFilter(ItemStack stack, ItemStack filter) {
+        return filter == null || filter.isEmpty()
+                || (stack.isItemEqual(filter) && ItemStack.areItemStackTagsEqual(stack, filter));
+    }
+
+    private void restoreItemToInterface(TileCommonInterfaceAlternate target, ItemStack stack) {
+        ItemStack remainder = stack;
+        IItemHandler[] storages = new IItemHandler[]{target.getStorage(), target.getExtendedStorage()};
+        for (IItemHandler storage : storages) {
+            for (int slot = 0; slot < storage.getSlots() && !remainder.isEmpty(); slot++) {
+                remainder = storage.insertItem(slot, remainder, false);
+            }
+        }
     }
 
     private boolean exportItem(ItemStack marker) {
@@ -330,6 +375,10 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     }
 
     private boolean importFluid(ItemStack marker, int slot) {
+        TileEntity connected = this.getConnectedTile();
+        if (connected instanceof TileCommonInterfaceAlternate) {
+            return this.importFluidFromInterface((TileCommonInterfaceAlternate) connected, marker, slot);
+        }
         IFluidHandler target = this.getFluidTarget();
         if (target == null) return false;
         FluidStack marked = marker == null ? null : ItemFluidMark.getFluid(marker);
@@ -349,6 +398,29 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         if (actual == null || actual.amount <= 0) return false;
         IAEFluidStack failed = this.insertFluid(actual, Actionable.MODULATE);
         if (failed != null && failed.getStackSize() > 0) target.fill(failed.getFluidStack(), true);
+        return failed == null || failed.getStackSize() < actual.amount;
+    }
+
+    private boolean importFluidFromInterface(TileCommonInterfaceAlternate target,
+            ItemStack marker, int slot) {
+        FluidStack marked = marker == null ? null : ItemFluidMark.getFluid(marker);
+        int amount = this.getVirtualAmount(slot);
+        FluidStack request = marked == null ? target.drainLocal(amount, false) : marked.copy();
+        if (request == null || request.amount <= 0) return false;
+        if (marked != null) request.amount = amount;
+
+        FluidStack simulated = target.drainLocal(request, false);
+        if (simulated == null || simulated.amount <= 0
+                || (marked != null && !simulated.isFluidEqual(marked))) return false;
+        int accepted = this.simulateFluidInsert(simulated);
+        if (accepted <= 0) return false;
+
+        FluidStack actualRequest = simulated.copy();
+        actualRequest.amount = accepted;
+        FluidStack actual = target.drainLocal(actualRequest, true);
+        if (actual == null || actual.amount <= 0) return false;
+        IAEFluidStack failed = this.insertFluid(actual, Actionable.MODULATE);
+        if (failed != null && failed.getStackSize() > 0) target.fillLocal(failed.getFluidStack(), true);
         return failed == null || failed.getStackSize() < actual.amount;
     }
 
@@ -407,6 +479,10 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     }
 
     private boolean importGas(ItemStack marker, int slot) {
+        TileEntity connected = this.getConnectedTile();
+        if (connected instanceof TileCommonInterfaceAlternate) {
+            return this.importGasFromInterface((TileCommonInterfaceAlternate) connected, marker, slot);
+        }
         IGasHandler target = this.getGasTarget();
         if (target == null) return false;
         String gasName = marker == null ? null : ItemFluidMark.getGasName(marker);
@@ -420,6 +496,31 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         if (actual == null || actual.amount <= 0) return false;
         IAEGasStack failed = this.insertGas(actual, Actionable.MODULATE);
         if (failed != null && failed.getStackSize() > 0) target.receiveGas(this.getTargetFace(), failed.getGasStack(), true);
+        return failed == null || failed.getStackSize() < actual.amount;
+    }
+
+    private boolean importGasFromInterface(TileCommonInterfaceAlternate target,
+            ItemStack marker, int slot) {
+        String gasName = marker == null ? null : ItemFluidMark.getGasName(marker);
+        Gas gas = gasName == null ? null : GasRegistry.getGas(gasName);
+        int amount = this.getVirtualAmount(slot);
+        GasStack simulated = gas == null
+                ? MekanismEnergisticsIntegration.drawLocalGas(target, amount, false)
+                : MekanismEnergisticsIntegration.drawLocalGas(target, new GasStack(gas, amount), false);
+        if (simulated == null || simulated.amount <= 0
+                || (gas != null && simulated.getGas() != gas)) return false;
+
+        int accepted = this.simulateGasInsert(simulated);
+        if (accepted <= 0) return false;
+        GasStack actual = gas == null
+                ? MekanismEnergisticsIntegration.drawLocalGas(target, accepted, true)
+                : MekanismEnergisticsIntegration.drawLocalGas(target, new GasStack(gas, accepted), true);
+        if (actual == null || actual.amount <= 0) return false;
+
+        IAEGasStack failed = this.insertGas(actual, Actionable.MODULATE);
+        if (failed != null && failed.getStackSize() > 0) {
+            MekanismEnergisticsIntegration.receiveLocalGas(target, failed.getGasStack(), true);
+        }
         return failed == null || failed.getStackSize() < actual.amount;
     }
 
@@ -537,9 +638,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     }
 
     private int extractManaFromTarget(TileEntity target, int amount) {
-        if (target instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
-            return BotaniaFluxIntegration.extractMana(
-                    (com.ae2utilix.block.TileCommonInterfaceAlternate) target, amount, false);
+        if (target instanceof TileCommonInterfaceAlternate) {
+            return BotaniaFluxIntegration.extractManaLocal(
+                    (TileCommonInterfaceAlternate) target, amount, false);
         }
         if (target instanceof IFluixManaReceiver) {
             return FluixPoolManaHelper.extract(target, amount);
@@ -555,9 +656,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private void insertManaIntoTarget(TileEntity target, int amount) {
         if (amount <= 0) return;
-        if (target instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
-            BotaniaFluxIntegration.receiveMana(
-                    (com.ae2utilix.block.TileCommonInterfaceAlternate) target, amount, false);
+        if (target instanceof TileCommonInterfaceAlternate) {
+            BotaniaFluxIntegration.receiveManaLocal(
+                    (TileCommonInterfaceAlternate) target, amount, false);
             return;
         }
         if (!(target instanceof IManaReceiver)) return;
@@ -570,22 +671,37 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private boolean importFe(int slot) {
         TileEntity target = this.getConnectedTile();
-        IEnergyStorage energy = target == null ? null : target.getCapability(CapabilityEnergy.ENERGY, this.getTargetFace());
-        if (energy == null) return false;
+        TileCommonInterfaceAlternate commonInterface = target instanceof TileCommonInterfaceAlternate
+                ? (TileCommonInterfaceAlternate) target : null;
+        IEnergyStorage energy = commonInterface == null || target == null
+                ? target == null ? null : target.getCapability(CapabilityEnergy.ENERGY, this.getTargetFace())
+                : null;
+        if (commonInterface == null && energy == null) return false;
         long remaining = this.getVirtualResourceAmount(slot);
         boolean worked = false;
         while (remaining > 0) {
             int request = (int) Math.min(remaining, Integer.MAX_VALUE);
-            int available = energy.extractEnergy(request, true);
+            int available = commonInterface == null
+                    ? energy.extractEnergy(request, true)
+                    : BotaniaFluxIntegration.extractFeLocal(commonInterface, request, true);
             if (available <= 0) break;
             long accepted = this.insertFe(available, Actionable.SIMULATE);
             if (accepted <= 0) break;
-            int actual = energy.extractEnergy((int) Math.min(available, accepted), false);
+            int amount = (int) Math.min(available, accepted);
+            int actual = commonInterface == null
+                    ? energy.extractEnergy(amount, false)
+                    : BotaniaFluxIntegration.extractFeLocal(commonInterface, amount, false);
             if (actual <= 0) break;
             long failed = this.insertFe(actual, Actionable.MODULATE);
             long rejected = Math.max(0, Math.min((long) actual, failed));
             int inserted = (int) (actual - rejected);
-            if (rejected > 0) energy.receiveEnergy((int) rejected, false);
+            if (rejected > 0) {
+                if (commonInterface == null) {
+                    energy.receiveEnergy((int) rejected, false);
+                } else {
+                    BotaniaFluxIntegration.receiveFeLocal(commonInterface, (int) rejected, false);
+                }
+            }
             if (inserted <= 0) break;
             remaining -= inserted;
             worked = true;
