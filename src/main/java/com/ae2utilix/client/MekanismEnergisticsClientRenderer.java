@@ -6,6 +6,8 @@ import com.mekeng.github.client.render.GasStackSizeRenderer;
 import mekanism.api.gas.Gas;
 import mekanism.api.gas.GasRegistry;
 import mekanism.api.gas.GasStack;
+import com.mekeng.github.common.ItemAndBlocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -32,6 +34,14 @@ public final class MekanismEnergisticsClientRenderer {
     public static int getGasTint(String gasName) {
         Gas gas = GasRegistry.getGas(gasName);
         return gas == null ? 0xFFFFFFFF : gas.getTint();
+    }
+
+    public static ItemStack getGasItemStack(String gasName) {
+        Gas gas = GasRegistry.getGas(gasName);
+        if (gas == null || ItemAndBlocks.DUMMY_GAS == null) return ItemStack.EMPTY;
+        ItemStack stack = new ItemStack(ItemAndBlocks.DUMMY_GAS);
+        ItemAndBlocks.DUMMY_GAS.setGasStack(stack, new GasStack(gas, 1));
+        return stack;
     }
 
     public static void renderGasAmount(FontRenderer font, String gasName, int amount, int x, int y) {

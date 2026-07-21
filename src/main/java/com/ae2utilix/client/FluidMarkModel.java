@@ -113,7 +113,14 @@ public class FluidMarkModel implements IModel {
                 if (fluid != null) return resolve(fluid.getFluid().getStill(fluid));
                 String gasName = ItemFluidMark.getGasName(stack);
                 if (gasName != null && com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()) {
-                    return resolve(com.ae2utilix.client.MekanismEnergisticsClientRenderer.getGasSprite(gasName));
+                    ItemStack gasItem = com.ae2utilix.client.MekanismEnergisticsClientRenderer
+                            .getGasItemStack(gasName);
+                    if (!gasItem.isEmpty()) {
+                        return Minecraft.getMinecraft().getRenderItem()
+                                .getItemModelWithOverrides(gasItem, world, entity);
+                    }
+                    return resolve(com.ae2utilix.client.MekanismEnergisticsClientRenderer
+                            .getGasSprite(gasName));
                 }
                 return resolve(new ResourceLocation("minecraft", "blocks/water_still"));
             }

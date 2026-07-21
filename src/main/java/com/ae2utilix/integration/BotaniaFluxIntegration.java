@@ -105,7 +105,7 @@ public final class BotaniaFluxIntegration {
                 ? "nyonio.item.ItemManaPacket" : "com.flux_applied.item.ItemFluxPacket";
         try {
             Class<?> itemClass = Class.forName(className);
-            Object result = itemClass.getMethod("create", int.class).invoke(null, 0);
+            Object result = itemClass.getMethod("create", long.class).invoke(null, 0L);
             return result instanceof ItemStack ? (ItemStack) result : null;
         } catch (Throwable ignored) {
             return null;
