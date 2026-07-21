@@ -736,12 +736,12 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private long insertMana(long amount, Actionable mode) {
         try {
             IMEInventory<ManaStack> inventory = this.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
-            if (inventory == null) return amount;
+            if (inventory == null) return 0;
             ManaStack remainder = Platform.poweredInsert(this.getProxy().getEnergy(), inventory,
                     new ManaStack(amount), this.source, mode);
             return amount - (remainder == null ? 0 : remainder.getStackSize());
         } catch (GridAccessException e) {
-            return amount;
+            return 0;
         }
     }
 
@@ -760,12 +760,12 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private long insertFe(long amount, Actionable mode) {
         try {
             IMEInventory<FluxStack> inventory = this.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
-            if (inventory == null) return amount;
+            if (inventory == null) return 0;
             FluxStack remainder = Platform.poweredInsert(this.getProxy().getEnergy(), inventory,
                     new FluxStack(amount), this.source, mode);
             return amount - (remainder == null ? 0 : remainder.getStackSize());
         } catch (GridAccessException e) {
-            return amount;
+            return 0;
         }
     }
 
