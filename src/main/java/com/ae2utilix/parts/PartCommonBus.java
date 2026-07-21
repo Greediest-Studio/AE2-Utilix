@@ -470,7 +470,8 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private boolean importMana(int slot) {
         TileEntity target = this.getConnectedTile();
-        if (!(target instanceof IManaReceiver)) return false;
+        if (!(target instanceof IManaReceiver)
+                && !(target instanceof com.ae2utilix.block.TileCommonInterfaceAlternate)) return false;
         long remaining = this.getVirtualResourceAmount(slot);
         boolean worked = false;
         while (remaining > 0) {
@@ -493,6 +494,10 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private boolean exportMana(int slot) {
         TileEntity target = this.getConnectedTile();
+        if (target instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+            return this.exportManaToInterface(
+                    (com.ae2utilix.block.TileCommonInterfaceAlternate) target, slot);
+        }
         if (!(target instanceof ISparkAttachable)) return false;
         ISparkAttachable receiver = (ISparkAttachable) target;
         long remaining = this.getVirtualResourceAmount(slot);
@@ -509,7 +514,33 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         return worked;
     }
 
+    private boolean exportManaToInterface(
+            com.ae2utilix.block.TileCommonInterfaceAlternate target, int slot) {
+        long remaining = this.getVirtualResourceAmount(slot);
+        boolean worked = false;
+        while (remaining > 0) {
+            int request = (int) Math.min(remaining, Integer.MAX_VALUE);
+            int accepted = BotaniaFluxIntegration.receiveMana(target, request, true);
+            if (accepted <= 0) break;
+            long extracted = this.extractMana(accepted, Actionable.MODULATE);
+            if (extracted <= 0) break;
+            int inserted = BotaniaFluxIntegration.receiveMana(target, (int) extracted, false);
+            if (inserted < extracted) {
+                this.insertMana(extracted - inserted, Actionable.MODULATE);
+            }
+            if (inserted <= 0) break;
+            remaining -= inserted;
+            worked = true;
+            if (inserted < extracted) break;
+        }
+        return worked;
+    }
+
     private int extractManaFromTarget(TileEntity target, int amount) {
+        if (target instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+            return BotaniaFluxIntegration.extractMana(
+                    (com.ae2utilix.block.TileCommonInterfaceAlternate) target, amount, false);
+        }
         if (target instanceof IFluixManaReceiver) {
             return FluixPoolManaHelper.extract(target, amount);
         }
@@ -523,7 +554,13 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     }
 
     private void insertManaIntoTarget(TileEntity target, int amount) {
-        if (amount <= 0 || !(target instanceof IManaReceiver)) return;
+        if (amount <= 0) return;
+        if (target instanceof com.ae2utilix.block.TileCommonInterfaceAlternate) {
+            BotaniaFluxIntegration.receiveMana(
+                    (com.ae2utilix.block.TileCommonInterfaceAlternate) target, amount, false);
+            return;
+        }
+        if (!(target instanceof IManaReceiver)) return;
         if (target instanceof IFluixManaReceiver) {
             FluixPoolManaHelper.insert(target, amount);
         } else {
@@ -583,7 +620,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private long insertMana(long amount, Actionable mode) {
         try {
             IMEInventory<ManaStack> inventory = this.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
-            ManaStack remainder = inventory.injectItems(new ManaStack(amount), mode, this.source);
+            if (inventory == null) return amount;
+            ManaStack remainder = Platform.poweredInsert(this.getProxy().getEnergy(), inventory,
+                    new ManaStack(amount), this.source, mode);
             return amount - (remainder == null ? 0 : remainder.getStackSize());
         } catch (GridAccessException e) {
             return amount;
@@ -593,7 +632,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private long extractMana(long amount, Actionable mode) {
         try {
             IMEInventory<ManaStack> inventory = this.getProxy().getStorage().getInventory(ManaStorageChannel.INSTANCE);
-            ManaStack extracted = inventory.extractItems(new ManaStack(amount), mode, this.source);
+            if (inventory == null) return 0;
+            ManaStack extracted = Platform.poweredExtraction(this.getProxy().getEnergy(), inventory,
+                    new ManaStack(amount), this.source, mode);
             return extracted == null ? 0 : extracted.getStackSize();
         } catch (GridAccessException e) {
             return 0;
@@ -603,7 +644,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private long insertFe(long amount, Actionable mode) {
         try {
             IMEInventory<FluxStack> inventory = this.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
-            FluxStack remainder = inventory.injectItems(new FluxStack(amount), mode, this.source);
+            if (inventory == null) return amount;
+            FluxStack remainder = Platform.poweredInsert(this.getProxy().getEnergy(), inventory,
+                    new FluxStack(amount), this.source, mode);
             return amount - (remainder == null ? 0 : remainder.getStackSize());
         } catch (GridAccessException e) {
             return amount;
@@ -613,7 +656,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     private long extractFe(long amount, Actionable mode) {
         try {
             IMEInventory<FluxStack> inventory = this.getProxy().getStorage().getInventory(FluxStorageChannel.INSTANCE);
-            FluxStack extracted = inventory.extractItems(new FluxStack(amount), mode, this.source);
+            if (inventory == null) return 0;
+            FluxStack extracted = Platform.poweredExtraction(this.getProxy().getEnergy(), inventory,
+                    new FluxStack(amount), this.source, mode);
             return extracted == null ? 0 : extracted.getStackSize();
         } catch (GridAccessException e) {
             return 0;

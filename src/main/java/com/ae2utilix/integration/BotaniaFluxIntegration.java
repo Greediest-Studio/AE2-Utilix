@@ -12,6 +12,7 @@ import appeng.api.storage.data.IAEStack;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MEMonitorHandler;
 import appeng.me.helpers.MachineSource;
+import appeng.util.Platform;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.item.ItemFluidMark;
 import com.flux_applied.ae2.FluxStack;
@@ -268,13 +269,19 @@ public final class BotaniaFluxIntegration {
                 || (type == FE && !isFeIntegrationAvailable())) return 0;
         try {
             if (type == MANA) {
+                IMEInventory<ManaStack> inventory = getManaNetworkInventory(tile);
+                if (inventory == null) return 0;
                 ManaStack input = new ManaStack(amount);
-                ManaStack remainder = getManaNetworkInventory(tile).injectItems(input, mode, new MachineSource(tile));
-                return amount - (remainder == null ? 0 : remainder.getStackSize());
+                ManaStack remainder = Platform.poweredInsert(tile.getProxy().getEnergy(), inventory, input,
+                        new MachineSource(tile), mode);
+                return Math.max(0, Math.min(amount, amount - (remainder == null ? 0 : remainder.getStackSize())));
             }
+            IMEInventory<FluxStack> inventory = getFeNetworkInventory(tile);
+            if (inventory == null) return 0;
             FluxStack input = new FluxStack(amount);
-            FluxStack remainder = getFeNetworkInventory(tile).injectItems(input, mode, new MachineSource(tile));
-            return amount - (remainder == null ? 0 : remainder.getStackSize());
+            FluxStack remainder = Platform.poweredInsert(tile.getProxy().getEnergy(), inventory, input,
+                    new MachineSource(tile), mode);
+            return Math.max(0, Math.min(amount, amount - (remainder == null ? 0 : remainder.getStackSize())));
         } catch (Exception ignored) {
             return 0;
         }
@@ -286,11 +293,17 @@ public final class BotaniaFluxIntegration {
                 || (type == FE && !isFeIntegrationAvailable())) return 0;
         try {
             if (type == MANA) {
-                ManaStack extracted = getManaNetworkInventory(tile).extractItems(new ManaStack(amount), mode, new MachineSource(tile));
-                return extracted == null ? 0 : extracted.getStackSize();
+                IMEInventory<ManaStack> inventory = getManaNetworkInventory(tile);
+                if (inventory == null) return 0;
+                ManaStack extracted = Platform.poweredExtraction(tile.getProxy().getEnergy(), inventory,
+                        new ManaStack(amount), new MachineSource(tile), mode);
+                return extracted == null ? 0 : Math.min(amount, extracted.getStackSize());
             }
-            FluxStack extracted = getFeNetworkInventory(tile).extractItems(new FluxStack(amount), mode, new MachineSource(tile));
-            return extracted == null ? 0 : extracted.getStackSize();
+            IMEInventory<FluxStack> inventory = getFeNetworkInventory(tile);
+            if (inventory == null) return 0;
+            FluxStack extracted = Platform.poweredExtraction(tile.getProxy().getEnergy(), inventory,
+                    new FluxStack(amount), new MachineSource(tile), mode);
+            return extracted == null ? 0 : Math.min(amount, extracted.getStackSize());
         } catch (Exception ignored) {
             return 0;
         }
