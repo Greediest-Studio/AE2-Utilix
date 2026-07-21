@@ -40,6 +40,7 @@ import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.filter.IAEItemFilter;
 import com.google.common.collect.ImmutableSet;
+import com.ae2utilix.integration.BotaniaFluxIntegration;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -98,8 +99,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private final String[] extendedStoredGases = new String[9];
     private final int[] interfaceStoredGasAmounts = new int[9];
     private final int[] extendedStoredGasAmounts = new int[9];
+    private final long[] interfaceManaConfigAmounts = new long[9];
+    private final long[] extendedManaConfigAmounts = new long[9];
     private final long[] interfaceManaAmounts = new long[9];
     private final long[] extendedManaAmounts = new long[9];
+    private final long[] interfaceFeConfigAmounts = new long[9];
+    private final long[] extendedFeConfigAmounts = new long[9];
     private final long[] interfaceFeAmounts = new long[9];
     private final long[] extendedFeAmounts = new long[9];
     private final MEMonitorIFluidHandler fluidMonitor = new MEMonitorIFluidHandler(this);
@@ -388,10 +393,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeGasState(data, "extended", this.extendedGases, this.extendedGasAmounts);
         this.writeGasState(data, "interface_stored", this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         this.writeGasState(data, "extended_stored", this.extendedStoredGases, this.extendedStoredGasAmounts);
-        this.writeLongState(data, "interface_mana", this.interfaceManaAmounts);
-        this.writeLongState(data, "extended_mana", this.extendedManaAmounts);
-        this.writeLongState(data, "interface_fe", this.interfaceFeAmounts);
-        this.writeLongState(data, "extended_fe", this.extendedFeAmounts);
+        this.writeLongState(data, "interface_mana_config", this.interfaceManaConfigAmounts);
+        this.writeLongState(data, "interface_mana_stored", this.interfaceManaAmounts);
+        this.writeLongState(data, "extended_mana_config", this.extendedManaConfigAmounts);
+        this.writeLongState(data, "extended_mana_stored", this.extendedManaAmounts);
+        this.writeLongState(data, "interface_fe_config", this.interfaceFeConfigAmounts);
+        this.writeLongState(data, "interface_fe_stored", this.interfaceFeAmounts);
+        this.writeLongState(data, "extended_fe_config", this.extendedFeConfigAmounts);
+        this.writeLongState(data, "extended_fe_stored", this.extendedFeAmounts);
         this.virtualCrafting.writeToNBT(data);
         if (this.hasLinkData()) {
             data.setInteger(NBT_LINK_DIM, this.linkDim);
@@ -418,10 +427,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.readGasState(data, "extended", this.extendedGases, this.extendedGasAmounts);
         this.readGasState(data, "interface_stored", this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         this.readGasState(data, "extended_stored", this.extendedStoredGases, this.extendedStoredGasAmounts);
-        this.readLongState(data, "interface_mana", this.interfaceManaAmounts);
-        this.readLongState(data, "extended_mana", this.extendedManaAmounts);
-        this.readLongState(data, "interface_fe", this.interfaceFeAmounts);
-        this.readLongState(data, "extended_fe", this.extendedFeAmounts);
+        this.readEnergyState(data, "interface", false, BotaniaFluxIntegration.MANA,
+                this.interfaceManaConfigAmounts, this.interfaceManaAmounts);
+        this.readEnergyState(data, "extended", true, BotaniaFluxIntegration.MANA,
+                this.extendedManaConfigAmounts, this.extendedManaAmounts);
+        this.readEnergyState(data, "interface", false, BotaniaFluxIntegration.FE,
+                this.interfaceFeConfigAmounts, this.interfaceFeAmounts);
+        this.readEnergyState(data, "extended", true, BotaniaFluxIntegration.FE,
+                this.extendedFeConfigAmounts, this.extendedFeAmounts);
         this.virtualCrafting.readFromNBT(data);
         if (data.hasKey(NBT_LINK_DIM)) {
             this.linkDim = data.getInteger(NBT_LINK_DIM);
@@ -495,13 +508,13 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     public int getManaConfigAmount(boolean extended, int slot) {
-        long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
+        long[] values = extended ? this.extendedManaConfigAmounts : this.interfaceManaConfigAmounts;
         return (int) Math.max(1, Math.min(this.getVirtualStorageCapacity(),
                 values[slot] <= 0 ? 1000L : values[slot]));
     }
 
     public int getFeConfigAmount(boolean extended, int slot) {
-        long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
+        long[] values = extended ? this.extendedFeConfigAmounts : this.interfaceFeConfigAmounts;
         return (int) Math.max(1, Math.min(this.getVirtualStorageCapacity(),
                 values[slot] <= 0 ? 1000L : values[slot]));
     }
@@ -515,7 +528,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     public void setManaConfig(boolean extended, int slot, int amount) {
-        long[] values = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
+        long[] values = extended ? this.extendedManaConfigAmounts : this.interfaceManaConfigAmounts;
         values[slot] = Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
@@ -523,7 +536,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     public void setFeConfig(boolean extended, int slot, int amount) {
-        long[] values = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
+        long[] values = extended ? this.extendedFeConfigAmounts : this.interfaceFeConfigAmounts;
         values[slot] = Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
@@ -1193,9 +1206,13 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeGasConfigStream(data, this.extendedGases, this.extendedGasAmounts);
         this.writeGasStateStream(data, this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         this.writeGasStateStream(data, this.extendedStoredGases, this.extendedStoredGasAmounts);
+        this.writeLongStateStream(data, this.interfaceManaConfigAmounts);
         this.writeLongStateStream(data, this.interfaceManaAmounts);
+        this.writeLongStateStream(data, this.extendedManaConfigAmounts);
         this.writeLongStateStream(data, this.extendedManaAmounts);
+        this.writeLongStateStream(data, this.interfaceFeConfigAmounts);
         this.writeLongStateStream(data, this.interfaceFeAmounts);
+        this.writeLongStateStream(data, this.extendedFeConfigAmounts);
         this.writeLongStateStream(data, this.extendedFeAmounts);
     }
 
@@ -1210,9 +1227,13 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         changed |= this.readGasConfigStream(data, this.extendedGases, this.extendedGasAmounts);
         changed |= this.readGasStateStream(data, this.interfaceStoredGases, this.interfaceStoredGasAmounts);
         changed |= this.readGasStateStream(data, this.extendedStoredGases, this.extendedStoredGasAmounts);
+        changed |= this.readLongStateStream(data, this.interfaceManaConfigAmounts);
         changed |= this.readLongStateStream(data, this.interfaceManaAmounts);
+        changed |= this.readLongStateStream(data, this.extendedManaConfigAmounts);
         changed |= this.readLongStateStream(data, this.extendedManaAmounts);
+        changed |= this.readLongStateStream(data, this.interfaceFeConfigAmounts);
         changed |= this.readLongStateStream(data, this.interfaceFeAmounts);
+        changed |= this.readLongStateStream(data, this.extendedFeConfigAmounts);
         changed |= this.readLongStateStream(data, this.extendedFeAmounts);
         return changed;
     }
@@ -1375,6 +1396,34 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         NBTTagCompound state = data.getCompoundTag("ae2utilix_energy_" + key);
         for (int i = 0; i < values.length; i++) {
             values[i] = Math.max(0, Math.min(this.getVirtualStorageCapacity(), state.getLong(String.valueOf(i))));
+        }
+    }
+
+    private void readEnergyState(NBTTagCompound data, String side, boolean extended, int type,
+            long[] configValues, long[] storedValues) {
+        String name = type == BotaniaFluxIntegration.MANA ? "mana" : "fe";
+        String prefix = "ae2utilix_energy_" + side + "_" + name;
+        boolean hasConfig = data.hasKey(prefix + "_config");
+        boolean hasStored = data.hasKey(prefix + "_stored");
+        if (hasConfig || hasStored) {
+            this.readLongState(data, side + "_" + name + "_config", configValues);
+            this.readLongState(data, side + "_" + name + "_stored", storedValues);
+            return;
+        }
+
+        String legacyKey = side + "_" + name;
+        if (!data.hasKey("ae2utilix_energy_" + legacyKey)) return;
+
+        long[] legacyValues = new long[storedValues.length];
+        this.readLongState(data, legacyKey, legacyValues);
+        IItemHandler config = extended ? this.extendedDuality.getConfig() : this.interfaceDuality.getConfig();
+        for (int slot = 0; slot < legacyValues.length; slot++) {
+            ItemStack marker = config.getStackInSlot(slot);
+            boolean marked = type == BotaniaFluxIntegration.MANA
+                    ? com.ae2utilix.item.ItemFluidMark.isManaMark(marker)
+                    : com.ae2utilix.item.ItemFluidMark.isFeMark(marker);
+            if (marked) configValues[slot] = legacyValues[slot];
+            else storedValues[slot] = legacyValues[slot];
         }
     }
 
