@@ -581,14 +581,14 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
             if (accepted <= 0) break;
             int actual = this.extractManaFromTarget(target, (int) Math.min(request, accepted));
             if (actual <= 0) break;
-            long failed = this.insertMana(actual, Actionable.MODULATE);
-            long rejected = Math.max(0, Math.min((long) actual, failed));
-            int inserted = (int) (actual - rejected);
+            long inserted = Math.max(0, Math.min((long) actual,
+                    this.insertMana(actual, Actionable.MODULATE)));
+            long rejected = actual - inserted;
             if (rejected > 0) this.insertManaIntoTarget(target, (int) rejected);
             if (inserted <= 0) break;
             remaining -= inserted;
             worked = true;
-            if (failed > 0) break;
+            if (rejected > 0) break;
         }
         return worked;
     }
@@ -692,9 +692,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                     ? energy.extractEnergy(amount, false)
                     : BotaniaFluxIntegration.extractFeLocal(commonInterface, amount, false);
             if (actual <= 0) break;
-            long failed = this.insertFe(actual, Actionable.MODULATE);
-            long rejected = Math.max(0, Math.min((long) actual, failed));
-            int inserted = (int) (actual - rejected);
+            long inserted = Math.max(0, Math.min((long) actual,
+                    this.insertFe(actual, Actionable.MODULATE)));
+            long rejected = actual - inserted;
             if (rejected > 0) {
                 if (commonInterface == null) {
                     energy.receiveEnergy((int) rejected, false);
@@ -705,7 +705,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
             if (inserted <= 0) break;
             remaining -= inserted;
             worked = true;
-            if (failed > 0) break;
+            if (rejected > 0) break;
         }
         return worked;
     }
