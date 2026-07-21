@@ -55,6 +55,7 @@ import nyonio.FluixPoolManaHelper;
 import nyonio.IFluixManaReceiver;
 import nyonio.ae2.ManaStack;
 import nyonio.ae2.ManaStorageChannel;
+import vazkii.botania.api.mana.IManaReceiver;
 import vazkii.botania.api.mana.spark.ISparkAttachable;
 
 import java.util.Arrays;
@@ -72,9 +73,15 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     public static final int VIRTUAL_TRANSFER = 1000;
     public static final int ITEM_TRANSFER = 64;
     public static final int MAX_VIRTUAL_AMOUNT = 512000;
+    private static final int MARKER_ITEM = 0;
+    private static final int MARKER_FLUID = 1;
+    private static final int MARKER_GAS = 2;
+    private static final int MARKER_MANA = 3;
+    private static final int MARKER_FE = 4;
 
     private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, CONFIG_SLOTS);
     private final int[] virtualAmounts = new int[CONFIG_SLOTS];
+    private int virtualResourceRate = VIRTUAL_TRANSFER;
     protected final IActionSource source = new MachineSource(this);
 
     protected PartCommonBus(ItemStack stack) {
@@ -116,6 +123,20 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         this.getHost().markForSave();
     }
 
+    private int getVirtualResourceAmount(int slot) {
+        int configured = slot >= 0 && slot < CONFIG_SLOTS ? this.getVirtualAmount(slot) : VIRTUAL_TRANSFER;
+        return Math.min(MAX_VIRTUAL_AMOUNT, Math.max(configured, this.virtualResourceRate));
+    }
+
+    private void updateVirtualResourceRate(boolean worked) {
+        if (!worked) {
+            this.virtualResourceRate = VIRTUAL_TRANSFER;
+            return;
+        }
+        this.virtualResourceRate = Math.min(MAX_VIRTUAL_AMOUNT,
+                Math.max(VIRTUAL_TRANSFER, this.virtualResourceRate * 2));
+    }
+
     public void setMarker(int slot, ItemStack marker) {
         if (slot < 0 || slot >= CONFIG_SLOTS) return;
         this.config.extractItem(slot, Integer.MAX_VALUE, false);
@@ -146,6 +167,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                         ? Math.min(MAX_VIRTUAL_AMOUNT, saved[i]) : VIRTUAL_TRANSFER;
             }
         }
+        this.virtualResourceRate = data.hasKey("virtualResourceRate")
+                ? Math.max(VIRTUAL_TRANSFER, Math.min(MAX_VIRTUAL_AMOUNT, data.getInteger("virtualResourceRate")))
+                : VIRTUAL_TRANSFER;
     }
 
     @Override
@@ -153,6 +177,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         super.writeToNBT(data);
         this.config.writeToNBT(data, "config");
         data.setIntArray("virtualAmounts", this.virtualAmounts);
+        data.setInteger("virtualResourceRate", this.virtualResourceRate);
     }
 
     @Override
@@ -189,6 +214,8 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         if (!this.getProxy().isActive() || !this.canDoBusWork()) return TickRateModulation.IDLE;
 
         boolean worked = false;
+        boolean virtualResourceAttempted = false;
+        boolean virtualResourceWorked = false;
         for (int slot = 0; slot < CONFIG_SLOTS; slot++) {
             ItemStack marker = this.config.getStackInSlot(slot);
             if (marker.isEmpty()) continue;
@@ -200,30 +227,74 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                 }
             } else if (ItemFluidMark.isManaMark(marker)) {
                 if (BotaniaFluxIntegration.isManaIntegrationAvailable()) {
-                    worked |= this.isExportBus() ? this.exportMana(slot) : this.importMana(slot);
+                    virtualResourceAttempted = true;
+                    boolean step = this.isExportBus() ? this.exportMana(slot) : this.importMana(slot);
+                    worked |= step;
+                    virtualResourceWorked |= step;
                 }
             } else if (ItemFluidMark.isFeMark(marker)) {
                 if (BotaniaFluxIntegration.isFeIntegrationAvailable()) {
-                    worked |= this.isExportBus() ? this.exportFe(slot) : this.importFe(slot);
+                    virtualResourceAttempted = true;
+                    boolean step = this.isExportBus() ? this.exportFe(slot) : this.importFe(slot);
+                    worked |= step;
+                    virtualResourceWorked |= step;
                 }
             } else {
                 worked |= this.isExportBus() ? this.exportItem(marker) : this.importItem(marker);
             }
         }
 
-        // An entirely unconfigured import bus retains the normal AE2 behavior
-        // of importing all items. Once any marker exists, every transfer is
-        // explicitly selected by that marker.
-        if (!this.isExportBus() && !this.hasAnyMarker()) {
-            worked |= this.importItem(null);
+        // Every empty resource channel imports all matching resources. A marker
+        // only filters its own channel; it must not disable the other channels.
+        if (!this.isExportBus()) {
+            if (!this.hasMarkerOfType(MARKER_ITEM)) worked |= this.importItem(null);
+            if (!this.hasMarkerOfType(MARKER_FLUID)) worked |= this.importFluid(null, -1);
+            if (MekanismEnergisticsIntegration.isAvailable() && !this.hasMarkerOfType(MARKER_GAS)) {
+                worked |= this.importGas(null, -1);
+            }
+            if (BotaniaFluxIntegration.isManaIntegrationAvailable() && !this.hasMarkerOfType(MARKER_MANA)) {
+                virtualResourceAttempted = true;
+                boolean step = this.importMana(-1);
+                worked |= step;
+                virtualResourceWorked |= step;
+            }
+            if (BotaniaFluxIntegration.isFeIntegrationAvailable() && !this.hasMarkerOfType(MARKER_FE)) {
+                virtualResourceAttempted = true;
+                boolean step = this.importFe(-1);
+                worked |= step;
+                virtualResourceWorked |= step;
+            }
+        }
+        if (virtualResourceAttempted) {
+            this.updateVirtualResourceRate(virtualResourceWorked);
         }
         return worked ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
     }
 
-    private boolean hasAnyMarker() {
+    private boolean hasMarkerOfType(int type) {
         for (int i = 0; i < CONFIG_SLOTS; i++) {
-            ItemStack stack = this.config.getStackInSlot(i);
-            if (!stack.isEmpty()) return true;
+            ItemStack marker = this.config.getStackInSlot(i);
+            if (marker.isEmpty()) continue;
+            boolean matches;
+            switch (type) {
+                case MARKER_FLUID:
+                    matches = ItemFluidMark.isFluidMark(marker);
+                    break;
+                case MARKER_GAS:
+                    matches = ItemFluidMark.isGasMark(marker);
+                    break;
+                case MARKER_MANA:
+                    matches = ItemFluidMark.isManaMark(marker);
+                    break;
+                case MARKER_FE:
+                    matches = ItemFluidMark.isFeMark(marker);
+                    break;
+                case MARKER_ITEM:
+                default:
+                    matches = !ItemFluidMark.isVirtualMark(marker);
+                    break;
+            }
+            if (matches) return true;
         }
         return false;
     }
@@ -317,16 +388,21 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private boolean importFluid(ItemStack marker, int slot) {
         IFluidHandler target = this.getFluidTarget();
-        FluidStack marked = ItemFluidMark.getFluid(marker);
-        if (target == null || marked == null) return false;
-        FluidStack request = marked.copy();
-        request.amount = this.getVirtualAmount(slot);
+        if (target == null) return false;
+        FluidStack marked = marker == null ? null : ItemFluidMark.getFluid(marker);
+        FluidStack request = marked == null
+                ? target.drain(this.getVirtualAmount(slot), false)
+                : marked.copy();
+        if (request == null || request.amount <= 0) return false;
+        if (marked != null) request.amount = this.getVirtualAmount(slot);
         FluidStack simulated = target.drain(request, false);
-        if (simulated == null || simulated.amount <= 0 || !simulated.isFluidEqual(marked)) return false;
+        if (simulated == null || simulated.amount <= 0
+                || (marked != null && !simulated.isFluidEqual(marked))) return false;
         int accepted = this.simulateFluidInsert(simulated);
         if (accepted <= 0) return false;
-        request.amount = accepted;
-        FluidStack actual = target.drain(request, true);
+        FluidStack actualRequest = simulated.copy();
+        actualRequest.amount = accepted;
+        FluidStack actual = target.drain(actualRequest, true);
         if (actual == null || actual.amount <= 0) return false;
         IAEFluidStack failed = this.insertFluid(actual, Actionable.MODULATE);
         if (failed != null && failed.getStackSize() > 0) target.fill(failed.getFluidStack(), true);
@@ -389,11 +465,12 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private boolean importGas(ItemStack marker, int slot) {
         IGasHandler target = this.getGasTarget();
-        String gasName = ItemFluidMark.getGasName(marker);
+        if (target == null) return false;
+        String gasName = marker == null ? null : ItemFluidMark.getGasName(marker);
         Gas gas = gasName == null ? null : GasRegistry.getGas(gasName);
-        if (target == null || gas == null) return false;
         GasStack simulated = target.drawGas(this.getTargetFace(), this.getVirtualAmount(slot), false);
-        if (simulated == null || simulated.amount <= 0 || simulated.getGas() != gas) return false;
+        if (simulated == null || simulated.amount <= 0
+                || (gas != null && simulated.getGas() != gas)) return false;
         int accepted = this.simulateGasInsert(simulated);
         if (accepted <= 0) return false;
         GasStack actual = target.drawGas(this.getTargetFace(), accepted, true);
@@ -450,14 +527,14 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     private boolean importMana(int slot) {
         TileEntity target = this.getConnectedTile();
-        if (!(target instanceof IFluixManaReceiver)) return false;
-        int amount = this.getVirtualAmount(slot);
+        if (!(target instanceof IManaReceiver)) return false;
+        int amount = this.getVirtualResourceAmount(slot);
         long accepted = this.insertMana(amount, Actionable.SIMULATE);
         if (accepted <= 0) return false;
-        int actual = FluixPoolManaHelper.extract(target, (int) Math.min(amount, accepted));
+        int actual = this.extractManaFromTarget(target, (int) Math.min(amount, accepted));
         if (actual <= 0) return false;
         long failed = this.insertMana(actual, Actionable.MODULATE);
-        if (failed > 0) FluixPoolManaHelper.insert(target, (int) failed);
+        if (failed > 0) this.insertManaIntoTarget(target, (int) failed);
         return actual - failed > 0;
     }
 
@@ -465,7 +542,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         TileEntity target = this.getConnectedTile();
         if (!(target instanceof ISparkAttachable)) return false;
         ISparkAttachable receiver = (ISparkAttachable) target;
-        int amount = Math.min(this.getVirtualAmount(slot), receiver.getAvailableSpaceForMana());
+        int amount = Math.min(this.getVirtualResourceAmount(slot), receiver.getAvailableSpaceForMana());
         if (amount <= 0) return false;
         long extracted = this.extractMana(amount, Actionable.MODULATE);
         if (extracted <= 0) return false;
@@ -473,11 +550,33 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         return true;
     }
 
+    private int extractManaFromTarget(TileEntity target, int amount) {
+        if (target instanceof IFluixManaReceiver) {
+            return FluixPoolManaHelper.extract(target, amount);
+        }
+        if (!(target instanceof IManaReceiver)) return 0;
+        IManaReceiver receiver = (IManaReceiver) target;
+        int before = Math.max(0, receiver.getCurrentMana());
+        int toExtract = Math.min(amount, before);
+        if (toExtract <= 0) return 0;
+        receiver.recieveMana(-toExtract);
+        return Math.max(0, before - receiver.getCurrentMana());
+    }
+
+    private void insertManaIntoTarget(TileEntity target, int amount) {
+        if (amount <= 0 || !(target instanceof IManaReceiver)) return;
+        if (target instanceof IFluixManaReceiver) {
+            FluixPoolManaHelper.insert(target, amount);
+        } else {
+            ((IManaReceiver) target).recieveMana(amount);
+        }
+    }
+
     private boolean importFe(int slot) {
         TileEntity target = this.getConnectedTile();
         IEnergyStorage energy = target == null ? null : target.getCapability(CapabilityEnergy.ENERGY, this.getTargetFace());
         if (energy == null) return false;
-        int available = energy.extractEnergy(this.getVirtualAmount(slot), true);
+        int available = energy.extractEnergy(this.getVirtualResourceAmount(slot), true);
         if (available <= 0) return false;
         long accepted = this.insertFe(available, Actionable.SIMULATE);
         if (accepted <= 0) return false;
@@ -491,7 +590,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         TileEntity target = this.getConnectedTile();
         IEnergyStorage energy = target == null ? null : target.getCapability(CapabilityEnergy.ENERGY, this.getTargetFace());
         if (energy == null) return false;
-        int accepted = energy.receiveEnergy(this.getVirtualAmount(slot), true);
+        int accepted = energy.receiveEnergy(this.getVirtualResourceAmount(slot), true);
         if (accepted <= 0) return false;
         long extracted = this.extractFe(accepted, Actionable.MODULATE);
         if (extracted <= 0) return false;

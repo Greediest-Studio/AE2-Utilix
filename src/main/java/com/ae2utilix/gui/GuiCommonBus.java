@@ -96,21 +96,33 @@ public class GuiCommonBus extends AEBaseGui {
     @Override
     protected void renderHoveredToolTip(int mouseX, int mouseY) {
         Slot slot = this.getSlotUnderMouse();
-        if (this.isConfigSlot(slot) && !slot.getStack().isEmpty()) {
+        if (this.isConfigSlot(slot)) {
             java.util.ArrayList<String> tooltip = new java.util.ArrayList<>();
             ItemStack marker = slot.getStack();
-            if (ItemFluidMark.isFluidMark(marker)) {
+            if (!marker.isEmpty() && ItemFluidMark.isFluidMark(marker)) {
                 net.minecraftforge.fluids.FluidStack fluid = ItemFluidMark.getFluid(marker);
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_fluid", fluid.getLocalizedName()));
-            } else if (ItemFluidMark.isGasMark(marker)) {
+            } else if (!marker.isEmpty() && ItemFluidMark.isGasMark(marker)) {
                 String gas = ItemFluidMark.getGasName(marker);
                 String name = MekanismEnergisticsIntegration.getGasDisplayName(gas);
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_gas", name == null ? gas : name));
-            } else if (ItemFluidMark.isManaMark(marker) || ItemFluidMark.isFeMark(marker)) {
+            } else if (!marker.isEmpty() && (ItemFluidMark.isManaMark(marker) || ItemFluidMark.isFeMark(marker))) {
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_item", marker.getDisplayName()));
-            } else {
+            } else if (!marker.isEmpty()) {
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_item", marker.getDisplayName()));
             }
+            this.addHeldItemTooltip(tooltip);
+            if (tooltip.isEmpty()) {
+                super.renderHoveredToolTip(mouseX, mouseY);
+                return;
+            }
+            this.drawHoveringText(tooltip, mouseX, mouseY);
+            return;
+        }
+        super.renderHoveredToolTip(mouseX, mouseY);
+    }
+
+    private void addHeldItemTooltip(java.util.List<String> tooltip) {
             ItemStack held = this.mc.player.inventory.getItemStack();
             if (!held.isEmpty()) {
                 net.minecraftforge.fluids.FluidStack heldFluid = FluidUtil.getFluidContained(held);
@@ -136,10 +148,6 @@ public class GuiCommonBus extends AEBaseGui {
                     }
                 }
             }
-            this.drawHoveringText(tooltip, mouseX, mouseY);
-            return;
-        }
-        super.renderHoveredToolTip(mouseX, mouseY);
     }
 
     private boolean isConfigSlot(Slot slot) {
