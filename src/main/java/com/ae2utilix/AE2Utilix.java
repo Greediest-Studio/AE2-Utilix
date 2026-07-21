@@ -20,6 +20,8 @@ import com.ae2utilix.item.ItemPhaseCard;
 import com.ae2utilix.item.ItemParallelCard;
 import com.ae2utilix.item.ItemProductReturnCard;
 import com.ae2utilix.parts.ItemPartBlockStorageBus;
+import com.ae2utilix.parts.ItemPartCommonBus;
+import com.ae2utilix.parts.PartCommonBus;
 import com.ae2utilix.network.NetworkHandler;
 import net.minecraft.block.Block;
 import net.minecraft.creativetab.CreativeTabs;
@@ -78,6 +80,8 @@ public class AE2Utilix implements IGuiHandler {
     public static final ItemMatterDecomposer MATTER_DECOMPOSER = new ItemMatterDecomposer();
     public static final ItemFluixResonancePivotCore FLUIX_RESONANCE_PIVOT_CORE = new ItemFluixResonancePivotCore();
     public static final ItemPartBlockStorageBus BLOCK_STORAGE_BUS = new ItemPartBlockStorageBus();
+    public static final ItemPartCommonBus COMMON_IMPORT_BUS = new ItemPartCommonBus(false);
+    public static final ItemPartCommonBus COMMON_EXPORT_BUS = new ItemPartCommonBus(true);
 
     public static final BlockPhaseInterface BLOCK_PHASE_INTERFACE = new BlockPhaseInterface();
     public static final BlockCommonInterfaceAlternate BLOCK_COMMON_INTERFACE_ALTERNATE = new BlockCommonInterfaceAlternate();
@@ -146,6 +150,8 @@ public class AE2Utilix implements IGuiHandler {
         GameRegistry.findRegistry(Item.class).register(MATTER_DECOMPOSER);
         GameRegistry.findRegistry(Item.class).register(FLUIX_RESONANCE_PIVOT_CORE);
         GameRegistry.findRegistry(Item.class).register(BLOCK_STORAGE_BUS);
+        GameRegistry.findRegistry(Item.class).register(COMMON_IMPORT_BUS);
+        GameRegistry.findRegistry(Item.class).register(COMMON_EXPORT_BUS);
 
         PROXY.preInit();
     }
@@ -285,6 +291,18 @@ public class AE2Utilix implements IGuiHandler {
     @Override
     public Object getServerGuiElement(int ID, net.minecraft.entity.player.EntityPlayer player, net.minecraft.world.World world, int x, int y, int z) {
         net.minecraft.tileentity.TileEntity te = world.getTileEntity(new net.minecraft.util.math.BlockPos(x, y, z));
+        if (ID >= FullTerminalGuiHandler.GUI_COMMON_IMPORT_BUS
+                && ID < FullTerminalGuiHandler.GUI_COMMON_IMPORT_BUS + 6) {
+            com.ae2utilix.parts.PartCommonBus bus = PartCommonBus.findPart(te,
+                    net.minecraft.util.EnumFacing.values()[ID - FullTerminalGuiHandler.GUI_COMMON_IMPORT_BUS]);
+            return bus == null ? null : new com.ae2utilix.gui.ContainerCommonBus(player.inventory, bus);
+        }
+        if (ID >= FullTerminalGuiHandler.GUI_COMMON_EXPORT_BUS
+                && ID < FullTerminalGuiHandler.GUI_COMMON_EXPORT_BUS + 6) {
+            com.ae2utilix.parts.PartCommonBus bus = PartCommonBus.findPart(te,
+                    net.minecraft.util.EnumFacing.values()[ID - FullTerminalGuiHandler.GUI_COMMON_EXPORT_BUS]);
+            return bus == null ? null : new com.ae2utilix.gui.ContainerCommonBus(player.inventory, bus);
+        }
         if (te instanceof TileCrystalGrowthChamber) {
             return new com.ae2utilix.gui.ContainerCrystalGrowthChamber(player.inventory,
                     (com.ae2utilix.block.TileCrystalGrowthChamber) te);
@@ -330,6 +348,18 @@ public class AE2Utilix implements IGuiHandler {
     @Override
     public Object getClientGuiElement(int ID, net.minecraft.entity.player.EntityPlayer player, net.minecraft.world.World world, int x, int y, int z) {
         net.minecraft.tileentity.TileEntity te = world.getTileEntity(new net.minecraft.util.math.BlockPos(x, y, z));
+        if (ID >= FullTerminalGuiHandler.GUI_COMMON_IMPORT_BUS
+                && ID < FullTerminalGuiHandler.GUI_COMMON_IMPORT_BUS + 6) {
+            com.ae2utilix.parts.PartCommonBus bus = PartCommonBus.findPart(te,
+                    net.minecraft.util.EnumFacing.values()[ID - FullTerminalGuiHandler.GUI_COMMON_IMPORT_BUS]);
+            return bus == null ? null : new com.ae2utilix.gui.GuiCommonBus(player.inventory, bus);
+        }
+        if (ID >= FullTerminalGuiHandler.GUI_COMMON_EXPORT_BUS
+                && ID < FullTerminalGuiHandler.GUI_COMMON_EXPORT_BUS + 6) {
+            com.ae2utilix.parts.PartCommonBus bus = PartCommonBus.findPart(te,
+                    net.minecraft.util.EnumFacing.values()[ID - FullTerminalGuiHandler.GUI_COMMON_EXPORT_BUS]);
+            return bus == null ? null : new com.ae2utilix.gui.GuiCommonBus(player.inventory, bus);
+        }
         if (te instanceof com.ae2utilix.block.TileCrystalGrowthChamber) {
             return new com.ae2utilix.gui.GuiCrystalGrowthChamber(player.inventory,
                     (com.ae2utilix.block.TileCrystalGrowthChamber) te);

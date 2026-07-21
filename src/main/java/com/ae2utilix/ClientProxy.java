@@ -6,6 +6,8 @@ import com.ae2utilix.client.ModelBakeHandler;
 import com.ae2utilix.network.HighlightRenderer;
 import com.ae2utilix.item.ItemFluidMark;
 import com.ae2utilix.parts.PartBlockStorageBus;
+import com.ae2utilix.parts.PartCommonImportBus;
+import com.ae2utilix.parts.PartCommonExportBus;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
@@ -27,6 +29,12 @@ public class ClientProxy extends CommonProxy {
             AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_OFF.getModels());
             AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_ON.getModels());
             AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_HAS_CHANNEL.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_OFF.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_ON.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_HAS_CHANNEL.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_OFF.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_ON.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_HAS_CHANNEL.getModels());
         } catch (Exception e) {
             AE2Utilix.LOGGER.warn("Failed to register Block Storage Bus part models", e);
         }
@@ -34,6 +42,10 @@ public class ClientProxy extends CommonProxy {
         // Register item model for Block Storage Bus
         ModelResourceLocation busMrl = new ModelResourceLocation(AE2Utilix.BLOCK_STORAGE_BUS.getRegistryName(), "inventory");
         ModelLoader.setCustomModelResourceLocation(AE2Utilix.BLOCK_STORAGE_BUS, 0, busMrl);
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.COMMON_IMPORT_BUS, 0,
+                new ModelResourceLocation(AE2Utilix.COMMON_IMPORT_BUS.getRegistryName(), "inventory"));
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.COMMON_EXPORT_BUS, 0,
+                new ModelResourceLocation(AE2Utilix.COMMON_EXPORT_BUS.getRegistryName(), "inventory"));
 
         ClientRegistry.bindTileEntitySpecialRenderer(TileCrystalGrowthChamber.class,
                 new com.ae2utilix.client.RenderCrystalGrowthChamber());

@@ -19,6 +19,8 @@ public class FullTerminalGuiHandler implements IGuiHandler {
     public static final int GUI_PATTERN_TERMINAL = 12;
     public static final int GUI_INTERFACE_TERMINAL = 13;
     public static final int GUI_COMMON_INTERFACE = 14;
+    public static final int GUI_COMMON_IMPORT_BUS = 20;
+    public static final int GUI_COMMON_EXPORT_BUS = 30;
 
     @Nullable
     @Override
