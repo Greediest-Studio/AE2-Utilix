@@ -252,6 +252,10 @@ public final class BotaniaFluxIntegration {
         long extracted = 0;
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9 && remaining > 0; slot++) {
+                boolean canExtract = type == MANA
+                        ? tile.canStoreManaInSlot(extended, slot)
+                        : tile.canStoreFeInSlot(extended, slot);
+                if (!canExtract) continue;
                 long stored = getStored(tile, extended, slot, type);
                 if (stored <= 0) continue;
                 long taken = Math.min(remaining, stored);

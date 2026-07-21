@@ -1596,10 +1596,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
      */
     public FluidStack drainLocal(int maxDrain, boolean doDrain) {
         for (int i = 0; i < interfaceStoredFluids.length; i++) {
-            if (interfaceStoredFluids[i] != null) return drain(false, i, maxDrain, doDrain);
+            IAEFluidStack stored = interfaceStoredFluids[i];
+            if (stored != null && stored.getStackSize() > 0) return drain(false, i, maxDrain, doDrain);
         }
         for (int i = 0; i < extendedStoredFluids.length; i++) {
-            if (extendedStoredFluids[i] != null) return drain(true, i, maxDrain, doDrain);
+            IAEFluidStack stored = extendedStoredFluids[i];
+            if (stored != null && stored.getStackSize() > 0) return drain(true, i, maxDrain, doDrain);
         }
         return null;
     }
@@ -1616,11 +1618,17 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         if (resource == null) return null;
         for (int i = 0; i < interfaceStoredFluids.length; i++) {
             IAEFluidStack stored = interfaceStoredFluids[i];
-            if (stored != null && stored.getFluidStack().isFluidEqual(resource)) return drain(false, i, resource.amount, doDrain);
+            FluidStack storedStack = stored == null ? null : stored.getFluidStack();
+            if (storedStack != null && stored.getStackSize() > 0 && storedStack.isFluidEqual(resource)) {
+                return drain(false, i, resource.amount, doDrain);
+            }
         }
         for (int i = 0; i < extendedStoredFluids.length; i++) {
             IAEFluidStack stored = extendedStoredFluids[i];
-            if (stored != null && stored.getFluidStack().isFluidEqual(resource)) return drain(true, i, resource.amount, doDrain);
+            FluidStack storedStack = stored == null ? null : stored.getFluidStack();
+            if (storedStack != null && stored.getStackSize() > 0 && storedStack.isFluidEqual(resource)) {
+                return drain(true, i, resource.amount, doDrain);
+            }
         }
         return null;
     }
