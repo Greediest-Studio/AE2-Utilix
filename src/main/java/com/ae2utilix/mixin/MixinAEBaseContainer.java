@@ -1,9 +1,11 @@
 package com.ae2utilix.mixin;
 
 import appeng.api.AEApi;
+import appeng.api.implementations.items.IUpgradeModule;
 import appeng.container.AEBaseContainer;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotRestrictedInput;
+import com.ae2utilix.gui.ContainerCommonInterface;
 import com.ae2utilix.item.IAE2UtilixUpgradeModule;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.ClickType;
@@ -26,6 +28,13 @@ public abstract class MixinAEBaseContainer {
         return AEApi.instance().definitions().materials().cardMagnet().isSameAs(stack);
     }
 
+    @Unique
+    private static boolean ae2utilix$isCommonInterfaceUpgradeCard(ItemStack stack) {
+        if (ae2utilix$isUpgradeCard(stack)) return true;
+        return !stack.isEmpty() && stack.getItem() instanceof IUpgradeModule
+                && ((IUpgradeModule) stack.getItem()).getType(stack) != null;
+    }
+
     @Inject(method = {"transferStackInSlot", "func_82846_b"}, at = @At("HEAD"), cancellable = true)
     private void ae2utilix$onTransferStack(EntityPlayer player, int idx, CallbackInfoReturnable<ItemStack> cir) {
         AEBaseContainer self = (AEBaseContainer) (Object) this;
@@ -34,7 +43,9 @@ public abstract class MixinAEBaseContainer {
         if (clickSlot == null || !clickSlot.getHasStack()) return;
 
         ItemStack tis = clickSlot.getStack();
-        if (!ae2utilix$isUpgradeCard(tis)) return;
+        boolean isCommonInterface = self instanceof ContainerCommonInterface;
+        if (!ae2utilix$isUpgradeCard(tis)
+                && (!isCommonInterface || !ae2utilix$isCommonInterfaceUpgradeCard(tis))) return;
 
         boolean isPlayerSide = clickSlot instanceof AppEngSlot && ((AppEngSlot) clickSlot).isPlayerSide();
         if (!isPlayerSide) return;

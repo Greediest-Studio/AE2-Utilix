@@ -1,7 +1,6 @@
 package com.ae2utilix.gui;
 
 import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.implementations.items.IUpgradeModule;
 import appeng.fluids.container.slots.IMEFluidSlot;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import net.minecraft.item.ItemStack;
@@ -29,8 +28,7 @@ public class SlotFluidStorage extends SlotOversized implements IMEFluidSlot {
     @Override
     public boolean isItemValid(ItemStack stack) {
         return stack.isEmpty()
-                || (!(stack.getItem() instanceof IUpgradeModule)
-                && !com.ae2utilix.item.ItemFluidMark.isVirtualMark(stack)
+                || (!com.ae2utilix.item.ItemFluidMark.isVirtualMark(stack)
                 && !this.tile.hasVirtualStorage(this.extended, this.fluidSlot));
     }
 
