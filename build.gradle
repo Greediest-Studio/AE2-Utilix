@@ -14,7 +14,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.0.1'
+version = '1.1.1'
 group = 'com.ae2utilix' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = 'ae2_utilix'
 
@@ -67,7 +67,7 @@ dependencies {
     compileOnly fg.deobf("curse.maven:mekanism-ce-399904:4804509")
     compileOnly fg.deobf("curse.maven:mekanism-energistics-1027681:5775101")
     implementation fg.deobf("curse.maven:botania-applie-1540084:8449638")
-    implementation fg.deobf("curse.maven:flux-applied-1541797:8451131")
+    implementation fg.deobf("curse.maven:flux-applied-1541797:8477135")
     implementation fg.deobf("curse.maven:botania-225643:3330934")
     compileOnly fg.deobf("curse.maven:nae2-884359:5380800")
     compileOnly fg.deobf("curse.maven:jei-238222:5846804")
