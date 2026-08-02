@@ -25,6 +25,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.vecmath.Matrix4f;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -40,10 +41,15 @@ public class DevicePackageModel implements IModel {
     private static final ResourceLocation PACKAGE_TEXTURE = new ResourceLocation("ae2_utilix", "item/device_package");
 
     @Override
+    public Collection<ResourceLocation> getTextures() {
+        return Collections.singleton(PACKAGE_TEXTURE);
+    }
+
+    @Override
     @Nonnull
     public IBakedModel bake(@Nonnull IModelState state, @Nonnull VertexFormat format,
             @Nonnull Function<ResourceLocation, TextureAtlasSprite> textureGetter) {
-        return new Baked(state, format);
+        return new Baked(state, format, textureGetter);
     }
 
     public static class Loader implements ICustomModelLoader {
@@ -68,11 +74,12 @@ public class DevicePackageModel implements IModel {
         private final ItemOverrideList overrides;
         private final IBakedModel fallback;
 
-        Baked(IModelState state, VertexFormat format) {
+        Baked(IModelState state, VertexFormat format,
+                Function<ResourceLocation, TextureAtlasSprite> textureGetter) {
             this.state = state;
             this.format = format;
             this.overrides = new Overrides();
-            this.fallback = resolve(PACKAGE_TEXTURE);
+            this.fallback = new SpriteModel(textureGetter.apply(PACKAGE_TEXTURE), state, format, overrides);
         }
 
         @Override
@@ -118,16 +125,6 @@ public class DevicePackageModel implements IModel {
         @Override
         public Pair<? extends IBakedModel, Matrix4f> handlePerspective(ItemCameraTransforms.TransformType type) {
             return fallback.handlePerspective(type);
-        }
-
-        private IBakedModel resolve(ResourceLocation texture) {
-            TextureAtlasSprite sprite = Minecraft.getMinecraft().getTextureMapBlocks()
-                    .getAtlasSprite(texture.toString());
-            return resolve(sprite);
-        }
-
-        private IBakedModel resolve(TextureAtlasSprite sprite) {
-            return new SpriteModel(sprite, state, format, overrides);
         }
 
         private class Overrides extends ItemOverrideList {
