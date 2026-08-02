@@ -18,6 +18,8 @@ import com.ae2utilix.item.ItemMatterDecomposer;
 import com.ae2utilix.item.ItemOverflowDestructionCard;
 import com.ae2utilix.item.ItemPhaseCard;
 import com.ae2utilix.item.ItemParallelCard;
+import com.ae2utilix.item.ItemDevicePackage;
+import com.ae2utilix.item.ItemPacker;
 import com.ae2utilix.item.ItemProductReturnCard;
 import com.ae2utilix.parts.ItemPartBlockStorageBus;
 import com.ae2utilix.parts.ItemPartCommonBus;
@@ -80,6 +82,8 @@ public class AE2Utilix implements IGuiHandler {
     public static final ItemCouplingStaff COUPLING_STAFF = new ItemCouplingStaff();
     public static final ItemMatterDecomposer MATTER_DECOMPOSER = new ItemMatterDecomposer();
     public static final ItemFluixResonancePivotCore FLUIX_RESONANCE_PIVOT_CORE = new ItemFluixResonancePivotCore();
+    public static final ItemPacker PACKER = new ItemPacker();
+    public static final ItemDevicePackage DEVICE_PACKAGE = new ItemDevicePackage();
     public static final ItemPartBlockStorageBus BLOCK_STORAGE_BUS = new ItemPartBlockStorageBus();
     public static final ItemPartCommonBus COMMON_IMPORT_BUS = new ItemPartCommonBus(false);
     public static final ItemPartCommonBus COMMON_EXPORT_BUS = new ItemPartCommonBus(true);
@@ -150,6 +154,8 @@ public class AE2Utilix implements IGuiHandler {
         GameRegistry.findRegistry(Item.class).register(COUPLING_STAFF);
         GameRegistry.findRegistry(Item.class).register(MATTER_DECOMPOSER);
         GameRegistry.findRegistry(Item.class).register(FLUIX_RESONANCE_PIVOT_CORE);
+        GameRegistry.findRegistry(Item.class).register(PACKER);
+        GameRegistry.findRegistry(Item.class).register(DEVICE_PACKAGE);
         GameRegistry.findRegistry(Item.class).register(BLOCK_STORAGE_BUS);
         GameRegistry.findRegistry(Item.class).register(COMMON_IMPORT_BUS);
         GameRegistry.findRegistry(Item.class).register(COMMON_EXPORT_BUS);

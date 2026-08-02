@@ -1,6 +1,7 @@
 package com.ae2utilix;
 
 import com.ae2utilix.gui.GuiCrystalGrowthChamber;
+import com.ae2utilix.client.DevicePackageModel;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.item.Item;
 import net.minecraftforge.client.event.GuiScreenEvent;
@@ -19,6 +20,7 @@ public class ClientEventHandler {
     @SubscribeEvent
     public static void registerModels(ModelRegistryEvent event) {
         ModelLoaderRegistry.registerLoader(new FluidMarkModel.Loader());
+        ModelLoaderRegistry.registerLoader(new DevicePackageModel.Loader());
         ModelLoader.setCustomModelResourceLocation(AE2Utilix.PRODUCT_RETURN_CARD, 0,
                 new ModelResourceLocation(AE2Utilix.MODID + ":product_return_card", "inventory"));
 
@@ -42,6 +44,12 @@ public class ClientEventHandler {
 
         ModelLoader.setCustomModelResourceLocation(AE2Utilix.FLUIX_RESONANCE_PIVOT_CORE, 0,
                 new ModelResourceLocation(AE2Utilix.MODID + ":fluix_resonance_pivot_core", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.PACKER, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":packer", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.DEVICE_PACKAGE, 0,
+                new ModelResourceLocation(DevicePackageModel.MODEL, "inventory"));
 
         Item phaseInterfaceItem = Item.getItemFromBlock(AE2Utilix.BLOCK_PHASE_INTERFACE);
         if (phaseInterfaceItem != null) {
