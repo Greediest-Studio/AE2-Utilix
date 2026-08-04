@@ -53,20 +53,31 @@ public class ClientEventHandler {
 
         Item phaseInterfaceItem = Item.getItemFromBlock(AE2Utilix.BLOCK_PHASE_INTERFACE);
         if (phaseInterfaceItem != null) {
-            ModelLoader.setCustomModelResourceLocation(phaseInterfaceItem, 0,
+            registerItemModelForMetadata(phaseInterfaceItem,
                     new ModelResourceLocation(AE2Utilix.MODID + ":phase_interface", "inventory"));
         }
 
         Item commonInterfaceAlternateItem = Item.getItemFromBlock(AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE);
         if (commonInterfaceAlternateItem != null) {
-            ModelLoader.setCustomModelResourceLocation(commonInterfaceAlternateItem, 0,
+            registerItemModelForMetadata(commonInterfaceAlternateItem,
                     new ModelResourceLocation(AE2Utilix.MODID + ":common_interface", "inventory"));
         }
 
         Item cgcItem = Item.getItemFromBlock(AE2Utilix.BLOCK_CRYSTAL_GROWTH_CHAMBER);
         if (cgcItem != null) {
-            ModelLoader.setCustomModelResourceLocation(cgcItem, 0,
+            registerItemModelForMetadata(cgcItem,
                     new ModelResourceLocation(AE2Utilix.MODID + ":crystal_growth_chamber", "inventory"));
+        }
+    }
+
+    /**
+     * Block item metadata stores orientation for several of our devices. The
+     * package renderer resolves the original stack, so every orientation must
+     * point at the same inventory model.
+     */
+    private static void registerItemModelForMetadata(Item item, ModelResourceLocation model) {
+        for (int metadata = 0; metadata < 16; metadata++) {
+            ModelLoader.setCustomModelResourceLocation(item, metadata, model);
         }
     }
 

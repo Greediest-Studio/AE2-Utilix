@@ -54,7 +54,12 @@ public class ClientProxy extends CommonProxy {
                 AE2Utilix.BLOCK_PATTERN_TERMINAL, AE2Utilix.BLOCK_INTERFACE_TERMINAL};
         for (Block block : terminalBlocks) {
             ModelResourceLocation mrl = new ModelResourceLocation(block.getRegistryName(), "inventory");
-            ModelLoader.setCustomModelResourceLocation(Item.getItemFromBlock(block), 0, mrl);
+            Item terminalItem = Item.getItemFromBlock(block);
+            if (terminalItem != null) {
+                for (int metadata = 0; metadata < 16; metadata++) {
+                    ModelLoader.setCustomModelResourceLocation(terminalItem, metadata, mrl);
+                }
+            }
         }
     }
 
