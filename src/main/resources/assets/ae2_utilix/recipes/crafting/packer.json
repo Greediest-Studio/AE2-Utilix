@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "II ",
+    "CM ",
+    "ECI"
+  ],
+  "key": {
+    "I": { "item": "appliedenergistics2:part", "data": 140 },
+    "C": { "item": "appliedenergistics2:matter_cannon" },
+    "M": { "item": "appliedenergistics2:part", "data": 300 },
+    "E": { "item": "appliedenergistics2:entropy_manipulator" }
+  },
+  "result": {
+    "item": "ae2_utilix:packer",
+    "count": 1
+  }
+}

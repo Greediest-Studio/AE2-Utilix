@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "appliedenergistics2:part", "data": 260 },
+    { "item": "appliedenergistics2:material", "data": 22 },
+    { "item": "appliedenergistics2:material", "data": 23 },
+    { "item": "appliedenergistics2:material", "data": 24 }
+  ],
+  "result": {
+    "item": "ae2_utilix:common_export_bus",
+    "count": 1
+  }
+}
