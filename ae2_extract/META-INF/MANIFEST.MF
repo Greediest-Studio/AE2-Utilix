@@ -1,5 +1,0 @@
-Manifest-Version: 1.0
-FMLCorePlugin: appeng.core.AE2ELCore
-FMLCorePluginContainsFMLMod: true
-FMLAT: appliedenergistics2_at.cfg
-
