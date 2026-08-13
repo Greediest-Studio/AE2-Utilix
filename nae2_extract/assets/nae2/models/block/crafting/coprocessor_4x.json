@@ -1,6 +1,0 @@
-{
-  "parent": "block/cube_all",
-  "textures": {
-    "all": "nae2:block/crafting/coprocessor_4x"
-  }
-}

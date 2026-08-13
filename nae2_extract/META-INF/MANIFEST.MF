@@ -1,5 +1,0 @@
-Manifest-Version: 1.0
-FMLCorePlugin: co.neeve.nae2.NAE2MixinPlugin
-FMLCorePluginContainsFMLMod: true
-ForceLoadAsMod: true
-
