@@ -1,6 +1,8 @@
 package com.ae2utilix.integration.jei;
 
 import com.ae2utilix.AE2Utilix;
+import com.ae2utilix.gui.GuiCommonBus;
+import com.ae2utilix.gui.GuiCommonInterface;
 import com.ae2utilix.recipe.CrystalGrowthRecipe;
 import com.ae2utilix.recipe.CrystalGrowthRecipes;
 import mezz.jei.api.IJeiRuntime;
@@ -25,6 +27,17 @@ public class JEIUtilixPlugin implements IModPlugin {
 
     @Override
     public void register(IModRegistry registry) {
+        // IJEIGhostIngredients is only a target-provider interface. JEI still
+        // needs an explicit handler registration for each GUI class before it
+        // will ask those GUIs for drag targets.
+        UtilixGhostIngredientHandler<GuiCommonBus> busGhostHandler =
+                new UtilixGhostIngredientHandler<>(GuiCommonBus.class);
+        UtilixGhostIngredientHandler<GuiCommonInterface> interfaceGhostHandler =
+                new UtilixGhostIngredientHandler<>(GuiCommonInterface.class);
+        registry.addAdvancedGuiHandlers(busGhostHandler, interfaceGhostHandler);
+        registry.addGhostIngredientHandler(GuiCommonBus.class, busGhostHandler);
+        registry.addGhostIngredientHandler(GuiCommonInterface.class, interfaceGhostHandler);
+
         registry.addAdvancedGuiHandlers(new CrystalGrowthChamberGuiHandler());
 
         List<CrystalGrowthRecipeWrapper> wrappers = new ArrayList<>();

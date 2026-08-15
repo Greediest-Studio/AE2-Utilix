@@ -81,6 +81,26 @@ public final class MekanismEnergisticsOptional {
     }
 
     @Nullable
+    public static String getGasNameFromIngredient(Object ingredient) {
+        if (ingredient instanceof ItemStack) {
+            return getGasNameFromItem((ItemStack) ingredient);
+        }
+        if (ingredient instanceof GasStack) {
+            GasStack gas = (GasStack) ingredient;
+            return gas.getGas() == null ? null : gas.getGas().getName();
+        }
+        if (ingredient instanceof IAEGasStack) {
+            GasStack gas = ((IAEGasStack) ingredient).getGasStack();
+            return gas == null || gas.getGas() == null ? null : gas.getGas().getName();
+        }
+        return null;
+    }
+
+    public static boolean isGasNameValid(String gasName) {
+        return gasName != null && !gasName.isEmpty() && GasRegistry.getGas(gasName) != null;
+    }
+
+    @Nullable
     public static String getGasDisplayName(String gasName) {
         if (!isAvailable() || gasName == null) return null;
         Gas gas = GasRegistry.getGas(gasName);

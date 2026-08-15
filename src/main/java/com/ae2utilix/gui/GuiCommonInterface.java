@@ -1,9 +1,12 @@
 package com.ae2utilix.gui;
 
 import appeng.client.gui.AEBaseGui;
+import appeng.container.interfaces.IJEIGhostIngredients;
 import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.network.NetworkHandler;
+import com.ae2utilix.integration.jei.VirtualMarkJeiHelper;
+import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.inventory.ClickType;
@@ -16,12 +19,17 @@ import appeng.fluids.client.render.FluidStackSizeRenderer;
 import appeng.fluids.util.AEFluidStack;
 import net.minecraft.client.renderer.GlStateManager;
 import java.io.IOException;
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.lwjgl.input.Keyboard;
 
-public class GuiCommonInterface extends AEBaseGui {
+public class GuiCommonInterface extends AEBaseGui implements IJEIGhostIngredients {
 
     private static final ResourceLocation BACKGROUND =
             new ResourceLocation("ae2_utilix", "textures/guis/common_interface.png");
@@ -31,6 +39,7 @@ public class GuiCommonInterface extends AEBaseGui {
     private Slot amountSlot;
     private boolean amountFieldActive;
     private final Set<Integer> fluidDragSlots = new HashSet<>();
+    private final Map<IGhostIngredientHandler.Target<?>, Object> jeiTargetMap = new HashMap<>();
     private boolean fluidMarkGestureActive;
     private final FluidStackSizeRenderer fluidAmountRenderer = new FluidStackSizeRenderer();
 
@@ -212,6 +221,8 @@ public class GuiCommonInterface extends AEBaseGui {
                 this.drawVirtualAmount(this.container.getTile().getManaConfigAmount(extended, configSlot), slot.xPos, slot.yPos);
             } else if (com.ae2utilix.item.ItemFluidMark.isFeMark(marker)) {
                 this.drawVirtualAmount(this.container.getTile().getFeConfigAmount(extended, configSlot), slot.xPos, slot.yPos);
+            } else if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(marker)) {
+                this.drawVirtualAmount(this.container.getTile().getEssentiaConfigAmount(extended, configSlot), slot.xPos, slot.yPos);
             } else if (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3) {
                 long mana = this.container.getTile().getStoredMana(extended, configSlot);
                 long fe = this.container.getTile().getStoredFe(extended, configSlot);
@@ -352,6 +363,8 @@ public class GuiCommonInterface extends AEBaseGui {
                 current = this.container.getTile().getGasConfigAmount(extended, configSlot);
             } else if (com.ae2utilix.item.ItemFluidMark.isManaMark(marker)) {
                 current = this.container.getTile().getManaConfigAmount(extended, configSlot);
+            } else if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(marker)) {
+                current = this.container.getTile().getEssentiaConfigAmount(extended, configSlot);
             } else {
                 current = this.container.getTile().getFeConfigAmount(extended, configSlot);
             }
@@ -404,6 +417,15 @@ public class GuiCommonInterface extends AEBaseGui {
                     } else if (fe > 0) {
                         tips.add(com.ae2utilix.integration.BotaniaFluxIntegration.getStoredTooltip(
                                 com.ae2utilix.integration.BotaniaFluxIntegration.FE, fe));
+                    } else {
+                        String aspect = this.container.getTile().getStoredEssentiaAspect(extended, storageSlot);
+                        int essentia = this.container.getTile().getStoredEssentiaAmount(extended, storageSlot);
+                        if (aspect != null && essentia > 0) {
+                            String display = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                    .getAspectDisplayName(aspect);
+                            tips.add(I18n.format("ae2_utilix.common_interface.stored",
+                                    display == null ? aspect : display, essentia));
+                        }
                     }
                 }
             }
@@ -428,6 +450,12 @@ public class GuiCommonInterface extends AEBaseGui {
                 } else if (com.ae2utilix.item.ItemFluidMark.isManaMark(marked)
                         || com.ae2utilix.item.ItemFluidMark.isFeMark(marked)) {
                     tips.add(I18n.format("ae2_utilix.common_interface.marked_item", marked.getDisplayName()));
+                } else if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(marked)) {
+                    String aspect = com.ae2utilix.item.ItemFluidMark.getAspectTag(marked);
+                    String display = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                            .getAspectDisplayName(aspect);
+                    tips.add(I18n.format("ae2_utilix.common_interface.marked_essentia",
+                            display == null ? aspect : display));
                 } else {
                     tips.add(I18n.format("ae2_utilix.common_interface.marked_item", marked.getDisplayName()));
                 }
@@ -447,6 +475,15 @@ public class GuiCommonInterface extends AEBaseGui {
                         tips.add(I18n.format("ae2_utilix.common_interface.right_click_gas",
                                 displayName == null ? gasName : displayName));
                     } else {
+                        String aspect = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                .getAspectTagFromItem(held);
+                        if (aspect != null) {
+                            String display = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                    .getAspectDisplayName(aspect);
+                            tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                            tips.add(I18n.format("ae2_utilix.common_interface.right_click_essentia",
+                                    display == null ? aspect : display));
+                        } else {
                         int specialType = com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held);
                         if (specialType != 0) {
                             tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
@@ -454,6 +491,7 @@ public class GuiCommonInterface extends AEBaseGui {
                                     com.ae2utilix.integration.BotaniaFluxIntegration.getDisplayName(specialType)));
                         } else {
                             tips.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                        }
                         }
                     }
                 }
@@ -495,6 +533,8 @@ public class GuiCommonInterface extends AEBaseGui {
                 amount = this.container.getTile().getManaConfigAmount(extended, configSlot);
             } else if (com.ae2utilix.item.ItemFluidMark.isFeMark(slot.getStack())) {
                 amount = this.container.getTile().getFeConfigAmount(extended, configSlot);
+            } else if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(slot.getStack())) {
+                amount = this.container.getTile().getEssentiaConfigAmount(extended, configSlot);
             } else {
                 amount = fluid == null ? slot.getStack().getCount() : fluid.amount;
             }
@@ -573,10 +613,74 @@ public class GuiCommonInterface extends AEBaseGui {
         }
 
         int specialType = com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held);
-        if (specialType == 0) return false;
+        if (specialType == 0) {
+            String aspect = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getAspectTagFromItem(held);
+            if (aspect == null) return false;
+            NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
+                    this.container.getTilePosition(), configSlot, extended, aspect, true));
+            return true;
+        }
         NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceFluidMark(
                 this.container.getTilePosition(), configSlot, extended, specialType));
         return true;
+    }
+
+    @Override
+    public List<IGhostIngredientHandler.Target<?>> getPhantomTargets(Object ingredient) {
+        List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
+        this.jeiTargetMap.clear();
+        if (VirtualMarkJeiHelper.fromIngredient(ingredient) == null) return targets;
+
+        for (Slot slot : this.inventorySlots.inventorySlots) {
+            if (!this.isFluidMarkSlot(slot)) continue;
+            final Slot targetSlot = slot;
+            final boolean extended = targetSlot.slotNumber % 4 >= 2;
+            final int configSlot = targetSlot.slotNumber / 4;
+            IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
+                @Override
+                public Rectangle getArea() {
+                    return new Rectangle(getGuiLeft() + targetSlot.xPos,
+                            getGuiTop() + targetSlot.yPos, 16, 16);
+                }
+
+                @Override
+                public void accept(Object droppedIngredient) {
+                    VirtualMarkJeiHelper.Mark mark =
+                            VirtualMarkJeiHelper.fromIngredient(droppedIngredient);
+                    if (mark == null) return;
+                    if (mark.fluid != null) {
+                        NetworkHandler.CHANNEL.sendToServer(
+                                com.ae2utilix.network.PacketCommonInterfaceFluidMark.forJeiFluid(
+                                        container.getTilePosition(), configSlot, extended, mark.fluid));
+                    } else if (mark.gasName != null) {
+                        NetworkHandler.CHANNEL.sendToServer(
+                                com.ae2utilix.network.PacketCommonInterfaceFluidMark.forJeiGas(
+                                        container.getTilePosition(), configSlot, extended, mark.gasName));
+                    } else if (mark.aspectName != null) {
+                        NetworkHandler.CHANNEL.sendToServer(
+                                com.ae2utilix.network.PacketCommonInterfaceFluidMark.forJeiEssentia(
+                                        container.getTilePosition(), configSlot, extended, mark.aspectName));
+                    } else if (mark.specialType != 0) {
+                        NetworkHandler.CHANNEL.sendToServer(
+                                com.ae2utilix.network.PacketCommonInterfaceFluidMark.forJeiSpecial(
+                                        container.getTilePosition(), configSlot, extended, mark.specialType));
+                    } else if (mark.item != null && !mark.item.isEmpty()) {
+                        NetworkHandler.CHANNEL.sendToServer(
+                                com.ae2utilix.network.PacketCommonInterfaceFluidMark.forJeiItem(
+                                        container.getTilePosition(), configSlot, extended, mark.item));
+                    }
+                }
+            };
+            targets.add(target);
+            this.jeiTargetMap.put(target, targetSlot);
+        }
+        return targets;
+    }
+
+    @Override
+    public Map<IGhostIngredientHandler.Target<?>, Object> getFakeSlotTargetMap() {
+        return this.jeiTargetMap;
     }
 
 }
