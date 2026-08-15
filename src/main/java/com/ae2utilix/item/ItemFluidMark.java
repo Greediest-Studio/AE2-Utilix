@@ -151,7 +151,7 @@ public class ItemFluidMark extends Item {
             String tag = stack.getTagCompound().getCompoundTag(MARK_TAG).getString(ESSENTIA_KEY);
             return tag.isEmpty() ? null : tag;
         }
-        return com.ae2utilix.integration.ThaumicEnergisticsIntegration.getAspectTagFromItem(stack);
+        return com.ae2utilix.integration.ThaumicEnergisticsIntegration.getAspectTagFromMarker(stack);
     }
 
     public static boolean isEssentiaMark(ItemStack stack) {

@@ -39,6 +39,14 @@ public final class ThaumicEnergisticsIntegration {
         return value instanceof String && !((String) value).isEmpty() ? (String) value : null;
     }
 
+    /** Only accepts virtual aspect marker items, never filled containers. */
+    @Nullable
+    public static String getAspectTagFromMarker(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !isAvailable()) return null;
+        Object value = invoke("getAspectTagFromMarker", stack);
+        return value instanceof String && !((String) value).isEmpty() ? (String) value : null;
+    }
+
     /** Resolves custom ThE JEI ingredients such as EssentiaStack as well as ItemStack. */
     @Nullable
     public static String getAspectTagFromIngredient(Object ingredient) {

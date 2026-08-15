@@ -25,6 +25,7 @@ import net.minecraftforge.fml.common.Loader;
 import thaumcraft.api.aspects.Aspect;
 import thaumcraft.api.aspects.AspectList;
 import thaumcraft.api.aspects.IAspectContainer;
+import thaumcraft.api.aspects.IEssentiaContainerItem;
 import thaumicenergistics.api.EssentiaStack;
 import thaumicenergistics.api.ThEApi;
 import thaumicenergistics.api.storage.IAEEssentiaStack;
@@ -54,13 +55,30 @@ public final class ThaumicEnergisticsOptional {
     }
 
     @Nullable
-    public static String getAspectTagFromItem(ItemStack stack) {
+    public static String getAspectTagFromMarker(ItemStack stack) {
         if (!isAvailable() || stack == null || stack.isEmpty()) return null;
         if (stack.getItem() instanceof ItemDummyAspect) {
             Aspect aspect = ((ItemDummyAspect) stack.getItem()).getAspect(stack);
             return aspect == null ? null : aspect.getTag();
         }
         return null;
+    }
+
+    @Nullable
+    public static String getAspectTagFromItem(ItemStack stack) {
+        String markerAspect = getAspectTagFromMarker(stack);
+        if (markerAspect != null) return markerAspect;
+        if (!isAvailable() || stack == null || stack.isEmpty()
+                || !(stack.getItem() instanceof IEssentiaContainerItem)) return null;
+
+        // Match Thaumic Energistics' own interaction semantics: only a
+        // container holding exactly one aspect can select an essentia type.
+        // Multi-aspect containers are ambiguous and remain normal item marks.
+        AspectList aspects = ((IEssentiaContainerItem) stack.getItem()).getAspects(stack);
+        if (aspects == null || aspects.size() != 1) return null;
+        Aspect[] values = aspects.getAspects();
+        if (values.length != 1 || values[0] == null || aspects.getAmount(values[0]) <= 0) return null;
+        return values[0].getTag();
     }
 
     @Nullable

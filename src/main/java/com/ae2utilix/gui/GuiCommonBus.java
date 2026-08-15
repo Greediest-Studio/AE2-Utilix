@@ -58,7 +58,7 @@ public class GuiCommonBus extends AEBaseGui implements IJEIGhostIngredients {
         // is five slots and is intended for the crystal-growth chamber.
         this.mc.getTextureManager().bindTexture(UPGRADE_BACKGROUND);
         this.drawModalRectWithCustomSizedTexture(offsetX + 179, offsetY,
-                179, 0, 32, 85, 256, 256);
+                179, 0, 32, 86, 256, 256);
     }
 
     @Override
