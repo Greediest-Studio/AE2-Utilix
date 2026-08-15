@@ -2,10 +2,12 @@ package com.ae2utilix.gui;
 
 import appeng.container.AEBaseContainer;
 import appeng.container.slot.SlotFakeTypeOnly;
+import appeng.container.slot.SlotRestrictedInput;
 import com.ae2utilix.parts.PartCommonBus;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.EnumFacing;
+import net.minecraftforge.items.IItemHandler;
 
 public class ContainerCommonBus extends AEBaseContainer {
     private final PartCommonBus bus;
@@ -19,6 +21,12 @@ public class ContainerCommonBus extends AEBaseContainer {
                 this.addSlotToContainer(new SlotFakeTypeOnly(bus.getConfigInventory(), row * 9 + column,
                         8 + column * 18, 29 + row * 18));
             }
+        }
+        IItemHandler upgrades = bus.getInventoryByName("upgrades");
+        for (int i = 0; i < bus.availableUpgrades(); i++) {
+            this.addSlotToContainer(new SlotRestrictedInput(
+                    SlotRestrictedInput.PlacableItemType.UPGRADES,
+                    upgrades, i, 187, 8 + i * 18, inventory).setNotDraggable());
         }
         this.bindPlayerInventory(inventory, 0, 169);
     }

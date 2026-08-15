@@ -63,6 +63,22 @@ public final class MekanismEnergisticsIntegration {
         return result instanceof String ? (String) result : null;
     }
 
+    /** Resolves both item-backed and custom JEI GasStack ingredients. */
+    @Nullable
+    public static String getGasNameFromIngredient(Object ingredient) {
+        if (ingredient instanceof ItemStack) {
+            return getGasNameFromItem((ItemStack) ingredient);
+        }
+        if (!isAvailable() || ingredient == null) return null;
+        Object result = invoke("getGasNameFromIngredient", ingredient);
+        return result instanceof String ? (String) result : null;
+    }
+
+    public static boolean isGasNameValid(String gasName) {
+        if (!isAvailable() || gasName == null || gasName.isEmpty()) return false;
+        return Boolean.TRUE.equals(invoke("isGasNameValid", gasName));
+    }
+
     @Nullable
     public static String getGasDisplayName(String gasName) {
         if (!isAvailable() || gasName == null) return null;

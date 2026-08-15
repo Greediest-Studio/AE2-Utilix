@@ -1,12 +1,15 @@
 package com.ae2utilix.gui;
 
 import appeng.client.gui.AEBaseGui;
+import appeng.container.interfaces.IJEIGhostIngredients;
 import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.integration.BotaniaFluxIntegration;
 import com.ae2utilix.integration.MekanismEnergisticsIntegration;
 import com.ae2utilix.item.ItemFluidMark;
 import com.ae2utilix.network.PacketCommonBusMark;
 import com.ae2utilix.parts.PartCommonBus;
+import com.ae2utilix.integration.jei.VirtualMarkJeiHelper;
+import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
@@ -17,22 +20,31 @@ import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Keyboard;
 
 import java.io.IOException;
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-public class GuiCommonBus extends AEBaseGui {
+public class GuiCommonBus extends AEBaseGui implements IJEIGhostIngredients {
     private static final ResourceLocation BACKGROUND =
             new ResourceLocation(AE2Utilix.MODID, "textures/guis/storagebus.png");
+    private static final ResourceLocation UPGRADE_BACKGROUND =
+            new ResourceLocation(AE2Utilix.MODID, "textures/guis/common_interface.png");
 
     private final ContainerCommonBus container;
     private final Set<Integer> markedSlots = new HashSet<>();
+    private final Map<IGhostIngredientHandler.Target<?>, Object> jeiTargetMap = new HashMap<>();
     private boolean marking;
 
     public GuiCommonBus(InventoryPlayer inventory, PartCommonBus bus) {
         super(new ContainerCommonBus(inventory, bus));
         this.container = (ContainerCommonBus) this.inventorySlots;
-        this.xSize = 176;
+        // Leave room for the four standard AE2 upgrade slots on the right,
+        // just like GuiUpgradeable/GuiCommonInterface.
+        this.xSize = 246;
         this.ySize = 251;
     }
 
@@ -40,6 +52,13 @@ public class GuiCommonBus extends AEBaseGui {
     public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY) {
         this.mc.getTextureManager().bindTexture(BACKGROUND);
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
+        // storagebus.png contains the large 63-slot panel only.  Reuse the
+        // four-slot upgrade strip from the common-interface material for the
+        // additional card inventory.  The standalone upgrade_slot.png asset
+        // is five slots and is intended for the crystal-growth chamber.
+        this.mc.getTextureManager().bindTexture(UPGRADE_BACKGROUND);
+        this.drawModalRectWithCustomSizedTexture(offsetX + 179, offsetY,
+                179, 0, 32, 86, 256, 256);
     }
 
     @Override
@@ -108,6 +127,12 @@ public class GuiCommonBus extends AEBaseGui {
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_gas", name == null ? gas : name));
             } else if (!marker.isEmpty() && (ItemFluidMark.isManaMark(marker) || ItemFluidMark.isFeMark(marker))) {
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_item", marker.getDisplayName()));
+            } else if (!marker.isEmpty() && ItemFluidMark.isEssentiaMark(marker)) {
+                String aspect = ItemFluidMark.getAspectTag(marker);
+                String name = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                        .getAspectDisplayName(aspect);
+                tooltip.add(I18n.format("ae2_utilix.common_interface.marked_essentia",
+                        name == null ? aspect : name));
             } else if (!marker.isEmpty()) {
                 tooltip.add(I18n.format("ae2_utilix.common_interface.marked_item", marker.getDisplayName()));
             }
@@ -137,6 +162,15 @@ public class GuiCommonBus extends AEBaseGui {
                         tooltip.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
                         tooltip.add(I18n.format("ae2_utilix.common_interface.right_click_gas", name == null ? gas : name));
                     } else {
+                        String aspect = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                .getAspectTagFromItem(held);
+                        if (aspect != null) {
+                            String name = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                    .getAspectDisplayName(aspect);
+                            tooltip.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                            tooltip.add(I18n.format("ae2_utilix.common_interface.right_click_essentia",
+                                    name == null ? aspect : name));
+                        } else {
                         int type = BotaniaFluxIntegration.getMarkedType(held);
                         if (type != 0) {
                             tooltip.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
@@ -144,6 +178,7 @@ public class GuiCommonBus extends AEBaseGui {
                                     BotaniaFluxIntegration.getDisplayName(type)));
                         } else {
                             tooltip.add(I18n.format("ae2_utilix.common_interface.left_click_item", held.getDisplayName()));
+                        }
                         }
                     }
                 }
@@ -178,9 +213,71 @@ public class GuiCommonBus extends AEBaseGui {
         }
 
         int special = BotaniaFluxIntegration.getMarkedType(held);
-        if (special == 0) return false;
+        if (special == 0) {
+            String aspect = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getAspectTagFromItem(held);
+            if (aspect == null) return false;
+            AE2Utilix.NETWORK.sendToServer(new PacketCommonBusMark(
+                    this.container.getTilePosition(), side, slot.slotNumber, aspect, true));
+            return true;
+        }
         AE2Utilix.NETWORK.sendToServer(new PacketCommonBusMark(
                 this.container.getTilePosition(), side, slot.slotNumber, special));
         return true;
+    }
+
+    @Override
+    public List<IGhostIngredientHandler.Target<?>> getPhantomTargets(Object ingredient) {
+        List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
+        this.jeiTargetMap.clear();
+        if (VirtualMarkJeiHelper.fromIngredient(ingredient) == null) return targets;
+
+        for (Slot slot : this.inventorySlots.inventorySlots) {
+            if (!this.isConfigSlot(slot)) continue;
+            final Slot targetSlot = slot;
+            IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
+                @Override
+                public Rectangle getArea() {
+                    return new Rectangle(getGuiLeft() + targetSlot.xPos,
+                            getGuiTop() + targetSlot.yPos, 16, 16);
+                }
+
+                @Override
+                public void accept(Object droppedIngredient) {
+                    VirtualMarkJeiHelper.Mark mark =
+                            VirtualMarkJeiHelper.fromIngredient(droppedIngredient);
+                    if (mark == null) return;
+                    if (mark.fluid != null) {
+                        AE2Utilix.NETWORK.sendToServer(PacketCommonBusMark.forJeiFluid(
+                                container.getTilePosition(), container.getSide(),
+                                targetSlot.slotNumber, mark.fluid));
+                    } else if (mark.gasName != null) {
+                        AE2Utilix.NETWORK.sendToServer(PacketCommonBusMark.forJeiGas(
+                                container.getTilePosition(), container.getSide(),
+                                targetSlot.slotNumber, mark.gasName));
+                    } else if (mark.aspectName != null) {
+                        AE2Utilix.NETWORK.sendToServer(PacketCommonBusMark.forJeiEssentia(
+                                container.getTilePosition(), container.getSide(),
+                                targetSlot.slotNumber, mark.aspectName));
+                    } else if (mark.specialType != 0) {
+                        AE2Utilix.NETWORK.sendToServer(PacketCommonBusMark.forJeiSpecial(
+                                container.getTilePosition(), container.getSide(),
+                                targetSlot.slotNumber, mark.specialType));
+                    } else if (mark.item != null && !mark.item.isEmpty()) {
+                        AE2Utilix.NETWORK.sendToServer(PacketCommonBusMark.forJeiItem(
+                                container.getTilePosition(), container.getSide(),
+                                targetSlot.slotNumber, mark.item));
+                    }
+                }
+            };
+            targets.add(target);
+            this.jeiTargetMap.put(target, targetSlot);
+        }
+        return targets;
+    }
+
+    @Override
+    public Map<IGhostIngredientHandler.Target<?>, Object> getFakeSlotTargetMap() {
+        return this.jeiTargetMap;
     }
 }

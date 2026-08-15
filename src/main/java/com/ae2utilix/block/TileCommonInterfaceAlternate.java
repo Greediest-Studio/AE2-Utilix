@@ -46,6 +46,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
@@ -77,7 +78,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private static final int STORAGE_TYPE_GAS = 2;
     private static final int STORAGE_TYPE_MANA = 3;
     private static final int STORAGE_TYPE_FE = 4;
-    private static final int STORAGE_TYPE_ITEM = 5;
+    private static final int STORAGE_TYPE_ESSENTIA = 5;
+    private static final int STORAGE_TYPE_ITEM = 6;
     private static final String NBT_LINK_DIM = "ae2utilix_link_dim";
     private static final String NBT_LINK_X = "ae2utilix_link_x";
     private static final String NBT_LINK_Y = "ae2utilix_link_y";
@@ -107,6 +109,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     private final long[] extendedFeConfigAmounts = new long[9];
     private final long[] interfaceFeAmounts = new long[9];
     private final long[] extendedFeAmounts = new long[9];
+    private final String[] interfaceEssentiaAspects = new String[9];
+    private final String[] extendedEssentiaAspects = new String[9];
+    private final int[] interfaceEssentiaConfigAmounts = new int[9];
+    private final int[] extendedEssentiaConfigAmounts = new int[9];
+    private final String[] interfaceStoredEssentiaAspects = new String[9];
+    private final String[] extendedStoredEssentiaAspects = new String[9];
+    private final int[] interfaceStoredEssentiaAmounts = new int[9];
+    private final int[] extendedStoredEssentiaAmounts = new int[9];
     private final MEMonitorIFluidHandler fluidMonitor = new MEMonitorIFluidHandler(this);
     private final com.ae2utilix.integration.NetworkStorageItemHandler networkItemHandler =
             new com.ae2utilix.integration.NetworkStorageItemHandler(this.getProxy(), this);
@@ -143,6 +153,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             if (com.ae2utilix.integration.BotaniaFluxIntegration.isFeChannel(channel)) {
                 return (IMEMonitor<T>) com.ae2utilix.integration.BotaniaFluxIntegration
                         .getFeMonitor(TileCommonInterfaceAlternate.this);
+            }
+            if (com.ae2utilix.integration.ThaumicEnergisticsIntegration.isEssentiaChannel(channel)) {
+                return (IMEMonitor<T>) com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                        .getMonitor(TileCommonInterfaceAlternate.this, hasEssentiaConfig());
             }
             return null;
         }
@@ -210,6 +224,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         if (com.ae2utilix.item.ItemFluidMark.isGasMark(config)) return STORAGE_TYPE_GAS;
         if (com.ae2utilix.item.ItemFluidMark.isManaMark(config)) return STORAGE_TYPE_MANA;
         if (com.ae2utilix.item.ItemFluidMark.isFeMark(config)) return STORAGE_TYPE_FE;
+        if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(config)) return STORAGE_TYPE_ESSENTIA;
         return config.isEmpty() ? STORAGE_TYPE_NONE : STORAGE_TYPE_ITEM;
     }
 
@@ -232,14 +247,21 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return (extended ? this.extendedFeAmounts : this.interfaceFeAmounts)[slot] > 0;
     }
 
+    public boolean hasEssentiaStorage(boolean extended, int slot) {
+        String name = (extended ? this.extendedStoredEssentiaAspects : this.interfaceStoredEssentiaAspects)[slot];
+        return name != null && !name.isEmpty()
+                && (extended ? this.extendedStoredEssentiaAmounts : this.interfaceStoredEssentiaAmounts)[slot] > 0;
+    }
+
     public boolean hasVirtualStorage(boolean extended, int slot) {
         int configuredType = this.getConfiguredStorageType(extended, slot);
         return (configuredType >= STORAGE_TYPE_FLUID
-                && configuredType <= STORAGE_TYPE_FE)
+                && configuredType <= STORAGE_TYPE_ESSENTIA)
                 || this.hasFluidStorage(extended, slot)
                 || this.hasGasStorage(extended, slot)
                 || this.hasManaStorage(extended, slot)
-                || this.hasFeStorage(extended, slot);
+                || this.hasFeStorage(extended, slot)
+                || this.hasEssentiaStorage(extended, slot);
     }
 
     public boolean canStoreFluidInSlot(boolean extended, int slot) {
@@ -249,7 +271,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 && !this.hasItemStorage(extended, slot)
                 && !this.hasGasStorage(extended, slot)
                 && !this.hasManaStorage(extended, slot)
-                && !this.hasFeStorage(extended, slot);
+                && !this.hasFeStorage(extended, slot)
+                && !this.hasEssentiaStorage(extended, slot);
     }
 
     public boolean canStoreGasInSlot(boolean extended, int slot) {
@@ -259,7 +282,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 && !this.hasItemStorage(extended, slot)
                 && !this.hasFluidStorage(extended, slot)
                 && !this.hasManaStorage(extended, slot)
-                && !this.hasFeStorage(extended, slot);
+                && !this.hasFeStorage(extended, slot)
+                && !this.hasEssentiaStorage(extended, slot);
     }
 
     public boolean canStoreManaInSlot(boolean extended, int slot) {
@@ -269,7 +293,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 && !this.hasItemStorage(extended, slot)
                 && !this.hasFluidStorage(extended, slot)
                 && !this.hasGasStorage(extended, slot)
-                && !this.hasFeStorage(extended, slot);
+                && !this.hasFeStorage(extended, slot)
+                && !this.hasEssentiaStorage(extended, slot);
     }
 
     public boolean canStoreFeInSlot(boolean extended, int slot) {
@@ -279,7 +304,19 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 && !this.hasItemStorage(extended, slot)
                 && !this.hasFluidStorage(extended, slot)
                 && !this.hasGasStorage(extended, slot)
-                && !this.hasManaStorage(extended, slot);
+                && !this.hasManaStorage(extended, slot)
+                && !this.hasEssentiaStorage(extended, slot);
+    }
+
+    public boolean canStoreEssentiaInSlot(boolean extended, int slot) {
+        int configuredType = this.getConfiguredStorageType(extended, slot);
+        return configuredType != STORAGE_TYPE_ITEM
+                && (configuredType == STORAGE_TYPE_NONE || configuredType == STORAGE_TYPE_ESSENTIA)
+                && !this.hasItemStorage(extended, slot)
+                && !this.hasFluidStorage(extended, slot)
+                && !this.hasGasStorage(extended, slot)
+                && !this.hasManaStorage(extended, slot)
+                && !this.hasFeStorage(extended, slot);
     }
 
     private void refreshItemSlotCapacities() {
@@ -374,6 +411,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 com.ae2utilix.integration.BotaniaFluxIntegration.flushUnconfigured(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
                 com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
                 com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
+                com.ae2utilix.integration.ThaumicEnergisticsIntegration.flushUnconfiguredEssentiaToNetwork(this);
+                com.ae2utilix.integration.ThaumicEnergisticsIntegration.requestMarkedEssentia(this, false);
+                com.ae2utilix.integration.ThaumicEnergisticsIntegration.requestMarkedEssentia(this, true);
             }
         }
     }
@@ -401,6 +441,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeLongState(data, "interface_fe_stored", this.interfaceFeAmounts);
         this.writeLongState(data, "extended_fe_config", this.extendedFeConfigAmounts);
         this.writeLongState(data, "extended_fe_stored", this.extendedFeAmounts);
+        this.writeEssentiaState(data, "interface", this.interfaceEssentiaAspects,
+                this.interfaceEssentiaConfigAmounts);
+        this.writeEssentiaState(data, "extended", this.extendedEssentiaAspects,
+                this.extendedEssentiaConfigAmounts);
+        this.writeEssentiaState(data, "interface_stored", this.interfaceStoredEssentiaAspects,
+                this.interfaceStoredEssentiaAmounts);
+        this.writeEssentiaState(data, "extended_stored", this.extendedStoredEssentiaAspects,
+                this.extendedStoredEssentiaAmounts);
         this.virtualCrafting.writeToNBT(data);
         if (this.hasLinkData()) {
             data.setInteger(NBT_LINK_DIM, this.linkDim);
@@ -419,6 +467,8 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         if (data.hasKey("ae2utilix_extended_interface")) {
             this.extendedDuality.readFromNBT(data.getCompoundTag("ae2utilix_extended_interface"));
         }
+        this.upgradeEssentiaMarkers(this.interfaceDuality.getConfig());
+        this.upgradeEssentiaMarkers(this.extendedDuality.getConfig());
         this.readFluidState(data, "interface", this.interfaceFluids, this.interfaceFluidAmounts);
         this.readFluidState(data, "extended", this.extendedFluids, this.extendedFluidAmounts);
         this.readFluidState(data, "interface_stored", this.interfaceStoredFluids, null);
@@ -435,6 +485,14 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                 this.interfaceFeConfigAmounts, this.interfaceFeAmounts);
         this.readEnergyState(data, "extended", true, BotaniaFluxIntegration.FE,
                 this.extendedFeConfigAmounts, this.extendedFeAmounts);
+        this.readEssentiaState(data, "interface", this.interfaceEssentiaAspects,
+                this.interfaceEssentiaConfigAmounts);
+        this.readEssentiaState(data, "extended", this.extendedEssentiaAspects,
+                this.extendedEssentiaConfigAmounts);
+        this.readEssentiaState(data, "interface_stored", this.interfaceStoredEssentiaAspects,
+                this.interfaceStoredEssentiaAmounts);
+        this.readEssentiaState(data, "extended_stored", this.extendedStoredEssentiaAspects,
+                this.extendedStoredEssentiaAmounts);
         this.virtualCrafting.readFromNBT(data);
         if (data.hasKey(NBT_LINK_DIM)) {
             this.linkDim = data.getInteger(NBT_LINK_DIM);
@@ -443,6 +501,16 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             int ordinal = data.getInteger(NBT_LINK_FACE);
             this.linkFace = ordinal >= 0 && ordinal < EnumFacing.values().length
                     ? EnumFacing.values()[ordinal] : null;
+        }
+    }
+
+    private void upgradeEssentiaMarkers(IItemHandler config) {
+        if (!(config instanceof IItemHandlerModifiable)) return;
+        IItemHandlerModifiable mutable = (IItemHandlerModifiable) config;
+        for (int slot = 0; slot < mutable.getSlots(); slot++) {
+            ItemStack current = mutable.getStackInSlot(slot);
+            ItemStack upgraded = com.ae2utilix.item.ItemFluidMark.upgradeEssentiaMarker(current);
+            if (upgraded != current) mutable.setStackInSlot(slot, upgraded);
         }
     }
 
@@ -483,6 +551,54 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.saveChanges();
         this.markForUpdate();
         this.wakeFluidRequests();
+    }
+
+    public String getEssentiaConfigAspect(boolean extended, int slot) {
+        String[] aspects = extended ? this.extendedEssentiaAspects : this.interfaceEssentiaAspects;
+        String tag = aspects[slot];
+        if (tag != null && !tag.isEmpty()) return tag;
+        IItemHandler config = extended ? this.extendedDuality.getConfig() : this.getConfig();
+        return com.ae2utilix.item.ItemFluidMark.getAspectTag(config.getStackInSlot(slot));
+    }
+
+    public int getEssentiaConfigAmount(boolean extended, int slot) {
+        int[] amounts = extended ? this.extendedEssentiaConfigAmounts : this.interfaceEssentiaConfigAmounts;
+        return Math.max(1, Math.min(this.getVirtualStorageCapacity(), amounts[slot] <= 0 ? 1000 : amounts[slot]));
+    }
+
+    public void setEssentiaConfig(boolean extended, int slot, String aspectTag, int amount) {
+        String[] aspects = extended ? this.extendedEssentiaAspects : this.interfaceEssentiaAspects;
+        int[] amounts = extended ? this.extendedEssentiaConfigAmounts : this.interfaceEssentiaConfigAmounts;
+        aspects[slot] = aspectTag == null || aspectTag.isEmpty() ? null : aspectTag;
+        amounts[slot] = aspects[slot] == null ? 0
+                : Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+        this.wakeFluidRequests();
+    }
+
+    public String getStoredEssentiaAspect(boolean extended, int slot) {
+        return (extended ? this.extendedStoredEssentiaAspects : this.interfaceStoredEssentiaAspects)[slot];
+    }
+
+    public int getStoredEssentiaAmount(boolean extended, int slot) {
+        return (extended ? this.extendedStoredEssentiaAmounts : this.interfaceStoredEssentiaAmounts)[slot];
+    }
+
+    public void setStoredEssentia(boolean extended, int slot, String aspectTag, int amount) {
+        String[] aspects = extended ? this.extendedStoredEssentiaAspects : this.interfaceStoredEssentiaAspects;
+        int[] amounts = extended ? this.extendedStoredEssentiaAmounts : this.interfaceStoredEssentiaAmounts;
+        if (aspectTag == null || aspectTag.isEmpty() || amount <= 0) {
+            aspects[slot] = null;
+            amounts[slot] = 0;
+        } else {
+            aspects[slot] = aspectTag;
+            amounts[slot] = Math.min(this.getVirtualStorageCapacity(), amount);
+        }
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
     }
 
     public String getGasConfigName(boolean extended, int slot) {
@@ -541,6 +657,52 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
+    }
+
+    /**
+     * Clears all virtual-resource state for a slot when it is changed back to
+     * a normal item filter.  Virtual channels keep their amounts outside the
+     * item handler, so merely replacing the visible marker would otherwise
+     * leave stale fluid/gas/energy/essentia storage active.
+     */
+    public void clearVirtualConfig(boolean extended, int slot) {
+        if (slot < 0 || slot >= 9) return;
+        IAEFluidStack[] fluids = extended ? this.extendedFluids : this.interfaceFluids;
+        int[] fluidAmounts = extended ? this.extendedFluidAmounts : this.interfaceFluidAmounts;
+        IAEFluidStack[] storedFluids = extended ? this.extendedStoredFluids : this.interfaceStoredFluids;
+        String[] gases = extended ? this.extendedGases : this.interfaceGases;
+        int[] gasAmounts = extended ? this.extendedGasAmounts : this.interfaceGasAmounts;
+        String[] storedGases = extended ? this.extendedStoredGases : this.interfaceStoredGases;
+        int[] storedGasAmounts = extended ? this.extendedStoredGasAmounts : this.interfaceStoredGasAmounts;
+        long[] manaConfig = extended ? this.extendedManaConfigAmounts : this.interfaceManaConfigAmounts;
+        long[] manaStored = extended ? this.extendedManaAmounts : this.interfaceManaAmounts;
+        long[] feConfig = extended ? this.extendedFeConfigAmounts : this.interfaceFeConfigAmounts;
+        long[] feStored = extended ? this.extendedFeAmounts : this.interfaceFeAmounts;
+        String[] essentia = extended ? this.extendedEssentiaAspects : this.interfaceEssentiaAspects;
+        int[] essentiaConfig = extended ? this.extendedEssentiaConfigAmounts : this.interfaceEssentiaConfigAmounts;
+        String[] storedEssentia = extended ? this.extendedStoredEssentiaAspects : this.interfaceStoredEssentiaAspects;
+        int[] storedEssentiaAmounts = extended ? this.extendedStoredEssentiaAmounts : this.interfaceStoredEssentiaAmounts;
+
+        fluids[slot] = null;
+        fluidAmounts[slot] = 0;
+        storedFluids[slot] = null;
+        gases[slot] = null;
+        gasAmounts[slot] = 0;
+        storedGases[slot] = null;
+        storedGasAmounts[slot] = 0;
+        manaConfig[slot] = 0;
+        manaStored[slot] = 0;
+        feConfig[slot] = 0;
+        feStored[slot] = 0;
+        essentia[slot] = null;
+        essentiaConfig[slot] = 0;
+        storedEssentia[slot] = null;
+        storedEssentiaAmounts[slot] = 0;
+        this.markDirty();
+        this.saveChanges();
+        this.markForUpdate();
+        this.refreshFluidMonitor();
+        this.wakeFluidRequests();
     }
 
     public void setStoredMana(boolean extended, int slot, long amount) {
@@ -792,6 +954,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
                         && !com.ae2utilix.integration.MekanismEnergisticsIntegration.hasGasWork(this)
                         && !com.ae2utilix.integration.BotaniaFluxIntegration.hasManaConfig(this)
                         && !com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this)
+                        && !com.ae2utilix.integration.ThaumicEnergisticsIntegration.hasEssentiaWork(this)
                         && !this.virtualCrafting.hasWork(), true);
     }
 
@@ -806,6 +969,9 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         com.ae2utilix.integration.BotaniaFluxIntegration.flushUnconfigured(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
         com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
         com.ae2utilix.integration.BotaniaFluxIntegration.requestMarked(this, com.ae2utilix.integration.BotaniaFluxIntegration.FE);
+        com.ae2utilix.integration.ThaumicEnergisticsIntegration.flushUnconfiguredEssentiaToNetwork(this);
+        com.ae2utilix.integration.ThaumicEnergisticsIntegration.requestMarkedEssentia(this, false);
+        com.ae2utilix.integration.ThaumicEnergisticsIntegration.requestMarkedEssentia(this, true);
         TickRateModulation primary = this.interfaceDuality.tickingRequest(node, ticksSinceLastCall);
         TickRateModulation extended = this.extendedDuality.tickingRequest(node, ticksSinceLastCall);
         if (primary == TickRateModulation.URGENT || extended == TickRateModulation.URGENT) return TickRateModulation.URGENT;
@@ -814,6 +980,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         if (primary == TickRateModulation.SLEEP && extended == TickRateModulation.SLEEP) {
             return this.hasFluidWork() || com.ae2utilix.integration.BotaniaFluxIntegration.hasManaConfig(this)
                     || com.ae2utilix.integration.BotaniaFluxIntegration.hasFeConfig(this)
+                    || com.ae2utilix.integration.ThaumicEnergisticsIntegration.hasEssentiaWork(this)
                     || this.virtualCrafting.hasWork()
                     ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
         }
@@ -1172,6 +1339,17 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return false;
     }
 
+    private boolean hasEssentiaConfig() {
+        return hasEssentiaConfig(this.getConfig()) || hasEssentiaConfig(this.getExtendedConfig());
+    }
+
+    private boolean hasEssentiaConfig(IItemHandler config) {
+        for (int slot = 0; slot < config.getSlots(); slot++) {
+            if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(config.getStackInSlot(slot))) return true;
+        }
+        return false;
+    }
+
     private void wakeFluidRequests() {
         try {
             if (!this.getProxy().getTick().alertDevice(this.getProxy().getNode())) {
@@ -1214,6 +1392,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         this.writeLongStateStream(data, this.interfaceFeAmounts);
         this.writeLongStateStream(data, this.extendedFeConfigAmounts);
         this.writeLongStateStream(data, this.extendedFeAmounts);
+        this.writeEssentiaConfigStream(data, this.interfaceEssentiaAspects, this.interfaceEssentiaConfigAmounts);
+        this.writeEssentiaConfigStream(data, this.extendedEssentiaAspects, this.extendedEssentiaConfigAmounts);
+        this.writeEssentiaConfigStream(data, this.interfaceStoredEssentiaAspects, this.interfaceStoredEssentiaAmounts);
+        this.writeEssentiaConfigStream(data, this.extendedStoredEssentiaAspects, this.extendedStoredEssentiaAmounts);
     }
 
     @Override
@@ -1235,6 +1417,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         changed |= this.readLongStateStream(data, this.interfaceFeAmounts);
         changed |= this.readLongStateStream(data, this.extendedFeConfigAmounts);
         changed |= this.readLongStateStream(data, this.extendedFeAmounts);
+        changed |= this.readEssentiaConfigStream(data, this.interfaceEssentiaAspects, this.interfaceEssentiaConfigAmounts);
+        changed |= this.readEssentiaConfigStream(data, this.extendedEssentiaAspects, this.extendedEssentiaConfigAmounts);
+        changed |= this.readEssentiaConfigStream(data, this.interfaceStoredEssentiaAspects, this.interfaceStoredEssentiaAmounts);
+        changed |= this.readEssentiaConfigStream(data, this.extendedStoredEssentiaAspects, this.extendedStoredEssentiaAmounts);
         return changed;
     }
 
@@ -1348,6 +1534,34 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         }
     }
 
+    private void writeEssentiaState(NBTTagCompound data, String key, String[] aspects, int[] amounts) {
+        NBTTagCompound state = new NBTTagCompound();
+        for (int i = 0; i < aspects.length; i++) {
+            if (aspects[i] == null || aspects[i].isEmpty() || amounts[i] <= 0) continue;
+            NBTTagCompound slot = new NBTTagCompound();
+            slot.setString("Aspect", aspects[i]);
+            slot.setInteger("Amount", amounts[i]);
+            state.setTag(String.valueOf(i), slot);
+        }
+        data.setTag("ae2utilix_essentia_" + key, state);
+    }
+
+    private void readEssentiaState(NBTTagCompound data, String key, String[] aspects, int[] amounts) {
+        NBTTagCompound state = data.getCompoundTag("ae2utilix_essentia_" + key);
+        for (int i = 0; i < aspects.length; i++) {
+            aspects[i] = null;
+            amounts[i] = 0;
+            if (!state.hasKey(String.valueOf(i), 10)) continue;
+            NBTTagCompound slot = state.getCompoundTag(String.valueOf(i));
+            String aspect = slot.getString("Aspect");
+            int amount = slot.getInteger("Amount");
+            if (!aspect.isEmpty() && amount > 0) {
+                aspects[i] = aspect;
+                amounts[i] = Math.min(this.getVirtualStorageCapacity(), amount);
+            }
+        }
+    }
+
     private void writeGasConfigStream(ByteBuf data, String[] names, int[] amounts) {
         for (int i = 0; i < names.length; i++) {
             boolean present = names[i] != null && !names[i].isEmpty();
@@ -1382,6 +1596,32 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     private boolean readGasStateStream(ByteBuf data, String[] names, int[] amounts) {
         return this.readGasConfigStream(data, names, amounts);
+    }
+
+    private void writeEssentiaConfigStream(ByteBuf data, String[] aspects, int[] amounts) {
+        for (int i = 0; i < aspects.length; i++) {
+            boolean present = aspects[i] != null && !aspects[i].isEmpty();
+            data.writeBoolean(present);
+            if (present) {
+                ByteBufUtils.writeUTF8String(data, aspects[i]);
+                data.writeInt(amounts[i]);
+            }
+        }
+    }
+
+    private boolean readEssentiaConfigStream(ByteBuf data, String[] aspects, int[] amounts) {
+        boolean changed = false;
+        for (int i = 0; i < aspects.length; i++) {
+            boolean present = data.readBoolean();
+            String nextAspect = present ? ByteBufUtils.readUTF8String(data) : null;
+            int nextAmount = present
+                    ? Math.max(0, Math.min(this.getVirtualStorageCapacity(), data.readInt())) : 0;
+            if (aspects[i] == null ? nextAspect != null : !aspects[i].equals(nextAspect)
+                    || amounts[i] != nextAmount) changed = true;
+            aspects[i] = nextAspect;
+            amounts[i] = nextAmount;
+        }
+        return changed;
     }
 
     private void writeLongState(NBTTagCompound data, String key, long[] values) {

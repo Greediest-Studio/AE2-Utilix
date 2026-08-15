@@ -2,6 +2,9 @@ package com.ae2utilix.parts;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.RedstoneMode;
+import appeng.api.config.Settings;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -28,6 +31,7 @@ import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import com.ae2utilix.integration.BotaniaFluxIntegration;
 import com.ae2utilix.integration.MekanismEnergisticsIntegration;
+import com.ae2utilix.integration.ThaumicEnergisticsIntegration;
 import com.ae2utilix.item.ItemFluidMark;
 import mekanism.api.gas.Gas;
 import mekanism.api.gas.GasRegistry;
@@ -74,6 +78,12 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     protected PartCommonBus(ItemStack stack) {
         super(stack);
+        // Keep the same redstone/fuzzy settings exposed by AE2's normal
+        // import/export buses.  The upgrade inventory is created by
+        // PartUpgradeable before this constructor returns, so the settings
+        // are safe to register here and are available to both bus variants.
+        this.getConfigManager().registerSetting(Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
+        this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         Arrays.fill(this.virtualAmounts, VIRTUAL_TRANSFER);
     }
 
@@ -89,11 +99,25 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     @Override
     protected int getUpgradeSlots() {
-        return 0;
+        // PartUpgradeable defaults to four slots, but this class used to
+        // override it with zero.  That made the inherited UpgradeInventory
+        // reject every card and the GUI had no slots to place them into.
+        return 4;
     }
 
     public int availableUpgrades() {
-        return 0;
+        return this.getUpgradeSlots();
+    }
+
+    @Override
+    public void upgradesChanged() {
+        this.wakeBus();
+    }
+
+    @Override
+    public RedstoneMode getRSMode() {
+        Object setting = this.getConfigManager().getSetting(Settings.REDSTONE_CONTROLLED);
+        return setting instanceof RedstoneMode ? (RedstoneMode) setting : RedstoneMode.IGNORE;
     }
 
     public AppEngInternalAEInventory getConfigInventory() {
@@ -138,6 +162,11 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
     public void readFromNBT(net.minecraft.nbt.NBTTagCompound data) {
         super.readFromNBT(data);
         this.config.readFromNBT(data, "config");
+        for (int slot = 0; slot < CONFIG_SLOTS; slot++) {
+            ItemStack current = this.config.getStackInSlot(slot);
+            ItemStack upgraded = ItemFluidMark.upgradeEssentiaMarker(current);
+            if (upgraded != current) this.config.setStackInSlot(slot, upgraded);
+        }
         if (data.hasKey("virtualAmounts")) {
             int[] saved = data.getIntArray("virtualAmounts");
             for (int i = 0; i < CONFIG_SLOTS; i++) {
@@ -176,7 +205,7 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(5, 40, false, false);
+        return new TickingRequest(5, 40, this.isSleeping(), false);
     }
 
     @Override
@@ -205,6 +234,11 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                 if (BotaniaFluxIntegration.isFeIntegrationAvailable()) {
                     worked |= this.isExportBus() ? this.exportFe(slot) : this.importFe(slot);
                 }
+            } else if (ItemFluidMark.isEssentiaMark(marker)) {
+                if (ThaumicEnergisticsIntegration.isAvailable()) {
+                    worked |= this.isExportBus() ? this.exportEssentia(marker, slot)
+                            : this.importEssentia(marker, slot);
+                }
             } else {
                 worked |= this.isExportBus() ? this.exportItem(marker) : this.importItem(marker);
             }
@@ -224,6 +258,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
             }
             if (BotaniaFluxIntegration.isFeIntegrationAvailable()) {
                 worked |= this.importFe(-1);
+            }
+            if (ThaumicEnergisticsIntegration.isAvailable()) {
+                worked |= this.importEssentia(null, -1);
             }
         }
         return worked ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
@@ -751,6 +788,79 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                     this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
                     BotaniaFluxIntegration.FE, amount, mode);
         } catch (GridAccessException e) {
+            return 0;
+        }
+    }
+
+    private boolean importEssentia(ItemStack marker, int slot) {
+        TileEntity target = this.getConnectedTile();
+        String filter = marker == null ? null : ItemFluidMark.getAspectTag(marker);
+        int amount = this.getVirtualAmount(slot);
+        if (target instanceof TileCommonInterfaceAlternate) {
+            TileCommonInterfaceAlternate source = (TileCommonInterfaceAlternate) target;
+            String aspect = filter != null ? filter
+                    : ThaumicEnergisticsIntegration.findLocalExtractableAspect(source, null);
+            if (aspect == null) return false;
+            int available = ThaumicEnergisticsIntegration.extractLocal(source, aspect, amount, true);
+            int accepted = this.insertEssentiaNetwork(aspect, available, Actionable.SIMULATE);
+            if (accepted <= 0) return false;
+            int extracted = ThaumicEnergisticsIntegration.extractLocal(source, aspect, accepted, false);
+            int inserted = this.insertEssentiaNetwork(aspect, extracted, Actionable.MODULATE);
+            if (inserted < extracted) {
+                ThaumicEnergisticsIntegration.receiveLocal(source, aspect, extracted - inserted, false);
+            }
+            return inserted > 0;
+        }
+        String aspect = ThaumicEnergisticsIntegration.findExtractableAspect(target, filter);
+        if (aspect == null) return false;
+        int capacity = this.insertEssentiaNetwork(aspect, amount, Actionable.SIMULATE);
+        if (capacity <= 0) return false;
+        int available = Math.min(amount, ThaumicEnergisticsIntegration.extractFromTarget(target, aspect, capacity));
+        if (available <= 0) return false;
+        int inserted = this.insertEssentiaNetwork(aspect, available, Actionable.MODULATE);
+        // The target cannot expose a simulation operation. Put any rejected
+        // amount back if the ME channel changed between the two calls.
+        if (inserted < available) {
+            ThaumicEnergisticsIntegration.insertIntoTarget(target, aspect, available - inserted);
+        }
+        return inserted > 0;
+    }
+
+    private boolean exportEssentia(ItemStack marker, int slot) {
+        TileEntity target = this.getConnectedTile();
+        String aspect = ItemFluidMark.getAspectTag(marker);
+        if (target == null || aspect == null) return false;
+        int amount = this.getVirtualAmount(slot);
+        int extracted = this.extractEssentiaNetwork(aspect, amount, Actionable.SIMULATE);
+        if (extracted <= 0) return false;
+        int actual = this.extractEssentiaNetwork(aspect, extracted, Actionable.MODULATE);
+        if (actual <= 0) return false;
+        int inserted = target instanceof TileCommonInterfaceAlternate
+                ? ThaumicEnergisticsIntegration.receiveLocal((TileCommonInterfaceAlternate) target,
+                        aspect, actual, false)
+                : ThaumicEnergisticsIntegration.insertIntoTarget(target, aspect, actual);
+        if (inserted < actual) {
+            this.insertEssentiaNetwork(aspect, actual - inserted, Actionable.MODULATE);
+        }
+        return inserted > 0;
+    }
+
+    private int insertEssentiaNetwork(String aspect, int amount, Actionable mode) {
+        try {
+            return ThaumicEnergisticsIntegration.insertNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    aspect, amount, mode);
+        } catch (GridAccessException ignored) {
+            return 0;
+        }
+    }
+
+    private int extractEssentiaNetwork(String aspect, int amount, Actionable mode) {
+        try {
+            return ThaumicEnergisticsIntegration.extractNetwork(
+                    this.getProxy().getStorage(), this.getProxy().getEnergy(), this.source,
+                    aspect, amount, mode);
+        } catch (GridAccessException ignored) {
             return 0;
         }
     }

@@ -21,6 +21,7 @@ public class ItemFluidMark extends Item {
     private static final String GAS_KEY = "Gas";
     private static final String MANA_KEY = "Mana";
     private static final String FE_KEY = "FE";
+    private static final String ESSENTIA_KEY = "Essentia";
 
     public ItemFluidMark() {
         this.setUnlocalizedName(AE2Utilix.MODID + ".fluid_mark");
@@ -61,6 +62,31 @@ public class ItemFluidMark extends Item {
         ItemStack stack = new ItemStack(AE2Utilix.FLUID_MARK);
         stack.getOrCreateSubCompound(MARK_TAG).setBoolean(FE_KEY, true);
         return stack;
+    }
+
+    /** Creates a type-only Thaumic Energistics essentia marker. */
+    public static ItemStack createEssentia(String aspectTag) {
+        ItemStack nativeMarker = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                .createAspectItem(aspectTag);
+        if (!nativeMarker.isEmpty()) return nativeMarker;
+
+        ItemStack stack = new ItemStack(AE2Utilix.FLUID_MARK);
+        if (aspectTag != null && !aspectTag.isEmpty()) {
+            stack.getOrCreateSubCompound(MARK_TAG).setString(ESSENTIA_KEY, aspectTag);
+        }
+        return stack;
+    }
+
+    /** Replaces legacy Utilix essentia tokens with ThE's native dummy item. */
+    public static ItemStack upgradeEssentiaMarker(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || stack.getItem() != AE2Utilix.FLUID_MARK) {
+            return stack == null ? ItemStack.EMPTY : stack;
+        }
+        String aspectTag = getAspectTag(stack);
+        if (aspectTag == null) return stack;
+        ItemStack nativeMarker = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                .createAspectItem(aspectTag);
+        return nativeMarker.isEmpty() ? stack : nativeMarker;
     }
 
     @Nullable
@@ -118,8 +144,23 @@ public class ItemFluidMark extends Item {
                 && stack.getTagCompound().getCompoundTag(MARK_TAG).getBoolean(FE_KEY);
     }
 
+    @Nullable
+    public static String getAspectTag(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        if (stack.getItem() == AE2Utilix.FLUID_MARK && stack.hasTagCompound()) {
+            String tag = stack.getTagCompound().getCompoundTag(MARK_TAG).getString(ESSENTIA_KEY);
+            return tag.isEmpty() ? null : tag;
+        }
+        return com.ae2utilix.integration.ThaumicEnergisticsIntegration.getAspectTagFromMarker(stack);
+    }
+
+    public static boolean isEssentiaMark(ItemStack stack) {
+        return getAspectTag(stack) != null;
+    }
+
     public static boolean isVirtualMark(ItemStack stack) {
-        return isFluidMark(stack) || isGasMark(stack) || isManaMark(stack) || isFeMark(stack);
+        return isFluidMark(stack) || isGasMark(stack) || isManaMark(stack) || isFeMark(stack)
+                || isEssentiaMark(stack);
     }
 
     @Override
@@ -137,6 +178,12 @@ public class ItemFluidMark extends Item {
         }
         if (isFeMark(stack)) {
             return BotaniaFluxIntegration.getPacketDisplayName(BotaniaFluxIntegration.FE);
+        }
+        String aspectTag = getAspectTag(stack);
+        if (aspectTag != null) {
+            String name = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getAspectDisplayName(aspectTag);
+            return name == null ? aspectTag : name;
         }
         return I18n.translateToLocal(this.getUnlocalizedName() + ".name");
     }
@@ -169,6 +216,14 @@ public class ItemFluidMark extends Item {
         if (isFeMark(stack)) {
             tooltip.add(BotaniaFluxIntegration.getPacketDisplayName(BotaniaFluxIntegration.FE));
             tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.fe_mark.tooltip"));
+            return;
+        }
+        String aspectTag = getAspectTag(stack);
+        if (aspectTag != null) {
+            String name = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getAspectDisplayName(aspectTag);
+            tooltip.add(name == null ? aspectTag : name);
+            tooltip.add(I18n.translateToLocal("ae2_utilix.common_interface.essentia_mark.tooltip"));
         }
     }
 }

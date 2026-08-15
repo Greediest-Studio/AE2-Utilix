@@ -26,7 +26,10 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
     private String fluidName;
     private net.minecraft.nbt.NBTTagCompound fluidTag;
     private String gasName;
+    private String aspectName;
     private int specialType;
+    private ItemStack itemMark = ItemStack.EMPTY;
+    private boolean fromJei;
 
     public PacketCommonInterfaceFluidMark() {
     }
@@ -48,14 +51,64 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         }
     }
 
+    public static PacketCommonInterfaceFluidMark forJeiFluid(BlockPos pos, int slot,
+                                                              boolean extended,
+                                                              FluidStack markedFluid) {
+        PacketCommonInterfaceFluidMark packet =
+                new PacketCommonInterfaceFluidMark(pos, slot, true, extended, markedFluid);
+        packet.fromJei = true;
+        return packet;
+    }
+
     public PacketCommonInterfaceFluidMark(BlockPos pos, int slot, boolean extended, String gasName) {
         this(pos, slot, false, extended);
         this.gasName = gasName;
     }
 
+    public static PacketCommonInterfaceFluidMark forJeiGas(BlockPos pos, int slot,
+                                                            boolean extended, String gasName) {
+        PacketCommonInterfaceFluidMark packet =
+                new PacketCommonInterfaceFluidMark(pos, slot, extended, gasName);
+        packet.fromJei = true;
+        return packet;
+    }
+
+    public PacketCommonInterfaceFluidMark(BlockPos pos, int slot, boolean extended,
+                                          String aspectName, boolean essentia) {
+        this(pos, slot, false, extended);
+        if (essentia) this.aspectName = aspectName;
+    }
+
+    public static PacketCommonInterfaceFluidMark forJeiEssentia(BlockPos pos, int slot,
+                                                                 boolean extended,
+                                                                 String aspectName) {
+        PacketCommonInterfaceFluidMark packet =
+                new PacketCommonInterfaceFluidMark(pos, slot, extended, aspectName, true);
+        packet.fromJei = true;
+        return packet;
+    }
+
     public PacketCommonInterfaceFluidMark(BlockPos pos, int slot, boolean extended, int specialType) {
         this(pos, slot, false, extended);
         this.specialType = specialType;
+    }
+
+    public static PacketCommonInterfaceFluidMark forJeiSpecial(BlockPos pos, int slot,
+                                                               boolean extended, int specialType) {
+        PacketCommonInterfaceFluidMark packet =
+                new PacketCommonInterfaceFluidMark(pos, slot, extended, specialType);
+        packet.fromJei = true;
+        return packet;
+    }
+
+    public static PacketCommonInterfaceFluidMark forJeiItem(BlockPos pos, int slot,
+                                                             boolean extended, ItemStack item) {
+        PacketCommonInterfaceFluidMark packet =
+                new PacketCommonInterfaceFluidMark(pos, slot, false, extended);
+        packet.itemMark = item == null ? ItemStack.EMPTY : item.copy();
+        if (!packet.itemMark.isEmpty()) packet.itemMark.setCount(1);
+        packet.fromJei = true;
+        return packet;
     }
 
     @Override
@@ -69,7 +122,10 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         this.fluidName = ByteBufUtils.readUTF8String(buf);
         this.fluidTag = ByteBufUtils.readTag(buf);
         this.gasName = ByteBufUtils.readUTF8String(buf);
+        this.aspectName = ByteBufUtils.readUTF8String(buf);
         this.specialType = buf.readInt();
+        this.itemMark = ByteBufUtils.readItemStack(buf);
+        this.fromJei = buf.readBoolean();
     }
 
     @Override
@@ -83,7 +139,10 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         ByteBufUtils.writeUTF8String(buf, this.fluidName == null ? "" : this.fluidName);
         ByteBufUtils.writeTag(buf, this.fluidTag);
         ByteBufUtils.writeUTF8String(buf, this.gasName == null ? "" : this.gasName);
+        ByteBufUtils.writeUTF8String(buf, this.aspectName == null ? "" : this.aspectName);
         buf.writeInt(this.specialType);
+        ByteBufUtils.writeItemStack(buf, this.itemMark == null ? ItemStack.EMPTY : this.itemMark);
+        buf.writeBoolean(this.fromJei);
     }
 
     public static class Handler implements IMessageHandler<PacketCommonInterfaceFluidMark, IMessage> {
@@ -98,11 +157,16 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
                 IItemHandler storage = message.extended ? tile.getExtendedStorage() : tile.getStorage();
                 if (message.slot < 0 || message.slot >= config.getSlots()) return;
                 ItemStack held = player.inventory.getItemStack();
-                if (held.isEmpty()) return;
+                if (!message.fromJei && held.isEmpty()) return;
 
                 if (message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.MANA
                         || message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.FE) {
-                    if (com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held)
+                    if (message.fromJei) {
+                        boolean available = message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.MANA
+                                ? com.ae2utilix.integration.BotaniaFluxIntegration.isManaIntegrationAvailable()
+                                : com.ae2utilix.integration.BotaniaFluxIntegration.isFeIntegrationAvailable();
+                        if (!available) return;
+                    } else if (com.ae2utilix.integration.BotaniaFluxIntegration.getMarkedType(held)
                             != message.specialType) return;
                     config.extractItem(message.slot, 1, false);
                     ItemStack marker = message.specialType == com.ae2utilix.integration.BotaniaFluxIntegration.MANA
@@ -120,10 +184,26 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
                     return;
                 }
 
+                if (message.fromJei && message.itemMark != null && !message.itemMark.isEmpty()) {
+                    ItemStack marker = message.itemMark.copy();
+                    marker.setCount(1);
+                    config.extractItem(message.slot, Integer.MAX_VALUE, false);
+                    config.insertItem(message.slot, marker, false);
+                    storage.extractItem(message.slot, Integer.MAX_VALUE, false);
+                    tile.clearVirtualConfig(message.extended, message.slot);
+                    tile.saveChanges();
+                    return;
+                }
+
                 if (message.gasName != null && !message.gasName.isEmpty()) {
-                    String heldGas = com.ae2utilix.integration.MekanismEnergisticsIntegration
-                            .getGasNameFromItem(held);
-                    if (!message.gasName.equals(heldGas)) return;
+                    if (message.fromJei) {
+                        if (!com.ae2utilix.integration.MekanismEnergisticsIntegration
+                                .isGasNameValid(message.gasName)) return;
+                    } else {
+                        String heldGas = com.ae2utilix.integration.MekanismEnergisticsIntegration
+                                .getGasNameFromItem(held);
+                        if (!message.gasName.equals(heldGas)) return;
+                    }
                     config.extractItem(message.slot, 1, false);
                     config.insertItem(message.slot, ItemFluidMark.createGas(message.gasName), false);
                     storage.extractItem(message.slot, Integer.MAX_VALUE, false);
@@ -132,13 +212,37 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
                     return;
                 }
 
-                FluidStack heldFluid = net.minecraftforge.fluids.FluidUtil.getFluidContained(held);
-                if (heldFluid == null) heldFluid = ItemFluidMark.getFluid(held);
-                if (heldFluid == null && held.getItem() == net.minecraft.init.Items.WATER_BUCKET) {
-                    heldFluid = new FluidStack(net.minecraftforge.fluids.FluidRegistry.WATER, 1000);
+                if (message.aspectName != null && !message.aspectName.isEmpty()) {
+                    if (message.fromJei) {
+                        if (!com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                .isAspectTagValid(message.aspectName)) return;
+                    } else {
+                        String heldAspect = com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                                .getAspectTagFromItem(held);
+                        if (!message.aspectName.equals(heldAspect)) return;
+                    }
+                    config.extractItem(message.slot, 1, false);
+                    config.insertItem(message.slot, ItemFluidMark.createEssentia(message.aspectName), false);
+                    storage.extractItem(message.slot, Integer.MAX_VALUE, false);
+                    tile.setEssentiaConfig(message.extended, message.slot, message.aspectName, 1000);
+                    tile.setStoredEssentia(message.extended, message.slot, null, 0);
+                    tile.saveChanges();
+                    return;
                 }
-                FluidStack fluidStack = this.getMarkedFluid(message, heldFluid);
-                if (fluidStack == null && held.getItem() == net.minecraft.init.Items.WATER_BUCKET) {
+
+                FluidStack heldFluid = null;
+                if (!message.fromJei) {
+                    heldFluid = net.minecraftforge.fluids.FluidUtil.getFluidContained(held);
+                    if (heldFluid == null) heldFluid = ItemFluidMark.getFluid(held);
+                    if (heldFluid == null && held.getItem() == net.minecraft.init.Items.WATER_BUCKET) {
+                        heldFluid = new FluidStack(net.minecraftforge.fluids.FluidRegistry.WATER, 1000);
+                    }
+                }
+                FluidStack fluidStack = message.fromJei
+                        ? this.getMarkedFluid(message, null)
+                        : this.getMarkedFluid(message, heldFluid);
+                if (!message.fromJei && fluidStack == null
+                        && held.getItem() == net.minecraft.init.Items.WATER_BUCKET) {
                     fluidStack = new FluidStack(net.minecraftforge.fluids.FluidRegistry.WATER, 1000);
                 }
                 if (fluidStack == null) return;
@@ -156,7 +260,8 @@ public class PacketCommonInterfaceFluidMark implements IMessage {
         private FluidStack getMarkedFluid(PacketCommonInterfaceFluidMark message, FluidStack heldFluid) {
             if (message.fluidName == null || message.fluidName.isEmpty()) return heldFluid;
             net.minecraftforge.fluids.Fluid fluid = net.minecraftforge.fluids.FluidRegistry.getFluid(message.fluidName);
-            if (fluid == null || heldFluid == null || heldFluid.getFluid() != fluid) return null;
+            if (fluid == null) return null;
+            if (!message.fromJei && (heldFluid == null || heldFluid.getFluid() != fluid)) return null;
             FluidStack result = new FluidStack(fluid, 1000);
             result.tag = message.fluidTag == null ? null : message.fluidTag.copy();
             return result;

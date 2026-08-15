@@ -215,6 +215,13 @@ public class AE2Utilix implements IGuiHandler {
         // The common interface can request missing configured resources from AE2 crafting CPUs.
         Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 1);
 
+        // Common import/export buses use the standard non-crafting upgrade
+        // set shared by AE2's item buses.  Registering the item stacks is required
+        // by PartUpgradeable's StackUpgradeInventory; without it, cards are
+        // rejected even when a GUI slot is present.
+        registerCommonBusUpgrades(COMMON_IMPORT_BUS);
+        registerCommonBusUpgrades(COMMON_EXPORT_BUS);
+
         AEApi.instance().definitions().blocks().iface().maybeItem()
                 .ifPresent(i -> Upgrades.MAGNET.registerItem(new ItemStack(i), 1));
         AEApi.instance().definitions().parts().iface().maybeItem()
@@ -275,6 +282,16 @@ public class AE2Utilix implements IGuiHandler {
         if (item != null) {
             AE2UtilixUpgrades.registerItem(upgradeTypeId, new ItemStack(item), maxSupported);
         }
+    }
+
+    private void registerCommonBusUpgrades(Item busItem) {
+        ItemStack bus = new ItemStack(busItem);
+        Upgrades.FUZZY.registerItem(bus, 1);
+        Upgrades.REDSTONE.registerItem(bus, 1);
+        Upgrades.CAPACITY.registerItem(bus, 2);
+        Upgrades.SPEED.registerItem(bus, 4);
+        // The common bus currently has no crafting-request tracker, so do not
+        // advertise a crafting card whose behavior it cannot implement.
     }
 
     private void registerUpgradeTarget(String upgradeTypeId, Block block, int maxSupported) {
