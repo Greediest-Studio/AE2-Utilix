@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import thaumcraft.api.aspects.Aspect;
 import thaumcraft.api.aspects.AspectList;
-import thaumcraft.api.aspects.IAspectContainer;
+import thaumcraft.api.aspects.IAspectSource;
 import thaumcraft.api.aspects.IEssentiaTransport;
 
 /**
@@ -19,7 +19,7 @@ import thaumcraft.api.aspects.IEssentiaTransport;
  * tubes, rune matrices, and other native Thaumcraft consumers.</p>
  */
 @Mixin(TileCommonInterfaceAlternate.class)
-public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTransport, IAspectContainer {
+public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTransport, IAspectSource {
 
     @Unique
     private TileCommonInterfaceAlternate ae2utilix$tile() {
@@ -279,6 +279,14 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     public int addEssentia(Aspect aspect, int amount, EnumFacing side) {
         if (!this.canInputFrom(side) || aspect == null) return 0;
         return this.ae2utilix$insert(aspect, amount);
+    }
+
+    @Override
+    public boolean isBlocked() {
+        // The interface is a valid source whenever its virtual slot contains
+        // essentia. Thaumcraft's source search rejects blocked IAspectSource
+        // instances before it ever calls takeFromContainer().
+        return false;
     }
 
     /*
