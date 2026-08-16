@@ -162,40 +162,23 @@ public final class ThaumicEnergisticsOptional {
     public static int extractNetwork(IStorageGrid storage, IEnergySource energy,
                                      IActionSource source, String aspectTag, int amount,
                                      Actionable mode) {
-        IMEMonitor<IAEEssentiaStack> inventory = getNetworkMonitor(storage);
-        Aspect aspect = getAspect(aspectTag);
-        if (inventory == null || aspect == null || amount <= 0) return 0;
-        try {
-            // Match PartEssentiaExportBus: query the live essentia monitor,
-            // construct the request through AEUtil, then use the monitor's
-            // simulated result for the real extraction.
-            IAEEssentiaStack request = AEUtil.getAEStackFromAspect(aspect, amount);
-            if (request == null) return 0;
-            IAEEssentiaStack simulated = inventory.extractItems(
-                    request, Actionable.SIMULATE, source);
-            if (simulated == null || simulated.getStackSize() <= 0) {
-                // A few storage providers only accept their own concrete
-                // stack instance, although the resource is present in the
-                // monitor. Use that exact stack for the native extraction
-                // call, just like the stack returned by a normal simulation.
-                IAEEssentiaStack available = findAvailableEssentia(inventory, aspect, amount);
-                simulated = available;
-            }
-            if (simulated == null || simulated.getStackSize() <= 0) return 0;
-            simulated.setStackSize(Math.min((long) amount, simulated.getStackSize()));
-            if (mode == Actionable.SIMULATE) {
-                return (int) simulated.getStackSize();
-            }
-            // This intentionally mirrors PartEssentiaExportBus: the native
-            // bus ignores the MODULATE return value and commits the exact
-            // amount that its simulation accepted. Some ThE storage
-            // providers return null after a successful MODULATE operation.
-            inventory.extractItems(simulated, Actionable.MODULATE, source);
-            return Math.min(amount, (int) simulated.getStackSize());
-        } catch (RuntimeException ignored) {
-            return 0;
-        }
+    IMEInventory<IAEEssentiaStack> inventory = getInventory(storage);
+    Aspect aspect = getAspect(aspectTag);
+    if (inventory == null || aspect == null || amount <= 0) return 0;
+    try {
+        // Use the same powered extraction path as AE2's native export bus.
+        // This performs a real storage simulation and energy check, so a
+        // marker cannot create essentia when the network has none.
+        IAEEssentiaStack request = AEUtil.getAEStackFromAspect(aspect, amount);
+        if (request == null) return 0;
+        IAEEssentiaStack extracted = Platform.poweredExtraction(
+                energy, inventory, request, source, mode);
+        return extracted == null ? 0
+                : Math.min(amount, (int) extracted.getStackSize());
+    } catch (RuntimeException ignored) {
+        return 0;
     }
+}
 
     public static int insertNetwork(TileCommonInterfaceAlternate tile, String aspectTag,
                                     int amount, Actionable mode) {
@@ -350,19 +333,20 @@ public final class ThaumicEnergisticsOptional {
     }
 
     public static boolean hasEssentiaWork(TileCommonInterfaceAlternate tile) {
-        if (!isAvailable() || tile == null) return false;
-        for (boolean extended : new boolean[]{false, true}) {
-            for (int slot = 0; slot < 9; slot++) {
-                if (ItemFluidMark.getAspectTag((extended ? tile.getExtendedConfig() : tile.getConfig())
-                        .getStackInSlot(slot)) != null
-                        && tile.getStoredEssentiaAmount(extended, slot)
-                        != tile.getEssentiaConfigAmount(extended, slot)) return true;
-                if ((extended ? tile.getExtendedConfig() : tile.getConfig()).getStackInSlot(slot).isEmpty()
-                        && tile.getStoredEssentiaAmount(extended, slot) > 0) return true;
-            }
+    if (!isAvailable() || tile == null) return false;
+    for (boolean extended : new boolean[]{false, true}) {
+        net.minecraftforge.items.IItemHandler config = extended
+                ? tile.getExtendedConfig() : tile.getConfig();
+        for (int slot = 0; slot < 9; slot++) {
+            if (tile.getEssentiaConfigAspect(extended, slot) != null
+                    && tile.getStoredEssentiaAmount(extended, slot)
+                    != tile.getEssentiaConfigAmount(extended, slot)) return true;
+            if (config.getStackInSlot(slot).isEmpty()
+                    && tile.getStoredEssentiaAmount(extended, slot) > 0) return true;
         }
-        return false;
     }
+    return false;
+}
 
     private static IStorageChannel<IAEEssentiaStack> getChannel() {
         return AEApi.instance().storage().getStorageChannel(IEssentiaStorageChannel.class);
@@ -435,28 +419,29 @@ public final class ThaumicEnergisticsOptional {
 
     private static int localInsert(TileCommonInterfaceAlternate tile, String tag, int amount,
                                    Actionable mode) {
-        int remaining = amount;
-        for (int pass = 0; pass < 2 && remaining > 0; pass++) {
-            for (boolean extended : new boolean[]{false, true}) {
-                for (int slot = 0; slot < 9 && remaining > 0; slot++) {
-                    if (!tile.canStoreEssentiaInSlot(extended, slot)) continue;
-                    String configured = ItemFluidMark.getAspectTag(
-                            (extended ? tile.getExtendedConfig() : tile.getConfig()).getStackInSlot(slot));
-                    String storedTag = tile.getStoredEssentiaAspect(extended, slot);
-                    int stored = tile.getStoredEssentiaAmount(extended, slot);
-                    boolean match = tag.equals(storedTag);
-                    boolean empty = storedTag == null || stored <= 0;
-                    if (pass == 0 ? !match : !empty) continue;
-                    if (configured != null && !configured.equals(tag)) continue;
-                    int accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
-                    if (accepted <= 0) continue;
-                    if (mode == Actionable.MODULATE) tile.setStoredEssentia(extended, slot, tag, stored + accepted);
-                    remaining -= accepted;
+    int remaining = amount;
+    for (int pass = 0; pass < 2 && remaining > 0; pass++) {
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9 && remaining > 0; slot++) {
+                if (!tile.canStoreEssentiaInSlot(extended, slot)) continue;
+                String configured = tile.getEssentiaConfigAspect(extended, slot);
+                String storedTag = tile.getStoredEssentiaAspect(extended, slot);
+                int stored = tile.getStoredEssentiaAmount(extended, slot);
+                boolean match = tag.equals(storedTag);
+                boolean empty = storedTag == null || stored <= 0;
+                if (pass == 0 ? !match : !empty) continue;
+                if (configured != null && !configured.equals(tag)) continue;
+                int accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
+                if (accepted <= 0) continue;
+                if (mode == Actionable.MODULATE) {
+                    tile.setStoredEssentia(extended, slot, tag, stored + accepted);
                 }
+                remaining -= accepted;
             }
         }
-        return amount - remaining;
     }
+    return amount - remaining;
+}
 
     private static int localExtract(TileCommonInterfaceAlternate tile, String tag, int amount,
                                     Actionable mode) {
