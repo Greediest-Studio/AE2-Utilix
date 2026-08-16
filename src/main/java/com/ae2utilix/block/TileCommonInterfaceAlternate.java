@@ -218,6 +218,12 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     private int getConfiguredStorageType(boolean extended, int slot) {
+        // Use the persisted aspect name first. This also works with native
+        // Thaumic Energistics dummy markers when their ItemStack is unavailable
+        // to the type check during a server tick.
+        if (this.getEssentiaConfigAspect(extended, slot) != null) {
+            return STORAGE_TYPE_ESSENTIA;
+        }
         ItemStack config = (extended ? this.extendedDuality : this.interfaceDuality)
                 .getConfig().getStackInSlot(slot);
         if (com.ae2utilix.item.ItemFluidMark.isFluidMark(config)) return STORAGE_TYPE_FLUID;
@@ -1340,12 +1346,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     private boolean hasEssentiaConfig() {
-        return hasEssentiaConfig(this.getConfig()) || hasEssentiaConfig(this.getExtendedConfig());
-    }
-
-    private boolean hasEssentiaConfig(IItemHandler config) {
-        for (int slot = 0; slot < config.getSlots(); slot++) {
-            if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(config.getStackInSlot(slot))) return true;
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9; slot++) {
+                if (this.getEssentiaConfigAspect(extended, slot) != null) return true;
+            }
         }
         return false;
     }

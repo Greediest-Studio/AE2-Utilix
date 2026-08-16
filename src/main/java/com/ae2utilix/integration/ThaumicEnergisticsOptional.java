@@ -258,8 +258,15 @@ public final class ThaumicEnergisticsOptional {
                 || !tile.getProxy().isActive()) return;
         net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
         for (int slot = 0; slot < 9; slot++) {
-            String aspectTag = ItemFluidMark.getAspectTag(config.getStackInSlot(slot));
-            if (aspectTag == null || !tile.canStoreEssentiaInSlot(extended, slot)) continue;
+            // The persisted config arrays are authoritative. The native dummy-aspect
+            // item is only a visual/interaction representation and may not be
+            // resolvable on every client/server path.
+            String aspectTag = tile.getEssentiaConfigAspect(extended, slot);
+            if (aspectTag == null) {
+                aspectTag = ItemFluidMark.getAspectTag(config.getStackInSlot(slot));
+            }
+            if (aspectTag == null || aspectTag.isEmpty()
+                    || !tile.canStoreEssentiaInSlot(extended, slot)) continue;
 
             int target = Math.min(tile.getVirtualStorageCapacity(),
                     Math.max(0, tile.getEssentiaConfigAmount(extended, slot)));
@@ -279,15 +286,19 @@ public final class ThaumicEnergisticsOptional {
                         stored - target, Actionable.MODULATE);
                 if (returned > 0) {
                     stored -= returned;
-                    tile.setStoredEssentia(extended, slot, storedTag == null ? aspectTag : storedTag, stored);
+                    tile.setStoredEssentia(extended, slot,
+                            storedTag == null ? aspectTag : storedTag, stored);
                 }
             }
 
             int needed = target - stored;
             if (needed <= 0) continue;
-            int simulated = extractNetwork(tile, aspectTag, needed, Actionable.SIMULATE);
-            if (simulated <= 0) continue;
-            int moved = extractNetwork(tile, aspectTag, simulated, Actionable.MODULATE);
+
+            // Probe first so the interface only writes what the network can
+            // actually provide, then perform the matching powered extraction.
+            int available = extractNetwork(tile, aspectTag, needed, Actionable.SIMULATE);
+            if (available <= 0) continue;
+            int moved = extractNetwork(tile, aspectTag, available, Actionable.MODULATE);
             if (moved > 0) {
                 tile.setStoredEssentia(extended, slot, aspectTag,
                         Math.min(tile.getVirtualStorageCapacity(), stored + moved));
