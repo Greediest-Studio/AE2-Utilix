@@ -183,10 +183,12 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Override
     public boolean canOutputTo(EnumFacing side) {
         this.ae2utilix$ensureMarkedEssentia();
-        // An empty marker is only a request target, not a source.  Advertising
-        // it as an output makes Thaumcraft consumers pull from a container
-        // whose getEssentiaAmount() is zero and prevents normal source routing.
-        return this.ae2utilix$firstStoredAspect() != null;
+        // Keep the endpoint discoverable while its marked amount is being
+        // requested from the AE2 network. Thaumcraft consumers call this
+        // before getEssentiaAmount(); hiding an empty marked slot here means
+        // the consumer never gets a chance to perform the request.
+        return this.ae2utilix$firstStoredAspect() != null
+                || this.ae2utilix$firstConfiguredAspect() != null;
     }
 
     @Override
@@ -204,9 +206,10 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public int getSuctionAmount(EnumFacing side) {
-        // A source must advertise positive suction. Thaumcraft tubes and the
-        // infusion matrix ignore transport endpoints with suction <= 0.
-        if (this.canOutputTo(side)) return 1;
+        // Match the native Thaumic Energistics output endpoint. A negative
+        // output suction keeps this storage endpoint from winning a tube pull
+        // contest; consumers that explicitly pull still use takeEssentia().
+        if (this.canOutputTo(side)) return -1;
         return this.canInputFrom(side) ? 128 : 0;
     }
 
@@ -219,7 +222,9 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     public Aspect getEssentiaType(EnumFacing side) {
         if (!this.canOutputTo(side)) return null;
         String tag = this.ae2utilix$firstStoredAspect();
-        return tag == null ? null : Aspect.getAspect(tag);
+        if (tag == null) tag = this.ae2utilix$firstConfiguredAspect();
+        Aspect aspect = tag == null ? null : Aspect.getAspect(tag);
+        return aspect != null && this.ae2utilix$storedAmount(tag) > 0 ? aspect : null;
     }
 
     @Override
