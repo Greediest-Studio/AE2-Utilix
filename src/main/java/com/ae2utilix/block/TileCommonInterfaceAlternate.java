@@ -212,6 +212,10 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         return VIRTUAL_STORAGE_CAPACITY << this.getCapacityUpgradeCount();
     }
 
+    public int getEssentiaStorageCapacity() {
+        return this.getItemSlotCapacity();
+    }
+
     public boolean hasItemStorage(boolean extended, int slot) {
         IItemHandler storage = extended ? this.extendedDuality.getStorage() : this.interfaceDuality.getStorage();
         return !storage.getStackInSlot(slot).isEmpty();
@@ -576,7 +580,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
 
     public int getEssentiaConfigAmount(boolean extended, int slot) {
         int[] amounts = extended ? this.extendedEssentiaConfigAmounts : this.interfaceEssentiaConfigAmounts;
-        return Math.max(1, Math.min(this.getVirtualStorageCapacity(), amounts[slot] <= 0 ? 1000 : amounts[slot]));
+        return Math.max(1, Math.min(this.getEssentiaStorageCapacity(), amounts[slot] <= 0 ? 1000 : amounts[slot]));
     }
 
     public void setEssentiaConfig(boolean extended, int slot, String aspectTag, int amount) {
@@ -584,7 +588,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
         int[] amounts = extended ? this.extendedEssentiaConfigAmounts : this.interfaceEssentiaConfigAmounts;
         aspects[slot] = aspectTag == null || aspectTag.isEmpty() ? null : aspectTag;
         amounts[slot] = aspects[slot] == null ? 0
-                : Math.max(1, Math.min(this.getVirtualStorageCapacity(), amount));
+                : Math.max(1, Math.min(this.getEssentiaStorageCapacity(), amount));
         this.markDirty();
         this.saveChanges();
         this.markForUpdate();
@@ -607,7 +611,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
             amounts[slot] = 0;
         } else {
             aspects[slot] = aspectTag;
-            amounts[slot] = Math.min(this.getVirtualStorageCapacity(), amount);
+            amounts[slot] = Math.min(this.getEssentiaStorageCapacity(), amount);
         }
         this.markDirty();
         this.saveChanges();

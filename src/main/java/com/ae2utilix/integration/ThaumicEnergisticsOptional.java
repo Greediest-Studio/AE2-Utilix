@@ -296,7 +296,7 @@ public final class ThaumicEnergisticsOptional {
             if (aspectTag == null || aspectTag.isEmpty()
                     || !tile.canStoreEssentiaInSlot(extended, slot)) continue;
 
-            int target = Math.min(tile.getVirtualStorageCapacity(),
+            int target = Math.min(tile.getEssentiaStorageCapacity(),
                     Math.max(0, tile.getEssentiaConfigAmount(extended, slot)));
             String storedTag = tile.getStoredEssentiaAspect(extended, slot);
             int stored = Math.max(0, tile.getStoredEssentiaAmount(extended, slot));
@@ -328,7 +328,7 @@ public final class ThaumicEnergisticsOptional {
             int moved = extractNetwork(tile, aspectTag, needed, Actionable.MODULATE);
             if (moved > 0) {
                 tile.setStoredEssentia(extended, slot, aspectTag,
-                        Math.min(tile.getVirtualStorageCapacity(), stored + moved));
+                        Math.min(tile.getEssentiaStorageCapacity(), stored + moved));
             }
         }
     }
@@ -449,7 +449,7 @@ public final class ThaumicEnergisticsOptional {
                 boolean empty = storedTag == null || stored <= 0;
                 if (pass == 0 ? !match : !empty) continue;
                 if (configured != null && !configured.equals(tag)) continue;
-                int accepted = Math.min(remaining, tile.getVirtualStorageCapacity() - stored);
+                int accepted = Math.min(remaining, tile.getEssentiaStorageCapacity() - stored);
                 if (accepted <= 0) continue;
                 if (mode == Actionable.MODULATE) {
                     tile.setStoredEssentia(extended, slot, tag, stored + accepted);

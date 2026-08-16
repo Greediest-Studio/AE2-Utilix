@@ -316,9 +316,14 @@ icon = com.ae2utilix.integration.ThaumicEnergisticsOptional.createAspectItem(ess
             int slotIdx = this.amountSlot.slotNumber;
             boolean extended = slotIdx % 4 >= 2;
             int configSlot = slotIdx / 4;
-            int limit = com.ae2utilix.item.ItemFluidMark.isVirtualMark(this.amountSlot.getStack())
-                    ? this.container.getTile().getVirtualStorageCapacity()
-                    : this.container.getTile().getItemSlotCapacity();
+            int limit;
+            if (com.ae2utilix.item.ItemFluidMark.isEssentiaMark(this.amountSlot.getStack())) {
+                limit = this.container.getTile().getEssentiaStorageCapacity();
+            } else {
+                limit = com.ae2utilix.item.ItemFluidMark.isVirtualMark(this.amountSlot.getStack())
+                        ? this.container.getTile().getVirtualStorageCapacity()
+                        : this.container.getTile().getItemSlotCapacity();
+            }
             NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
                     this.container.getTilePosition(), configSlot, Math.min(limit, Math.max(1, amount)), extended));
         } catch (NumberFormatException ignored) {
@@ -387,8 +392,10 @@ icon = com.ae2utilix.integration.ThaumicEnergisticsOptional.createAspectItem(ess
         } else {
             next = current + (wheel > 0 ? 1L : -1L);
         }
-        int amount = (int) Math.min(this.container.getTile().getVirtualStorageCapacity(),
-                Math.max(1L, next));
+        int limit = com.ae2utilix.item.ItemFluidMark.isEssentiaMark(marker)
+                ? this.container.getTile().getEssentiaStorageCapacity()
+                : this.container.getTile().getVirtualStorageCapacity();
+        int amount = (int) Math.min(limit, Math.max(1L, next));
         NetworkHandler.CHANNEL.sendToServer(new com.ae2utilix.network.PacketCommonInterfaceSetAmount(
                 this.container.getTilePosition(), configSlot, amount, extended));
         if (this.amountFieldActive && this.amountSlot == slot) {

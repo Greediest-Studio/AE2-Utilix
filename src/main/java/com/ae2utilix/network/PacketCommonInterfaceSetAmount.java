@@ -96,7 +96,7 @@ public class PacketCommonInterfaceSetAmount implements IMessage {
 
                     String aspectTag = com.ae2utilix.item.ItemFluidMark.getAspectTag(stack);
                     if (aspectTag != null) {
-                        int amount = Math.max(1, Math.min(tile.getVirtualStorageCapacity(), message.amount));
+                        int amount = Math.max(1, Math.min(tile.getEssentiaStorageCapacity(), message.amount));
                         tile.setEssentiaConfig(message.extended, message.slot, aspectTag, amount);
                         tile.saveChanges();
                         return;

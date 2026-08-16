@@ -104,7 +104,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
             for (int slot = 0; slot < 9; slot++) {
                 if (!tile.canStoreEssentiaInSlot(extended, slot)) continue;
                 if (tile.getStoredEssentiaAmount(extended, slot)
-                        < tile.getVirtualStorageCapacity()) {
+                        < tile.getEssentiaStorageCapacity()) {
                     return true;
                 }
             }
@@ -125,7 +125,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         String stored = tile.getStoredEssentiaAspect(extended, slot);
         if (stored != null && !tag.equals(stored)) return false;
         return tile.getStoredEssentiaAmount(extended, slot)
-                < tile.getVirtualStorageCapacity();
+                < tile.getEssentiaStorageCapacity();
     }
 
     @Unique
@@ -149,7 +149,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
                     int current = Math.max(0,
                             tile.getStoredEssentiaAmount(extended, slot));
                     int accepted = Math.min(remaining,
-                            tile.getVirtualStorageCapacity() - current);
+                            tile.getEssentiaStorageCapacity() - current);
                     if (accepted <= 0) continue;
                     tile.setStoredEssentia(extended, slot, tag, current + accepted);
                     remaining -= accepted;
