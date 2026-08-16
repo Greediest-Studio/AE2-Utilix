@@ -170,7 +170,19 @@ public final class ThaumicEnergisticsOptional {
             IAEEssentiaStack request = getChannel().createStack(
                     new EssentiaStack(aspect, amount));
             if (request == null) return 0;
-            IAEEssentiaStack extracted = inventory.extractItems(request, mode, source);
+            // The native bus uses the result of the simulated extraction for
+            // the modulated extraction. In particular, this preserves the
+            // channel's concrete stack and its resolved amount instead of
+            // constructing a second request stack for the real extraction.
+            IAEEssentiaStack simulated = inventory.extractItems(
+                    request.copy(), Actionable.SIMULATE, source);
+            if (simulated == null || simulated.getStackSize() <= 0) return 0;
+            simulated.setStackSize(Math.min((long) amount, simulated.getStackSize()));
+            if (mode == Actionable.SIMULATE) {
+                return (int) simulated.getStackSize();
+            }
+            IAEEssentiaStack extracted = inventory.extractItems(
+                    simulated, Actionable.MODULATE, source);
             return extracted == null ? 0 : Math.min(amount, (int) extracted.getStackSize());
         } catch (RuntimeException ignored) {
             return 0;
