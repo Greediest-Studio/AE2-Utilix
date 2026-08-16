@@ -274,10 +274,13 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public boolean isBlocked() {
-        // The interface is a valid source whenever its virtual slot contains
-        // essentia. Thaumcraft's source search rejects blocked IAspectSource
-        // instances before it ever calls takeFromContainer().
-        return false;
+        // Thaumcraft builds a cached source list from IAspectSource before it
+        // calls takeFromContainer(). An unmarked slot may still contain stale
+        // virtual data while it is being returned to the AE2 network; it must
+        // not remain visible as a source during that transition.
+        String configured = this.ae2utilix$firstConfiguredAspect();
+        if (configured == null || configured.isEmpty()) return true;
+        return this.ae2utilix$storedAmount(configured) <= 0;
     }
 
     /*
