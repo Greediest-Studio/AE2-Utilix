@@ -567,6 +567,7 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     ItemStack stack = config.getStackInSlot(slot);
     String itemTag = com.ae2utilix.item.ItemFluidMark.getAspectTag(stack);
     if (itemTag != null && !itemTag.isEmpty()) return itemTag;
+    if (!net.minecraftforge.fml.common.Loader.isModLoaded("thaumicenergistics")) return null;
     // Thaumic Energistics uses its own dummy-aspect item as the marker.
     return com.ae2utilix.integration.ThaumicEnergisticsOptional.getAspectTagFromItem(stack);
 }

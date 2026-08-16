@@ -354,27 +354,29 @@ public final class ThaumicEnergisticsOptional {
 
     @Nullable
     private static IStorageGrid getNetworkStorage(TileCommonInterfaceAlternate tile) {
-        if (tile == null) return null;
-        try {
-            // Use the same grid cache lookup as Thaumic Energistics' native
-            // export bus.  AENetworkProxy.getStorage() can expose a proxy
-            // view which does not contain the essentia channel on some AE2UEL
-            // network transitions.
-            IGridNode node = tile.getProxy().getNode();
-            IGrid grid = node == null ? null : node.getGrid();
-            if (grid != null) {
-                IStorageGrid storage = grid.getCache(IStorageGrid.class);
-                if (storage != null) return storage;
-            }
-        } catch (RuntimeException ignored) {
-            // Fall through to the proxy accessor below.
-        }
-        try {
-            return tile.getProxy().getStorage();
-        } catch (GridAccessException ignored) {
-            return null;
-        }
+    if (tile == null) return null;
+    try {
+        IStorageGrid storage = tile.getProxy().getStorage();
+        if (storage != null) return storage;
+    } catch (GridAccessException ignored) {
+        // The proxy may be between grid transitions; try the live node cache.
     }
+    try {
+        IGridNode node = tile.getProxy().getNode();
+        IGrid grid = node == null ? null : node.getGrid();
+        if (grid != null) {
+            IStorageGrid storage = grid.getCache(IStorageGrid.class);
+            if (storage != null) return storage;
+        }
+    } catch (RuntimeException ignored) {
+        // Fall through to the final proxy retry.
+    }
+    try {
+        return tile.getProxy().getStorage();
+    } catch (GridAccessException ignored) {
+        return null;
+    }
+}
 
     @Nullable
     private static IMEInventory<IAEEssentiaStack> getInventory(IStorageGrid storage) {
