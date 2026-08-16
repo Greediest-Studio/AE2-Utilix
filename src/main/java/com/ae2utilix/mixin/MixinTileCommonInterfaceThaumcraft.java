@@ -154,6 +154,19 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         return extracted;
     }
 
+    @Unique
+    private void ae2utilix$ensureMarkedEssentia() {
+        TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        if (tile.getWorld() == null || tile.getWorld().isRemote
+                || this.ae2utilix$firstStoredAspect() != null) return;
+        // Thaumcraft consumers can query transport state before the AE2 tick
+        // manager runs. Populate the virtual slot on demand in that case.
+        com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                .requestMarkedEssentia(tile, false);
+        com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                .requestMarkedEssentia(tile, true);
+    }
+
     @Override
     public boolean isConnectable(EnumFacing side) {
         return this.canOutputTo(side) || this.canInputFrom(side);
@@ -166,6 +179,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public boolean canOutputTo(EnumFacing side) {
+        this.ae2utilix$ensureMarkedEssentia();
         return this.ae2utilix$firstStoredAspect() != null;
     }
 
@@ -202,6 +216,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public int getEssentiaAmount(EnumFacing side) {
+        this.ae2utilix$ensureMarkedEssentia();
         String tag = this.ae2utilix$firstStoredAspect();
         return tag == null ? 0 : this.ae2utilix$storedAmount(tag);
     }
