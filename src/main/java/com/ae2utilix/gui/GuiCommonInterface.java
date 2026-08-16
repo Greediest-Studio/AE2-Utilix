@@ -409,7 +409,7 @@ icon = com.ae2utilix.integration.ThaumicEnergisticsOptional.createAspectItem(ess
             net.minecraftforge.fluids.FluidStack storedFluid = this.container.getTile()
                     .getStoredFluid(extended, storageSlot);
             if (storedFluid != null && storedFluid.amount > 0) {
-                tips.add(I18n.format("ae2_utilix.common_interface.stored",
+                tips.add(I18n.format("ae2_utilix.common_interface.stored_essentia",
                         storedFluid.getLocalizedName(), storedFluid.amount));
             } else {
                 String gasName = this.container.getTile().getStoredGasName(extended, storageSlot);

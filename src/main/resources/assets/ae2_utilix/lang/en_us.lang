@@ -54,6 +54,7 @@ ae2_utilix.common_interface.mana_mark.tooltip=Virtual mana marker
 ae2_utilix.common_interface.fe_mark.tooltip=Virtual FE marker
 ae2_utilix.common_interface.right_click_special=§8Right click: mark§7 %s
 ae2_utilix.common_interface.stored=§8Stored §7%s %dmb
+ae2_utilix.common_interface.stored_essentia=§8Stored §7%s %d
 tile.ae2_utilix.crystal_growth_chamber.name=Crystal Growth Chamber
 ae2_utilix.magnet_card.enabled=Magnet Card Enabled
 ae2_utilix.magnet_card.disabled=Magnet Card Disabled

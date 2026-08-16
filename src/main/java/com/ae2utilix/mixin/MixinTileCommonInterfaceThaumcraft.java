@@ -177,9 +177,9 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public Aspect getSuctionType(EnumFacing side) {
-        String tag = this.ae2utilix$firstStoredAspect();
-        if (tag == null) tag = this.ae2utilix$firstConfiguredAspect();
-        return tag == null ? null : Aspect.getAspect(tag);
+        // Match Thaumic Energistics' native storage interface: suction is
+        // untyped; the actual aspect is supplied by getEssentiaType().
+        return null;
     }
 
     @Override

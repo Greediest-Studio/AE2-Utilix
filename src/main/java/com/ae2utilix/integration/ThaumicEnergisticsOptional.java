@@ -151,7 +151,7 @@ public final class ThaumicEnergisticsOptional {
         Aspect aspect = getAspect(aspectTag);
         if (inventory == null || aspect == null || amount <= 0) return 0;
         try {
-            IAEEssentiaStack input = AEEssentiaStack.fromEssentiaStack(new EssentiaStack(aspect, amount));
+            IAEEssentiaStack input = AEUtil.getAEStackFromAspect(aspect, amount);
             IAEEssentiaStack remainder = Platform.poweredInsert(energy, inventory, input, source, mode);
             return Math.max(0, amount - (remainder == null ? 0 : (int) remainder.getStackSize()));
         } catch (RuntimeException ignored) {
@@ -275,7 +275,7 @@ public final class ThaumicEnergisticsOptional {
             // resolvable on every client/server path.
             String aspectTag = tile.getEssentiaConfigAspect(extended, slot);
             if (aspectTag == null) {
-                aspectTag = ItemFluidMark.getAspectTag(config.getStackInSlot(slot));
+                aspectTag = getAspectTagFromItem(config.getStackInSlot(slot));
             }
             if (aspectTag == null || aspectTag.isEmpty()
                     || !tile.canStoreEssentiaInSlot(extended, slot)) continue;
