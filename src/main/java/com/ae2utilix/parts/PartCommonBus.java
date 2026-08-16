@@ -67,6 +67,10 @@ import java.util.Arrays;
  */
 public abstract class PartCommonBus extends PartUpgradeable implements appeng.api.networking.ticking.IGridTickable,
         appeng.util.inv.IInventoryDestination {
+    private static final int MAX_ESSENTIA_TRANSFER = 512000;
+    private final int[] essentiaTransferAmounts = new int[9];
+
+
     public static final int CONFIG_SLOTS = 63;
     public static final int VIRTUAL_TRANSFER = 1000;
     public static final int ITEM_TRANSFER = 64;
@@ -792,10 +796,27 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         }
     }
 
+    private int getEssentiaTransferAmount(int slot, int configuredAmount) {
+        if (configuredAmount <= 0) return 0;
+        int index = Math.max(0, Math.min(this.essentiaTransferAmounts.length - 1, slot));
+        int current = this.essentiaTransferAmounts[index];
+        if (current <= 0) current = 1;
+        return Math.min(Math.min(configuredAmount, MAX_ESSENTIA_TRANSFER), current);
+    }
+
+    private void advanceEssentiaTransfer(int slot) {
+        int index = Math.max(0, Math.min(this.essentiaTransferAmounts.length - 1, slot));
+        int current = this.essentiaTransferAmounts[index];
+        if (current <= 0) current = 1;
+        this.essentiaTransferAmounts[index] = current >= MAX_ESSENTIA_TRANSFER
+                ? MAX_ESSENTIA_TRANSFER : Math.min(MAX_ESSENTIA_TRANSFER, current << 1);
+    }
+
     private boolean importEssentia(ItemStack marker, int slot) {
         TileEntity target = this.getConnectedTile();
         String filter = marker == null ? null : ItemFluidMark.getAspectTag(marker);
-        int amount = this.getVirtualAmount(slot);
+        int configuredAmount = this.getVirtualAmount(slot);
+        int amount = this.getEssentiaTransferAmount(slot, configuredAmount);
         if (target instanceof TileCommonInterfaceAlternate) {
             TileCommonInterfaceAlternate source = (TileCommonInterfaceAlternate) target;
             String aspect = filter != null ? filter
@@ -823,6 +844,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         if (inserted < available) {
             ThaumicEnergisticsIntegration.insertIntoTarget(target, aspect, available - inserted);
         }
+        if (inserted > 0) {
+            this.advanceEssentiaTransfer(slot);
+        }
         return inserted > 0;
     }
 
@@ -830,7 +854,8 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
         TileEntity target = this.getConnectedTile();
         String aspect = ItemFluidMark.getAspectTag(marker);
         if (target == null || aspect == null) return false;
-        int amount = this.getVirtualAmount(slot);
+        int configuredAmount = this.getVirtualAmount(slot);
+        int amount = this.getEssentiaTransferAmount(slot, configuredAmount);
         int extracted = this.extractEssentiaNetwork(aspect, amount, Actionable.SIMULATE);
         if (extracted <= 0) return false;
         int actual = this.extractEssentiaNetwork(aspect, extracted, Actionable.MODULATE);
@@ -841,6 +866,9 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
                 : ThaumicEnergisticsIntegration.insertIntoTarget(target, aspect, actual);
         if (inserted < actual) {
             this.insertEssentiaNetwork(aspect, actual - inserted, Actionable.MODULATE);
+        }
+        if (inserted > 0) {
+            this.advanceEssentiaTransfer(slot);
         }
         return inserted > 0;
     }

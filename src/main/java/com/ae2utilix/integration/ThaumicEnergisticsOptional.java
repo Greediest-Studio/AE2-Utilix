@@ -35,6 +35,7 @@ import thaumicenergistics.item.ItemDummyAspect;
 
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.lang.reflect.Proxy;
 import java.util.WeakHashMap;
 
 /** Direct Thaumic Energistics implementation, only loaded when both mods exist. */
@@ -126,7 +127,9 @@ public final class ThaumicEnergisticsOptional {
         if (!isAvailable() || tile == null) return null;
         if (!configured) {
             try {
-                return tile.getProxy().getStorage().getInventory(getChannel());
+                IMEMonitor<IAEEssentiaStack> network =
+                        tile.getProxy().getStorage().getInventory(getChannel());
+                return network;
             } catch (GridAccessException ignored) {
                 return null;
             }
@@ -255,29 +258,39 @@ public final class ThaumicEnergisticsOptional {
                 || !tile.getProxy().isActive()) return;
         net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
         for (int slot = 0; slot < 9; slot++) {
-            ItemStack marker = config.getStackInSlot(slot);
-            String aspectTag = ItemFluidMark.getAspectTag(marker);
+            String aspectTag = ItemFluidMark.getAspectTag(config.getStackInSlot(slot));
             if (aspectTag == null || !tile.canStoreEssentiaInSlot(extended, slot)) continue;
-            int target = tile.getEssentiaConfigAmount(extended, slot);
+
+            int target = Math.min(tile.getVirtualStorageCapacity(),
+                    Math.max(0, tile.getEssentiaConfigAmount(extended, slot)));
             String storedTag = tile.getStoredEssentiaAspect(extended, slot);
-            int stored = tile.getStoredEssentiaAmount(extended, slot);
+            int stored = Math.max(0, tile.getStoredEssentiaAmount(extended, slot));
+
             if (storedTag != null && !aspectTag.equals(storedTag)) {
-                int moved = insertNetwork(tile, storedTag, stored, Actionable.MODULATE);
-                if (moved < stored) continue;
-                tile.setStoredEssentia(extended, slot, null, 0);
+                int returned = insertNetwork(tile, storedTag, stored, Actionable.MODULATE);
+                stored = Math.max(0, stored - returned);
+                tile.setStoredEssentia(extended, slot, storedTag, stored);
+                if (stored > 0) continue;
                 storedTag = null;
-                stored = 0;
             }
+
             if (stored > target) {
-                int moved = insertNetwork(tile, aspectTag, stored - target, Actionable.MODULATE);
-                if (moved > 0) {
-                    stored -= moved;
-                    tile.setStoredEssentia(extended, slot, aspectTag, stored);
+                int returned = insertNetwork(tile, storedTag == null ? aspectTag : storedTag,
+                        stored - target, Actionable.MODULATE);
+                if (returned > 0) {
+                    stored -= returned;
+                    tile.setStoredEssentia(extended, slot, storedTag == null ? aspectTag : storedTag, stored);
                 }
             }
-            if (stored < target) {
-                int moved = extractNetwork(tile, aspectTag, target - stored, Actionable.MODULATE);
-                if (moved > 0) tile.setStoredEssentia(extended, slot, aspectTag, stored + moved);
+
+            int needed = target - stored;
+            if (needed <= 0) continue;
+            int simulated = extractNetwork(tile, aspectTag, needed, Actionable.SIMULATE);
+            if (simulated <= 0) continue;
+            int moved = extractNetwork(tile, aspectTag, simulated, Actionable.MODULATE);
+            if (moved > 0) {
+                tile.setStoredEssentia(extended, slot, aspectTag,
+                        Math.min(tile.getVirtualStorageCapacity(), stored + moved));
             }
         }
     }
