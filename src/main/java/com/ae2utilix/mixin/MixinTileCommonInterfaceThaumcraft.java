@@ -2,6 +2,7 @@ package com.ae2utilix.mixin;
 
 import com.ae2utilix.block.TileCommonInterfaceAlternate;
 import net.minecraft.util.EnumFacing;
+import net.minecraftforge.items.IItemHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import thaumcraft.api.aspects.Aspect;
@@ -58,6 +59,23 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
             }
         }
         return null;
+    }
+
+    @Unique
+    private boolean ae2utilix$hasAnyConfiguration() {
+        TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        for (boolean extended : new boolean[]{false, true}) {
+            IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
+            for (int slot = 0; slot < config.getSlots(); slot++) {
+                if (!config.getStackInSlot(slot).isEmpty()) return true;
+            }
+        }
+        return false;
+    }
+
+    @Unique
+    private boolean ae2utilix$usesNetworkFallback() {
+        return !this.ae2utilix$hasAnyConfiguration();
     }
 
     @Unique
@@ -203,17 +221,19 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public boolean canInputFrom(EnumFacing side) {
-        return this.ae2utilix$hasInputCapacity();
+        // The unconfigured mode is a passive Rune Altar source, not an
+        // essentia transport input endpoint.
+        return !this.ae2utilix$usesNetworkFallback()
+                && this.ae2utilix$hasInputCapacity();
     }
 
     @Override
     public boolean canOutputTo(EnumFacing side) {
         this.ae2utilix$ensureMarkedEssentia();
-        // Keep the endpoint discoverable while its marked amount is being
-        // requested from the AE2 network. Thaumcraft consumers call this
-        // before getEssentiaAmount(); hiding an empty marked slot here means
-        // the consumer never gets a chance to perform the request.
-        return this.ae2utilix$firstConfiguredAspect() != null;
+        // Do not expose the complete AE2 network through native transport;
+        // only marked local virtual slots are transportable.
+        return !this.ae2utilix$usesNetworkFallback()
+                && this.ae2utilix$firstConfiguredAspect() != null;
     }
 
     @Override
@@ -274,11 +294,8 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public boolean isBlocked() {
-        // Thaumcraft builds a cached source list from IAspectSource before it
-        // calls takeFromContainer(). An unmarked slot may still contain stale
-        // virtual data while it is being returned to the AE2 network; it must
-        // not remain visible as a source during that transition.
         String configured = this.ae2utilix$firstConfiguredAspect();
+        if (this.ae2utilix$usesNetworkFallback()) return false;
         return configured == null || configured.isEmpty();
     }
 
@@ -311,6 +328,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Override
     public void setAspects(AspectList aspects) {
         TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        if (this.ae2utilix$usesNetworkFallback()) return;
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9; slot++) {
                 tile.setStoredEssentia(extended, slot, null, 0);
@@ -325,7 +343,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public boolean doesContainerAccept(Aspect aspect) {
-        if (aspect == null) return false;
+        if (aspect == null || this.ae2utilix$usesNetworkFallback()) return false;
         TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9; slot++) {
@@ -337,7 +355,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public int addToContainer(Aspect aspect, int amount) {
-        if (aspect == null || amount <= 0) return amount;
+        if (aspect == null || amount <= 0 || this.ae2utilix$usesNetworkFallback()) return amount;
         return amount - this.ae2utilix$insert(aspect, amount);
     }
 
@@ -345,6 +363,15 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     public boolean takeFromContainer(Aspect aspect, int amount) {
         if (aspect == null || amount < 0) return false;
         if (amount == 0) return true;
+        if (this.ae2utilix$usesNetworkFallback()) {
+            if (com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getNetworkEssentiaAmount(this.ae2utilix$tile(), aspect.getTag()) < amount) {
+                return false;
+            }
+            return com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .extractNetworkEssentia(this.ae2utilix$tile(), aspect.getTag(), amount,
+                            appeng.api.config.Actionable.MODULATE) == amount;
+        }
         if (!this.doesContainerContainAmount(aspect, amount)) return false;
         return this.ae2utilix$extract(aspect, amount) == amount;
     }
@@ -367,6 +394,10 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Override
     public boolean doesContainerContainAmount(Aspect aspect, int amount) {
         if (aspect == null || amount < 0) return false;
+        if (this.ae2utilix$usesNetworkFallback()) {
+            return com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getNetworkEssentiaAmount(this.ae2utilix$tile(), aspect.getTag()) >= amount;
+        }
         if (amount > 0) this.ae2utilix$ensureMarkedEssentia();
         return this.ae2utilix$storedAmount(aspect.getTag()) >= amount;
     }
@@ -384,7 +415,12 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public int containerContains(Aspect aspect) {
+        if (aspect == null) return 0;
+        if (this.ae2utilix$usesNetworkFallback()) {
+            return com.ae2utilix.integration.ThaumicEnergisticsIntegration
+                    .getNetworkEssentiaAmount(this.ae2utilix$tile(), aspect.getTag());
+        }
         this.ae2utilix$ensureMarkedEssentia();
-        return aspect == null ? 0 : this.ae2utilix$storedAmount(aspect.getTag());
+        return this.ae2utilix$storedAmount(aspect.getTag());
     }
 }

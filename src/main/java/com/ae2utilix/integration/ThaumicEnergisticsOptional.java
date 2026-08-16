@@ -137,20 +137,31 @@ public final class ThaumicEnergisticsOptional {
     public static IMEMonitor<IAEEssentiaStack> getMonitor(TileCommonInterfaceAlternate tile,
                                                            boolean configured) {
         if (!isAvailable() || tile == null) return null;
-        if (!configured) {
-            IStorageGrid storage = getNetworkStorage(tile);
-            try {
-                return storage == null ? null : storage.getInventory(getChannel());
-            } catch (RuntimeException ignored) {
-                return null;
-            }
-        }
+        // Keep the storage-monitor surface local-only. An unconfigured
+        // interface may be a passive IAspectSource for Thaumcraft, but it
+        // must not expose the complete AE2 network to an import bus.
         IMEMonitor<IAEEssentiaStack> monitor = MONITORS.get(tile);
         if (monitor == null) {
             monitor = new MEMonitorHandler<>(new LocalEssentiaHandler(tile));
             MONITORS.put(tile, monitor);
         }
         return monitor;
+    }
+
+    public static int getNetworkEssentiaAmount(TileCommonInterfaceAlternate tile,
+                                               String aspectTag) {
+        if (!isAvailable() || tile == null || aspectTag == null || aspectTag.isEmpty()) return 0;
+        // Simulated extraction uses the interface as the source, so the local
+        // handler rejects itself and only real network providers count.
+        return extractNetwork(tile, aspectTag, Integer.MAX_VALUE, Actionable.SIMULATE);
+    }
+
+    public static int extractNetworkEssentia(TileCommonInterfaceAlternate tile,
+                                             String aspectTag, int amount,
+                                             Actionable mode) {
+        if (!isAvailable() || tile == null || aspectTag == null || aspectTag.isEmpty()
+                || amount <= 0) return 0;
+        return extractNetwork(tile, aspectTag, amount, mode);
     }
 
     public static int insertNetwork(IStorageGrid storage, IEnergySource energy,

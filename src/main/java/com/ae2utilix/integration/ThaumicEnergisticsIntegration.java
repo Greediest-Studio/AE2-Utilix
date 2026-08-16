@@ -176,6 +176,21 @@ public final class ThaumicEnergisticsIntegration {
         if (isAvailable()) invoke("flushUnconfiguredEssentiaToNetwork", tile);
     }
 
+    public static int getNetworkEssentiaAmount(TileCommonInterfaceAlternate tile,
+                                               String aspectTag) {
+        Object value = isAvailable()
+                ? invoke("getNetworkEssentiaAmount", tile, aspectTag) : null;
+        return value instanceof Number ? Math.max(0, ((Number) value).intValue()) : 0;
+    }
+
+    public static int extractNetworkEssentia(TileCommonInterfaceAlternate tile,
+                                             String aspectTag, int amount,
+                                             appeng.api.config.Actionable mode) {
+        Object value = isAvailable()
+                ? invoke("extractNetworkEssentia", tile, aspectTag, amount, mode) : null;
+        return value instanceof Number ? Math.max(0, ((Number) value).intValue()) : 0;
+    }
+
     public static boolean hasEssentiaWork(TileCommonInterfaceAlternate tile) {
         return isAvailable() && Boolean.TRUE.equals(invoke("hasEssentiaWork", tile));
     }
