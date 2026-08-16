@@ -24,6 +24,9 @@ public class AE2UtilixMixinPlugin implements ILateMixinLoader {
         if (Loader.isModLoaded("mekeng")) {
             configs.add("mixins.ae2_utilix_mekeng.json");
         }
+        if (Loader.isModLoaded("thaumcraft")) {
+            configs.add("mixins.ae2_utilix_thaumcraft.json");
+        }
         if (Loader.isModLoaded("botania") && Loader.isModLoaded("botania_applie")) {
             configs.add("mixins.ae2_utilix_botania.json");
         }

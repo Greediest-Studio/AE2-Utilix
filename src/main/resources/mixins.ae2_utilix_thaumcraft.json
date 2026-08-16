@@ -1,0 +1,11 @@
+{
+  "required": false,
+  "package": "com.ae2utilix.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "MixinTileCommonInterfaceThaumcraft"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

@@ -193,7 +193,12 @@ public class GuiCommonInterface extends AEBaseGui implements IJEIGhostIngredient
             boolean extended = slot.slotNumber % 4 >= 2;
             int configSlot = slot.slotNumber / 4;
             ItemStack icon = null;
-            if (this.container.getTile().getStoredMana(extended, configSlot) > 0) {
+            String essentiaTag = this.container.getTile()
+                    .getStoredEssentiaAspect(extended, configSlot);
+            if (essentiaTag != null
+                    && this.container.getTile().getStoredEssentiaAmount(extended, configSlot) > 0) {
+icon = com.ae2utilix.integration.ThaumicEnergisticsOptional.createAspectItem(essentiaTag);
+            } else if (this.container.getTile().getStoredMana(extended, configSlot) > 0) {
                 icon = com.ae2utilix.integration.BotaniaFluxIntegration
                         .getPacketStack(com.ae2utilix.integration.BotaniaFluxIntegration.MANA);
             } else if (this.container.getTile().getStoredFe(extended, configSlot) > 0) {
@@ -226,7 +231,13 @@ public class GuiCommonInterface extends AEBaseGui implements IJEIGhostIngredient
             } else if (slot.slotNumber % 4 == 1 || slot.slotNumber % 4 == 3) {
                 long mana = this.container.getTile().getStoredMana(extended, configSlot);
                 long fe = this.container.getTile().getStoredFe(extended, configSlot);
-                if (mana > 0) this.drawVirtualAmount(mana, slot.xPos, slot.yPos);
+                String essentiaTag = this.container.getTile()
+                        .getStoredEssentiaAspect(extended, configSlot);
+                int essentiaAmount = this.container.getTile()
+                        .getStoredEssentiaAmount(extended, configSlot);
+                if (essentiaTag != null && essentiaAmount > 0) {
+                    this.drawVirtualAmount(essentiaAmount, slot.xPos, slot.yPos);
+                } else if (mana > 0) this.drawVirtualAmount(mana, slot.xPos, slot.yPos);
                 else if (fe > 0) this.drawVirtualAmount(fe, slot.xPos, slot.yPos);
             }
         }

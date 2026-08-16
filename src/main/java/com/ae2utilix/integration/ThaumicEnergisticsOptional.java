@@ -3,7 +3,9 @@ package com.ae2utilix.integration;
 import appeng.api.AEApi;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergySource;
+import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.storage.IMEInventory;
@@ -127,11 +129,10 @@ public final class ThaumicEnergisticsOptional {
                                                            boolean configured) {
         if (!isAvailable() || tile == null) return null;
         if (!configured) {
+            IStorageGrid storage = getNetworkStorage(tile);
             try {
-                IMEMonitor<IAEEssentiaStack> network =
-                        tile.getProxy().getStorage().getInventory(getChannel());
-                return network;
-            } catch (GridAccessException ignored) {
+                return storage == null ? null : storage.getInventory(getChannel());
+            } catch (RuntimeException ignored) {
                 return null;
             }
         }
@@ -175,17 +176,22 @@ public final class ThaumicEnergisticsOptional {
             if (simulated == null || simulated.getStackSize() <= 0) {
                 // A few storage providers only accept their own concrete
                 // stack instance, although the resource is present in the
-                // monitor. Retry with that exact stack.
-                simulated = findAvailableEssentia(inventory, aspect, amount);
+                // monitor. Use that exact stack for the native extraction
+                // call, just like the stack returned by a normal simulation.
+                IAEEssentiaStack available = findAvailableEssentia(inventory, aspect, amount);
+                simulated = available;
             }
             if (simulated == null || simulated.getStackSize() <= 0) return 0;
             simulated.setStackSize(Math.min((long) amount, simulated.getStackSize()));
             if (mode == Actionable.SIMULATE) {
                 return (int) simulated.getStackSize();
             }
-            IAEEssentiaStack extracted = inventory.extractItems(
-                    simulated, Actionable.MODULATE, source);
-            return extracted == null ? 0 : Math.min(amount, (int) extracted.getStackSize());
+            // This intentionally mirrors PartEssentiaExportBus: the native
+            // bus ignores the MODULATE return value and commits the exact
+            // amount that its simulation accepted. Some ThE storage
+            // providers return null after a successful MODULATE operation.
+            inventory.extractItems(simulated, Actionable.MODULATE, source);
+            return Math.min(amount, (int) simulated.getStackSize());
         } catch (RuntimeException ignored) {
             return 0;
         }
@@ -194,10 +200,12 @@ public final class ThaumicEnergisticsOptional {
     public static int insertNetwork(TileCommonInterfaceAlternate tile, String aspectTag,
                                     int amount, Actionable mode) {
         if (tile == null || !tile.getProxy().isActive()) return 0;
+        IStorageGrid storage = getNetworkStorage(tile);
+        if (storage == null) return 0;
         try {
-            return insertNetwork(tile.getProxy().getStorage(), tile.getProxy().getEnergy(),
-                    new MachineSource(tile), aspectTag, amount, mode);
-        } catch (GridAccessException ignored) {
+            return insertNetwork(storage, tile.getProxy().getEnergy(),
+            new MachineSource(tile), aspectTag, amount, mode);
+        } catch (GridAccessException e) {
             return 0;
         }
     }
@@ -205,10 +213,12 @@ public final class ThaumicEnergisticsOptional {
     public static int extractNetwork(TileCommonInterfaceAlternate tile, String aspectTag,
                                      int amount, Actionable mode) {
         if (tile == null || !tile.getProxy().isActive()) return 0;
+        IStorageGrid storage = getNetworkStorage(tile);
+        if (storage == null) return 0;
         try {
-            return extractNetwork(tile.getProxy().getStorage(), tile.getProxy().getEnergy(),
-                    new MachineSource(tile), aspectTag, amount, mode);
-        } catch (GridAccessException ignored) {
+            return extractNetwork(storage, tile.getProxy().getEnergy(),
+            new MachineSource(tile), aspectTag, amount, mode);
+        } catch (GridAccessException e) {
             return 0;
         }
     }
@@ -356,6 +366,30 @@ public final class ThaumicEnergisticsOptional {
 
     private static IStorageChannel<IAEEssentiaStack> getChannel() {
         return AEApi.instance().storage().getStorageChannel(IEssentiaStorageChannel.class);
+    }
+
+    @Nullable
+    private static IStorageGrid getNetworkStorage(TileCommonInterfaceAlternate tile) {
+        if (tile == null) return null;
+        try {
+            // Use the same grid cache lookup as Thaumic Energistics' native
+            // export bus.  AENetworkProxy.getStorage() can expose a proxy
+            // view which does not contain the essentia channel on some AE2UEL
+            // network transitions.
+            IGridNode node = tile.getProxy().getNode();
+            IGrid grid = node == null ? null : node.getGrid();
+            if (grid != null) {
+                IStorageGrid storage = grid.getCache(IStorageGrid.class);
+                if (storage != null) return storage;
+            }
+        } catch (RuntimeException ignored) {
+            // Fall through to the proxy accessor below.
+        }
+        try {
+            return tile.getProxy().getStorage();
+        } catch (GridAccessException ignored) {
+            return null;
+        }
     }
 
     @Nullable
