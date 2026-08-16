@@ -28,25 +28,6 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     }
 
     @Unique
-    private String ae2utilix$firstStoredAspect() {
-        TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
-        // Prefer stored essentia belonging to a marked slot. The transport
-        // surface can only expose one aspect at a time, so an unrelated
-        // unconfigured buffer must not mask the aspect requested by a marker.
-        for (boolean extended : new boolean[]{false, true}) {
-            for (int slot = 0; slot < 9; slot++) {
-                String configured = tile.getEssentiaConfigAspect(extended, slot);
-                String stored = tile.getStoredEssentiaAspect(extended, slot);
-                if (configured != null && configured.equals(stored)
-                        && tile.getStoredEssentiaAmount(extended, slot) > 0) {
-                    return stored;
-                }
-            }
-        }
-        return null;
-    }
-
-    @Unique
     private String ae2utilix$firstConfiguredAspect() {
         TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
         for (boolean extended : new boolean[]{false, true}) {
