@@ -164,8 +164,13 @@ public final class ThaumicEnergisticsOptional {
         Aspect aspect = getAspect(aspectTag);
         if (inventory == null || aspect == null || amount <= 0) return 0;
         try {
-            IAEEssentiaStack extracted = Platform.poweredExtraction(energy, inventory,
-                    AEEssentiaStack.fromEssentiaStack(new EssentiaStack(aspect, amount)), source, mode);
+            // Match Thaumic Energistics' native export bus: extract directly
+            // through the essentia monitor instead of the generic AE2 powered
+            // extraction wrapper, which can return null for this channel.
+            IAEEssentiaStack request = getChannel().createStack(
+                    new EssentiaStack(aspect, amount));
+            if (request == null) return 0;
+            IAEEssentiaStack extracted = inventory.extractItems(request, mode, source);
             return extracted == null ? 0 : Math.min(amount, (int) extracted.getStackSize());
         } catch (RuntimeException ignored) {
             return 0;
