@@ -279,8 +279,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         // virtual data while it is being returned to the AE2 network; it must
         // not remain visible as a source during that transition.
         String configured = this.ae2utilix$firstConfiguredAspect();
-        if (configured == null || configured.isEmpty()) return true;
-        return this.ae2utilix$storedAmount(configured) <= 0;
+        return configured == null || configured.isEmpty();
     }
 
     /*
