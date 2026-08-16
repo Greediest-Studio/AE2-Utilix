@@ -560,17 +560,19 @@ public class TileCommonInterfaceAlternate extends AENetworkInvTile
     }
 
     public String getEssentiaConfigAspect(boolean extended, int slot) {
-    String[] aspects = extended ? this.extendedEssentiaAspects : this.interfaceEssentiaAspects;
-    String tag = aspects[slot];
-    if (tag != null && !tag.isEmpty()) return tag;
-    IItemHandler config = extended ? this.extendedDuality.getConfig() : this.getConfig();
-    ItemStack stack = config.getStackInSlot(slot);
-    String itemTag = com.ae2utilix.item.ItemFluidMark.getAspectTag(stack);
-    if (itemTag != null && !itemTag.isEmpty()) return itemTag;
-    if (!net.minecraftforge.fml.common.Loader.isModLoaded("thaumicenergistics")) return null;
-    // Thaumic Energistics uses its own dummy-aspect item as the marker.
-    return com.ae2utilix.integration.ThaumicEnergisticsOptional.getAspectTagFromItem(stack);
-}
+        IItemHandler config = extended ? this.extendedDuality.getConfig() : this.getConfig();
+        ItemStack stack = config.getStackInSlot(slot);
+        String itemTag = com.ae2utilix.item.ItemFluidMark.getAspectTag(stack);
+        if (itemTag != null && !itemTag.isEmpty()) return itemTag;
+        if (stack.isEmpty()
+                || !net.minecraftforge.fml.common.Loader.isModLoaded("thaumicenergistics")) {
+            return null;
+        }
+        // Only Thaumic Energistics' dummy-aspect token is a source marker.
+        // Do not treat an arbitrary IEssentiaContainerItem as a request marker.
+        return com.ae2utilix.integration.ThaumicEnergisticsOptional
+                .getAspectTagFromMarker(stack);
+    }
 
     public int getEssentiaConfigAmount(boolean extended, int slot) {
         int[] amounts = extended ? this.extendedEssentiaConfigAmounts : this.interfaceEssentiaConfigAmounts;

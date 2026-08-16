@@ -88,7 +88,8 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         int total = 0;
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9; slot++) {
-                if (aspectTag.equals(tile.getStoredEssentiaAspect(extended, slot))) {
+                if (aspectTag.equals(tile.getEssentiaConfigAspect(extended, slot))
+                        && aspectTag.equals(tile.getStoredEssentiaAspect(extended, slot))) {
                     total += Math.max(0, tile.getStoredEssentiaAmount(extended, slot));
                 }
             }
@@ -167,7 +168,8 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         int extracted = 0;
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9 && remaining > 0; slot++) {
-                if (!tag.equals(tile.getStoredEssentiaAspect(extended, slot))) continue;
+                if (!tag.equals(tile.getEssentiaConfigAspect(extended, slot))
+                        || !tag.equals(tile.getStoredEssentiaAspect(extended, slot))) continue;
                 int current = Math.max(0,
                         tile.getStoredEssentiaAmount(extended, slot));
                 int taken = Math.min(remaining, current);
@@ -292,9 +294,13 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9; slot++) {
                 String tag = this.ae2utilix$tile().getStoredEssentiaAspect(extended, slot);
+                String configured = this.ae2utilix$tile()
+                        .getEssentiaConfigAspect(extended, slot);
                 int amount = this.ae2utilix$tile().getStoredEssentiaAmount(extended, slot);
                 Aspect aspect = tag == null ? null : Aspect.getAspect(tag);
-                if (aspect != null && amount > 0) result.add(aspect, amount);
+                if (aspect != null && configured != null && configured.equals(tag) && amount > 0) {
+                    result.add(aspect, amount);
+                }
             }
         }
         return result;
