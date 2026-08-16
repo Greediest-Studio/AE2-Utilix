@@ -290,9 +290,9 @@ public final class ThaumicEnergisticsOptional {
             // item is only a visual/interaction representation and may not be
             // resolvable on every client/server path.
             String aspectTag = tile.getEssentiaConfigAspect(extended, slot);
-            if (aspectTag == null) {
-                aspectTag = getAspectTagFromItem(config.getStackInSlot(slot));
-            }
+            // A marker is required for a request. Never fall back to a stale
+            // stored aspect or an arbitrary item in an empty/unconfigured
+            // slot: clearing the marker must stop network extraction.
             if (aspectTag == null || aspectTag.isEmpty()
                     || !tile.canStoreEssentiaInSlot(extended, slot)) continue;
 
@@ -338,7 +338,7 @@ public final class ThaumicEnergisticsOptional {
         for (boolean extended : new boolean[]{false, true}) {
             net.minecraftforge.items.IItemHandler config = extended ? tile.getExtendedConfig() : tile.getConfig();
             for (int slot = 0; slot < 9; slot++) {
-                if (!config.getStackInSlot(slot).isEmpty()) continue;
+                if (tile.getEssentiaConfigAspect(extended, slot) != null) continue;
                 String tag = tile.getStoredEssentiaAspect(extended, slot);
                 int amount = tile.getStoredEssentiaAmount(extended, slot);
                 if (tag == null || amount <= 0) continue;

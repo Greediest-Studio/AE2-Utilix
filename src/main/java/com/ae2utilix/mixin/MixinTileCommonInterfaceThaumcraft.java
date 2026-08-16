@@ -42,15 +42,6 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
                 }
             }
         }
-        for (boolean extended : new boolean[]{false, true}) {
-            for (int slot = 0; slot < 9; slot++) {
-                String tag = tile.getStoredEssentiaAspect(extended, slot);
-                if (tag != null && !tag.isEmpty()
-                        && tile.getStoredEssentiaAmount(extended, slot) > 0) {
-                    return tag;
-                }
-            }
-        }
         return null;
     }
 
@@ -87,8 +78,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
                 }
             }
         }
-        return configuredFallback == null ? this.ae2utilix$firstStoredAspect()
-                : configuredFallback;
+        return configuredFallback;
     }
 
     @Unique
@@ -221,8 +211,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         // requested from the AE2 network. Thaumcraft consumers call this
         // before getEssentiaAmount(); hiding an empty marked slot here means
         // the consumer never gets a chance to perform the request.
-        return this.ae2utilix$firstStoredAspect() != null
-                || this.ae2utilix$firstConfiguredAspect() != null;
+        return this.ae2utilix$firstConfiguredAspect() != null;
     }
 
     @Override
@@ -257,7 +246,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
         if (!this.canOutputTo(side)) return null;
         String tag = this.ae2utilix$transportAspect();
         Aspect aspect = tag == null ? null : Aspect.getAspect(tag);
-        return aspect;
+        return aspect != null && this.ae2utilix$storedAmount(tag) > 0 ? aspect : null;
     }
 
     @Override
