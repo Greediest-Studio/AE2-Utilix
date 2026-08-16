@@ -32,6 +32,7 @@ import thaumicenergistics.api.storage.IAEEssentiaStack;
 import thaumicenergistics.api.storage.IEssentiaStorageChannel;
 import thaumicenergistics.integration.appeng.AEEssentiaStack;
 import thaumicenergistics.item.ItemDummyAspect;
+import thaumicenergistics.util.AEUtil;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -167,15 +168,17 @@ public final class ThaumicEnergisticsOptional {
             // Match Thaumic Energistics' native export bus: extract directly
             // through the essentia monitor instead of the generic AE2 powered
             // extraction wrapper, which can return null for this channel.
-            IAEEssentiaStack request = getChannel().createStack(
-                    new EssentiaStack(aspect, amount));
+            // Use the exact helper used by Thaumic Energistics' native
+            // essentia export bus.  The helper creates the stack through the
+            // registered IEssentiaStorageChannel.
+            IAEEssentiaStack request = AEUtil.getAEStackFromAspect(aspect, amount);
             if (request == null) return 0;
             // The native bus uses the result of the simulated extraction for
             // the modulated extraction. In particular, this preserves the
             // channel's concrete stack and its resolved amount instead of
             // constructing a second request stack for the real extraction.
             IAEEssentiaStack simulated = inventory.extractItems(
-                    request.copy(), Actionable.SIMULATE, source);
+                    request, Actionable.SIMULATE, source);
             if (simulated == null || simulated.getStackSize() <= 0) return 0;
             simulated.setStackSize(Math.min((long) amount, simulated.getStackSize()));
             if (mode == Actionable.SIMULATE) {
@@ -311,11 +314,10 @@ public final class ThaumicEnergisticsOptional {
             int needed = target - stored;
             if (needed <= 0) continue;
 
-            // Probe first so the interface only writes what the network can
-            // actually provide, then perform the matching powered extraction.
-            int available = extractNetwork(tile, aspectTag, needed, Actionable.SIMULATE);
-            if (available <= 0) continue;
-            int moved = extractNetwork(tile, aspectTag, available, Actionable.MODULATE);
+            // extractNetwork performs the same SIMULATE -> MODULATE sequence
+            // as the native export bus and only commits the amount returned by
+            // the simulated network extraction.
+            int moved = extractNetwork(tile, aspectTag, needed, Actionable.MODULATE);
             if (moved > 0) {
                 tile.setStoredEssentia(extended, slot, aspectTag,
                         Math.min(tile.getVirtualStorageCapacity(), stored + moved));
