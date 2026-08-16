@@ -147,12 +147,17 @@ public final class ThaumicEnergisticsOptional {
     public static int insertNetwork(IStorageGrid storage, IEnergySource energy,
                                     IActionSource source, String aspectTag, int amount,
                                     Actionable mode) {
-        IMEInventory<IAEEssentiaStack> inventory = getInventory(storage);
         Aspect aspect = getAspect(aspectTag);
-        if (inventory == null || aspect == null || amount <= 0) return 0;
+        if (storage == null || aspect == null || amount <= 0) return 0;
         try {
+            // Use the channel monitor just like Thaumic Energistics' native
+            // essentia interface.  The monitor includes all real network
+            // providers and its source-aware local handler rejects routing
+            // the stack back into this same common interface.
+            IMEMonitor<IAEEssentiaStack> monitor = storage.getInventory(getChannel());
+            if (monitor == null) return 0;
             IAEEssentiaStack input = AEUtil.getAEStackFromAspect(aspect, amount);
-            IAEEssentiaStack remainder = Platform.poweredInsert(energy, inventory, input, source, mode);
+            IAEEssentiaStack remainder = monitor.injectItems(input, mode, source);
             return Math.max(0, amount - (remainder == null ? 0 : (int) remainder.getStackSize()));
         } catch (RuntimeException ignored) {
             return 0;
@@ -162,17 +167,14 @@ public final class ThaumicEnergisticsOptional {
     public static int extractNetwork(IStorageGrid storage, IEnergySource energy,
                                      IActionSource source, String aspectTag, int amount,
                                      Actionable mode) {
-    IMEInventory<IAEEssentiaStack> inventory = getInventory(storage);
     Aspect aspect = getAspect(aspectTag);
-    if (inventory == null || aspect == null || amount <= 0) return 0;
+    if (storage == null || aspect == null || amount <= 0) return 0;
     try {
-        // Use the same powered extraction path as AE2's native export bus.
-        // This performs a real storage simulation and energy check, so a
-        // marker cannot create essentia when the network has none.
+        IMEMonitor<IAEEssentiaStack> monitor = storage.getInventory(getChannel());
+        if (monitor == null) return 0;
         IAEEssentiaStack request = AEUtil.getAEStackFromAspect(aspect, amount);
         if (request == null) return 0;
-        IAEEssentiaStack extracted = Platform.poweredExtraction(
-                energy, inventory, request, source, mode);
+        IAEEssentiaStack extracted = monitor.extractItems(request, mode, source);
         return extracted == null ? 0
                 : Math.min(amount, (int) extracted.getStackSize());
     } catch (RuntimeException ignored) {

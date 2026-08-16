@@ -5,6 +5,8 @@ import net.minecraft.util.EnumFacing;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import thaumcraft.api.aspects.Aspect;
+import thaumcraft.api.aspects.AspectList;
+import thaumcraft.api.aspects.IAspectContainer;
 import thaumcraft.api.aspects.IEssentiaTransport;
 
 /**
@@ -17,7 +19,7 @@ import thaumcraft.api.aspects.IEssentiaTransport;
  * tubes, rune matrices, and other native Thaumcraft consumers.</p>
  */
 @Mixin(TileCommonInterfaceAlternate.class)
-public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTransport {
+public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTransport, IAspectContainer {
 
     @Unique
     private TileCommonInterfaceAlternate ae2utilix$tile() {
@@ -181,8 +183,10 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Override
     public boolean canOutputTo(EnumFacing side) {
         this.ae2utilix$ensureMarkedEssentia();
-        return this.ae2utilix$firstStoredAspect() != null
-                || this.ae2utilix$firstConfiguredAspect() != null;
+        // An empty marker is only a request target, not a source.  Advertising
+        // it as an output makes Thaumcraft consumers pull from a container
+        // whose getEssentiaAmount() is zero and prevents normal source routing.
+        return this.ae2utilix$firstStoredAspect() != null;
     }
 
     @Override
@@ -200,7 +204,9 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public int getSuctionAmount(EnumFacing side) {
-        if (this.canOutputTo(side)) return -1;
+        // A source must advertise positive suction. Thaumcraft tubes and the
+        // infusion matrix ignore transport endpoints with suction <= 0.
+        if (this.canOutputTo(side)) return 1;
         return this.canInputFrom(side) ? 128 : 0;
     }
 
@@ -213,7 +219,6 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     public Aspect getEssentiaType(EnumFacing side) {
         if (!this.canOutputTo(side)) return null;
         String tag = this.ae2utilix$firstStoredAspect();
-        if (tag == null) tag = this.ae2utilix$firstConfiguredAspect();
         return tag == null ? null : Aspect.getAspect(tag);
     }
 
@@ -236,5 +241,104 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     public int addEssentia(Aspect aspect, int amount, EnumFacing side) {
         if (!this.canInputFrom(side) || aspect == null) return 0;
         return this.ae2utilix$insert(aspect, amount);
+    }
+
+    /*
+     * Thaumcraft has two native storage surfaces.  Tubes generally use
+     * IEssentiaTransport, while several machines (including the infusion
+     * matrix in some builds) first test IAspectContainer.  The marker item is
+     * only a visual token, so expose the real virtual slot contents here as a
+     * container as well.  This keeps the fake item out of the transfer path.
+     */
+    @Override
+    public AspectList getAspects() {
+        this.ae2utilix$ensureMarkedEssentia();
+        AspectList result = new AspectList();
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9; slot++) {
+                String tag = this.ae2utilix$tile().getStoredEssentiaAspect(extended, slot);
+                int amount = this.ae2utilix$tile().getStoredEssentiaAmount(extended, slot);
+                Aspect aspect = tag == null ? null : Aspect.getAspect(tag);
+                if (aspect != null && amount > 0) result.add(aspect, amount);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void setAspects(AspectList aspects) {
+        TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9; slot++) {
+                tile.setStoredEssentia(extended, slot, null, 0);
+            }
+        }
+        if (aspects == null) return;
+        for (Aspect aspect : aspects.getAspects()) {
+            if (aspect == null) continue;
+            this.ae2utilix$insert(aspect, Math.max(0, aspects.getAmount(aspect)));
+        }
+    }
+
+    @Override
+    public boolean doesContainerAccept(Aspect aspect) {
+        if (aspect == null) return false;
+        TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9; slot++) {
+                if (this.ae2utilix$accepts(aspect, extended, slot)) return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int addToContainer(Aspect aspect, int amount) {
+        if (aspect == null || amount <= 0) return amount;
+        return amount - this.ae2utilix$insert(aspect, amount);
+    }
+
+    @Override
+    public boolean takeFromContainer(Aspect aspect, int amount) {
+        if (aspect == null || amount < 0) return false;
+        if (amount == 0) return true;
+        if (!this.doesContainerContainAmount(aspect, amount)) return false;
+        return this.ae2utilix$extract(aspect, amount) == amount;
+    }
+
+    @Override
+    public boolean takeFromContainer(AspectList requested) {
+        if (requested == null) return true;
+        for (Aspect aspect : requested.getAspects()) {
+            if (aspect == null) continue;
+            int amount = Math.max(0, requested.getAmount(aspect));
+            if (!this.doesContainerContainAmount(aspect, amount)) return false;
+        }
+        for (Aspect aspect : requested.getAspects()) {
+            if (aspect != null && !this.takeFromContainer(
+                    aspect, Math.max(0, requested.getAmount(aspect)))) return false;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean doesContainerContainAmount(Aspect aspect, int amount) {
+        if (aspect == null || amount < 0) return false;
+        return this.ae2utilix$storedAmount(aspect.getTag()) >= amount;
+    }
+
+    @Override
+    public boolean doesContainerContain(AspectList requested) {
+        if (requested == null) return true;
+        for (Aspect aspect : requested.getAspects()) {
+            if (aspect == null || !this.doesContainerContainAmount(
+                    aspect, requested.getAmount(aspect))) return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int containerContains(Aspect aspect) {
+        return aspect == null ? 0 : this.ae2utilix$storedAmount(aspect.getTag());
     }
 }
