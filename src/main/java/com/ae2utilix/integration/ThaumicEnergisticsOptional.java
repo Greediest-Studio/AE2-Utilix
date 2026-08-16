@@ -45,6 +45,15 @@ import java.util.WeakHashMap;
 public final class ThaumicEnergisticsOptional {
     private static final Map<TileCommonInterfaceAlternate, IMEMonitor<IAEEssentiaStack>> MONITORS =
             new WeakHashMap<>();
+    /**
+     * The network monitor can contain the virtual handler belonging to the
+     * same common interface.  Source identity is normally enough to avoid a
+     * loop, but older AE2 storage caches may invoke a handler without
+     * preserving the MachineSource.  Keep the return owner explicit for the
+     * duration of an injection as a second, deterministic guard.
+     */
+    private static final ThreadLocal<TileCommonInterfaceAlternate> ACTIVE_NETWORK_RETURN =
+            new ThreadLocal<>();
 
     private ThaumicEnergisticsOptional() {
     }
@@ -187,11 +196,16 @@ public final class ThaumicEnergisticsOptional {
         if (tile == null || !tile.getProxy().isActive()) return 0;
         IStorageGrid storage = getNetworkStorage(tile);
         if (storage == null) return 0;
+        TileCommonInterfaceAlternate previous = ACTIVE_NETWORK_RETURN.get();
+        ACTIVE_NETWORK_RETURN.set(tile);
         try {
             return insertNetwork(storage, tile.getProxy().getEnergy(),
             new MachineSource(tile), aspectTag, amount, mode);
         } catch (GridAccessException e) {
             return 0;
+        } finally {
+            if (previous == null) ACTIVE_NETWORK_RETURN.remove();
+            else ACTIVE_NETWORK_RETURN.set(previous);
         }
     }
 
@@ -472,6 +486,7 @@ public final class ThaumicEnergisticsOptional {
         }
 
         private boolean isSelfSource(IActionSource source) {
+            if (ACTIVE_NETWORK_RETURN.get() == this.tile) return true;
             return source != null && source.machine().isPresent()
                     && source.machine().get() == this.tile;
         }
