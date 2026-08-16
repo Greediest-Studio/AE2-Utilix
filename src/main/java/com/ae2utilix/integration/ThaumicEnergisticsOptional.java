@@ -469,8 +469,18 @@ public final class ThaumicEnergisticsOptional {
             this.tile = tile;
         }
 
+        private boolean isSelfSource(IActionSource source) {
+            return source != null && source.machine().isPresent()
+                    && source.machine().get() == this.tile;
+        }
+
         @Override
         public IAEEssentiaStack injectItems(IAEEssentiaStack input, Actionable mode, IActionSource src) {
+            // The interface's network return path shares the network storage
+            // collection with this local handler. Reject its own source here
+            // so AE2 continues to an external drive/storage provider instead
+            // of reinserting the resource into the same virtual slot.
+            if (this.isSelfSource(src)) return input;
             if (input == null || input.getAspect() == null) return input;
             int accepted = localInsert(tile, input.getAspect().getTag(),
                     (int) Math.min(Integer.MAX_VALUE, input.getStackSize()), mode);
@@ -479,6 +489,10 @@ public final class ThaumicEnergisticsOptional {
 
         @Override
         public IAEEssentiaStack extractItems(IAEEssentiaStack request, Actionable mode, IActionSource src) {
+            // Likewise, a request made by this interface must not extract
+            // from its own local buffer and then appear to come from the
+            // network.
+            if (this.isSelfSource(src)) return null;
             if (request == null || request.getAspect() == null) return null;
             int amount = localExtract(tile, request.getAspect().getTag(),
                     (int) Math.min(Integer.MAX_VALUE, request.getStackSize()), mode);
