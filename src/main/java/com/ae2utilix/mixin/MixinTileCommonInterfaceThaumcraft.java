@@ -29,6 +29,19 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Unique
     private String ae2utilix$firstStoredAspect() {
         TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        // Prefer stored essentia belonging to a marked slot. The transport
+        // surface can only expose one aspect at a time, so an unrelated
+        // unconfigured buffer must not mask the aspect requested by a marker.
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9; slot++) {
+                String configured = tile.getEssentiaConfigAspect(extended, slot);
+                String stored = tile.getStoredEssentiaAspect(extended, slot);
+                if (configured != null && configured.equals(stored)
+                        && tile.getStoredEssentiaAmount(extended, slot) > 0) {
+                    return stored;
+                }
+            }
+        }
         for (boolean extended : new boolean[]{false, true}) {
             for (int slot = 0; slot < 9; slot++) {
                 String tag = tile.getStoredEssentiaAspect(extended, slot);
@@ -54,6 +67,28 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
             }
         }
         return null;
+    }
+
+    @Unique
+    private String ae2utilix$transportAspect() {
+        TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
+        String configuredFallback = null;
+        for (boolean extended : new boolean[]{false, true}) {
+            for (int slot = 0; slot < 9; slot++) {
+                String configured = tile.getEssentiaConfigAspect(extended, slot);
+                if (configured == null || configured.isEmpty()) continue;
+                if (configuredFallback == null
+                        && tile.canStoreEssentiaInSlot(extended, slot)) {
+                    configuredFallback = configured;
+                }
+                if (configured.equals(tile.getStoredEssentiaAspect(extended, slot))
+                        && tile.getStoredEssentiaAmount(extended, slot) > 0) {
+                    return configured;
+                }
+            }
+        }
+        return configuredFallback == null ? this.ae2utilix$firstStoredAspect()
+                : configuredFallback;
     }
 
     @Unique
@@ -160,7 +195,6 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     private void ae2utilix$ensureMarkedEssentia() {
         TileCommonInterfaceAlternate tile = this.ae2utilix$tile();
         if (tile.getWorld() == null || tile.getWorld().isRemote
-                || this.ae2utilix$firstStoredAspect() != null
                 || this.ae2utilix$firstConfiguredAspect() == null) return;
         // Thaumcraft consumers can query transport state before the AE2 tick
         // manager runs. Populate the virtual slot on demand in that case.
@@ -221,16 +255,15 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Override
     public Aspect getEssentiaType(EnumFacing side) {
         if (!this.canOutputTo(side)) return null;
-        String tag = this.ae2utilix$firstStoredAspect();
-        if (tag == null) tag = this.ae2utilix$firstConfiguredAspect();
+        String tag = this.ae2utilix$transportAspect();
         Aspect aspect = tag == null ? null : Aspect.getAspect(tag);
-        return aspect != null && this.ae2utilix$storedAmount(tag) > 0 ? aspect : null;
+        return aspect;
     }
 
     @Override
     public int getEssentiaAmount(EnumFacing side) {
         this.ae2utilix$ensureMarkedEssentia();
-        String tag = this.ae2utilix$firstStoredAspect();
+        String tag = this.ae2utilix$transportAspect();
         return tag == null ? 0 : this.ae2utilix$storedAmount(tag);
     }
 
@@ -329,12 +362,14 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
     @Override
     public boolean doesContainerContainAmount(Aspect aspect, int amount) {
         if (aspect == null || amount < 0) return false;
+        if (amount > 0) this.ae2utilix$ensureMarkedEssentia();
         return this.ae2utilix$storedAmount(aspect.getTag()) >= amount;
     }
 
     @Override
     public boolean doesContainerContain(AspectList requested) {
         if (requested == null) return true;
+        this.ae2utilix$ensureMarkedEssentia();
         for (Aspect aspect : requested.getAspects()) {
             if (aspect == null || !this.doesContainerContainAmount(
                     aspect, requested.getAmount(aspect))) return false;
@@ -344,6 +379,7 @@ public abstract class MixinTileCommonInterfaceThaumcraft implements IEssentiaTra
 
     @Override
     public int containerContains(Aspect aspect) {
+        this.ae2utilix$ensureMarkedEssentia();
         return aspect == null ? 0 : this.ae2utilix$storedAmount(aspect.getTag());
     }
 }
