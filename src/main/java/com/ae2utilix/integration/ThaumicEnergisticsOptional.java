@@ -161,30 +161,21 @@ public final class ThaumicEnergisticsOptional {
     public static int extractNetwork(IStorageGrid storage, IEnergySource energy,
                                      IActionSource source, String aspectTag, int amount,
                                      Actionable mode) {
-        IMEInventory<IAEEssentiaStack> inventory = getInventory(storage);
+        IMEMonitor<IAEEssentiaStack> inventory = getNetworkMonitor(storage);
         Aspect aspect = getAspect(aspectTag);
         if (inventory == null || aspect == null || amount <= 0) return 0;
         try {
-            // Match Thaumic Energistics' native export bus: extract directly
-            // through the essentia monitor instead of the generic AE2 powered
-            // extraction wrapper, which can return null for this channel.
-            // Use the exact helper used by Thaumic Energistics' native
-            // essentia export bus.  The helper creates the stack through the
-            // registered IEssentiaStorageChannel.
+            // Match PartEssentiaExportBus: query the live essentia monitor,
+            // construct the request through AEUtil, then use the monitor's
+            // simulated result for the real extraction.
             IAEEssentiaStack request = AEUtil.getAEStackFromAspect(aspect, amount);
             if (request == null) return 0;
-            // The native bus uses the result of the simulated extraction for
-            // the modulated extraction. In particular, this preserves the
-            // channel's concrete stack and its resolved amount instead of
-            // constructing a second request stack for the real extraction.
             IAEEssentiaStack simulated = inventory.extractItems(
                     request, Actionable.SIMULATE, source);
             if (simulated == null || simulated.getStackSize() <= 0) {
-                // Some storage providers expose the concrete essentia stack
-                // through their available list but do not accept a freshly
-                // constructed request stack for extractItems.  Use the
-                // provider's own stack in that case, as the native ThE bus
-                // does after discovering the available resource.
+                // A few storage providers only accept their own concrete
+                // stack instance, although the resource is present in the
+                // monitor. Retry with that exact stack.
                 simulated = findAvailableEssentia(inventory, aspect, amount);
             }
             if (simulated == null || simulated.getStackSize() <= 0) return 0;
@@ -369,6 +360,16 @@ public final class ThaumicEnergisticsOptional {
 
     @Nullable
     private static IMEInventory<IAEEssentiaStack> getInventory(IStorageGrid storage) {
+        if (storage == null) return null;
+        try {
+            return storage.getInventory(getChannel());
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static IMEMonitor<IAEEssentiaStack> getNetworkMonitor(IStorageGrid storage) {
         if (storage == null) return null;
         try {
             return storage.getInventory(getChannel());
