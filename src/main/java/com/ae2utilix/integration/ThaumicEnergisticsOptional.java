@@ -179,6 +179,14 @@ public final class ThaumicEnergisticsOptional {
             // constructing a second request stack for the real extraction.
             IAEEssentiaStack simulated = inventory.extractItems(
                     request, Actionable.SIMULATE, source);
+            if (simulated == null || simulated.getStackSize() <= 0) {
+                // Some storage providers expose the concrete essentia stack
+                // through their available list but do not accept a freshly
+                // constructed request stack for extractItems.  Use the
+                // provider's own stack in that case, as the native ThE bus
+                // does after discovering the available resource.
+                simulated = findAvailableEssentia(inventory, aspect, amount);
+            }
             if (simulated == null || simulated.getStackSize() <= 0) return 0;
             simulated.setStackSize(Math.min((long) amount, simulated.getStackSize()));
             if (mode == Actionable.SIMULATE) {
@@ -372,6 +380,22 @@ public final class ThaumicEnergisticsOptional {
     @Nullable
     private static Aspect getAspect(String tag) {
         return tag == null ? null : Aspect.getAspect(tag);
+    }
+
+    @Nullable
+    private static IAEEssentiaStack findAvailableEssentia(
+            IMEInventory<IAEEssentiaStack> inventory, Aspect aspect, int amount) {
+        IItemList<IAEEssentiaStack> available =
+                inventory.getAvailableItems(getChannel().createList());
+        for (IAEEssentiaStack candidate : available) {
+            if (candidate == null || candidate.getAspect() == null
+                    || !aspect.getTag().equals(candidate.getAspect().getTag())
+                    || candidate.getStackSize() <= 0) continue;
+            IAEEssentiaStack result = candidate.copy();
+            result.setStackSize(Math.min((long) amount, result.getStackSize()));
+            return result;
+        }
+        return null;
     }
 
     private static int localInsert(TileCommonInterfaceAlternate tile, String tag, int amount,
