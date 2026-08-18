@@ -26,50 +26,38 @@ public class ClientProxy extends CommonProxy {
 
         // Register part models for Block Storage Bus
         try {
-            if (AE2UtilixConfig.registerBlockStorageBus) {
-                AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_OFF.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_ON.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_HAS_CHANNEL.getModels());
-            }
-            if (AE2UtilixConfig.registerCommonBuses) {
-                AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_OFF.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_ON.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_HAS_CHANNEL.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_OFF.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_ON.getModels());
-                AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_HAS_CHANNEL.getModels());
-            }
+            AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_OFF.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_ON.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartBlockStorageBus.MODELS_HAS_CHANNEL.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_OFF.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_ON.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonImportBus.MODELS_HAS_CHANNEL.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_OFF.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_ON.getModels());
+            AEApi.instance().registries().partModels().registerModels(PartCommonExportBus.MODELS_HAS_CHANNEL.getModels());
         } catch (Exception e) {
             AE2Utilix.LOGGER.warn("Failed to register Block Storage Bus part models", e);
         }
 
         // Register item model for Block Storage Bus
-        if (AE2UtilixConfig.registerBlockStorageBus) {
-            ModelResourceLocation busMrl = new ModelResourceLocation(AE2Utilix.BLOCK_STORAGE_BUS.getRegistryName(), "inventory");
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.BLOCK_STORAGE_BUS, 0, busMrl);
-        }
-        if (AE2UtilixConfig.registerCommonBuses) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.COMMON_IMPORT_BUS, 0,
-                    new ModelResourceLocation(AE2Utilix.COMMON_IMPORT_BUS.getRegistryName(), "inventory"));
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.COMMON_EXPORT_BUS, 0,
-                    new ModelResourceLocation(AE2Utilix.COMMON_EXPORT_BUS.getRegistryName(), "inventory"));
-        }
+        ModelResourceLocation busMrl = new ModelResourceLocation(AE2Utilix.BLOCK_STORAGE_BUS.getRegistryName(), "inventory");
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.BLOCK_STORAGE_BUS, 0, busMrl);
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.COMMON_IMPORT_BUS, 0,
+                new ModelResourceLocation(AE2Utilix.COMMON_IMPORT_BUS.getRegistryName(), "inventory"));
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.COMMON_EXPORT_BUS, 0,
+                new ModelResourceLocation(AE2Utilix.COMMON_EXPORT_BUS.getRegistryName(), "inventory"));
 
-        if (AE2UtilixConfig.registerCrystalGrowthChamber) {
-            ClientRegistry.bindTileEntitySpecialRenderer(TileCrystalGrowthChamber.class,
-                    new com.ae2utilix.client.RenderCrystalGrowthChamber());
-        }
+        ClientRegistry.bindTileEntitySpecialRenderer(TileCrystalGrowthChamber.class,
+                new com.ae2utilix.client.RenderCrystalGrowthChamber());
 
-        if (AE2UtilixConfig.registerFullTerminals) {
-            Block[] terminalBlocks = {AE2Utilix.BLOCK_STORAGE_TERMINAL, AE2Utilix.BLOCK_CRAFTING_TERMINAL,
-                    AE2Utilix.BLOCK_PATTERN_TERMINAL, AE2Utilix.BLOCK_INTERFACE_TERMINAL};
-            for (Block block : terminalBlocks) {
-                ModelResourceLocation mrl = new ModelResourceLocation(block.getRegistryName(), "inventory");
-                Item terminalItem = Item.getItemFromBlock(block);
-                if (terminalItem != null) {
-                    for (int metadata = 0; metadata < 16; metadata++) {
-                        ModelLoader.setCustomModelResourceLocation(terminalItem, metadata, mrl);
-                    }
+        Block[] terminalBlocks = {AE2Utilix.BLOCK_STORAGE_TERMINAL, AE2Utilix.BLOCK_CRAFTING_TERMINAL,
+                AE2Utilix.BLOCK_PATTERN_TERMINAL, AE2Utilix.BLOCK_INTERFACE_TERMINAL};
+        for (Block block : terminalBlocks) {
+            ModelResourceLocation mrl = new ModelResourceLocation(block.getRegistryName(), "inventory");
+            Item terminalItem = Item.getItemFromBlock(block);
+            if (terminalItem != null) {
+                for (int metadata = 0; metadata < 16; metadata++) {
+                    ModelLoader.setCustomModelResourceLocation(terminalItem, metadata, mrl);
                 }
             }
         }
@@ -78,34 +66,30 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void init() {
         com.ae2utilix.client.TerminalBlockColor blockColor = new com.ae2utilix.client.TerminalBlockColor();
-        if (AE2UtilixConfig.registerFullTerminals) {
-            Block[] terminalBlocks = {
-                    AE2Utilix.BLOCK_STORAGE_TERMINAL, AE2Utilix.BLOCK_CRAFTING_TERMINAL,
-                    AE2Utilix.BLOCK_PATTERN_TERMINAL, AE2Utilix.BLOCK_INTERFACE_TERMINAL
-            };
-            Item[] terminalItems = {
-                    Item.getItemFromBlock(AE2Utilix.BLOCK_STORAGE_TERMINAL),
-                    Item.getItemFromBlock(AE2Utilix.BLOCK_CRAFTING_TERMINAL),
-                    Item.getItemFromBlock(AE2Utilix.BLOCK_PATTERN_TERMINAL),
-                    Item.getItemFromBlock(AE2Utilix.BLOCK_INTERFACE_TERMINAL)
-            };
-            Minecraft.getMinecraft().getBlockColors().registerBlockColorHandler(blockColor, terminalBlocks);
-            Minecraft.getMinecraft().getItemColors().registerItemColorHandler(
-                    (stack, tintIndex) -> blockColor.colorMultiplier(null, null, null, tintIndex), terminalItems);
-        }
-        if (AE2UtilixConfig.registerFluidMark) {
-            Minecraft.getMinecraft().getItemColors().registerItemColorHandler((stack, tintIndex) -> {
-                net.minecraftforge.fluids.FluidStack fluid = ItemFluidMark.getFluid(stack);
-                if (fluid != null) {
-                    return fluid.getFluid().getColor(fluid);
-                }
+        Block[] terminalBlocks = {
+                AE2Utilix.BLOCK_STORAGE_TERMINAL, AE2Utilix.BLOCK_CRAFTING_TERMINAL,
+                AE2Utilix.BLOCK_PATTERN_TERMINAL, AE2Utilix.BLOCK_INTERFACE_TERMINAL
+        };
+        Item[] terminalItems = {
+                Item.getItemFromBlock(AE2Utilix.BLOCK_STORAGE_TERMINAL),
+                Item.getItemFromBlock(AE2Utilix.BLOCK_CRAFTING_TERMINAL),
+                Item.getItemFromBlock(AE2Utilix.BLOCK_PATTERN_TERMINAL),
+                Item.getItemFromBlock(AE2Utilix.BLOCK_INTERFACE_TERMINAL)
+        };
+        Minecraft.getMinecraft().getBlockColors().registerBlockColorHandler(blockColor, terminalBlocks);
+        Minecraft.getMinecraft().getItemColors().registerItemColorHandler(
+                (stack, tintIndex) -> blockColor.colorMultiplier(null, null, null, tintIndex), terminalItems);
+        Minecraft.getMinecraft().getItemColors().registerItemColorHandler((stack, tintIndex) -> {
+            net.minecraftforge.fluids.FluidStack fluid = ItemFluidMark.getFluid(stack);
+            if (fluid != null) {
+                return fluid.getFluid().getColor(fluid);
+            }
 
-                String gasName = ItemFluidMark.getGasName(stack);
-                if (gasName != null && com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()) {
-                    return com.ae2utilix.client.MekanismEnergisticsClientRenderer.getGasTint(gasName);
-                }
-                return 0xFFFFFFFF;
-            }, AE2Utilix.FLUID_MARK);
-        }
+            String gasName = ItemFluidMark.getGasName(stack);
+            if (gasName != null && com.ae2utilix.integration.MekanismEnergisticsIntegration.isAvailable()) {
+                return com.ae2utilix.client.MekanismEnergisticsClientRenderer.getGasTint(gasName);
+            }
+            return 0xFFFFFFFF;
+        }, AE2Utilix.FLUID_MARK);
     }
 }

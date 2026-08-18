@@ -913,13 +913,10 @@ public abstract class PartCommonBus extends PartUpgradeable implements appeng.ap
 
     @Override
     public boolean onPartActivate(EntityPlayer player, EnumHand hand, Vec3d pos) {
-        if (player.isSneaking()) return false;
         if (!player.world.isRemote) {
-            TileEntity tile = this.getHost().getTile();
-            EnumFacing facing = this.getSide().getFacing();
-            if (tile == null || facing == null) return false;
-            player.openGui(AE2Utilix.INSTANCE, this.getGuiBaseId() + facing.getIndex(),
-                    player.world, tile.getPos().getX(), tile.getPos().getY(), tile.getPos().getZ());
+            player.openGui(AE2Utilix.INSTANCE, this.getGuiBaseId() + this.getSide().getFacing().getIndex(),
+                    player.world, this.getHost().getTile().getPos().getX(),
+                    this.getHost().getTile().getPos().getY(), this.getHost().getTile().getPos().getZ());
         }
         return true;
     }

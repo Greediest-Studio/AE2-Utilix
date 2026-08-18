@@ -19,66 +19,54 @@ public class ClientEventHandler {
 
     @SubscribeEvent
     public static void registerModels(ModelRegistryEvent event) {
-        if (AE2UtilixConfig.registerFluidMark) {
-            ModelLoaderRegistry.registerLoader(new FluidMarkModel.Loader());
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.FLUID_MARK, 0,
-                    new ModelResourceLocation(FluidMarkModel.MODEL, "inventory"));
+        ModelLoaderRegistry.registerLoader(new FluidMarkModel.Loader());
+        ModelLoaderRegistry.registerLoader(new DevicePackageModel.Loader());
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.PRODUCT_RETURN_CARD, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":product_return_card", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.PHASE_CARD, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":phase_card", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.COUPLING_STAFF, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":coupling_staff", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.PARALLEL_CARD, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":parallel_card", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.OVERFLOW_DESTRUCTION_CARD, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":overflow_destruction_card", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.FLUID_MARK, 0,
+                new ModelResourceLocation(FluidMarkModel.MODEL, "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.MATTER_DECOMPOSER, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":matter_decomposer", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.FLUIX_RESONANCE_PIVOT_CORE, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":fluix_resonance_pivot_core", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.PACKER, 0,
+                new ModelResourceLocation(AE2Utilix.MODID + ":packer", "inventory"));
+
+        ModelLoader.setCustomModelResourceLocation(AE2Utilix.DEVICE_PACKAGE, 0,
+                new ModelResourceLocation(DevicePackageModel.MODEL, "inventory"));
+
+        Item phaseInterfaceItem = Item.getItemFromBlock(AE2Utilix.BLOCK_PHASE_INTERFACE);
+        if (phaseInterfaceItem != null) {
+            registerItemModelForMetadata(phaseInterfaceItem,
+                    new ModelResourceLocation(AE2Utilix.MODID + ":phase_interface", "inventory"));
         }
-        if (AE2UtilixConfig.registerPackerAndDevicePackage) {
-            ModelLoaderRegistry.registerLoader(new DevicePackageModel.Loader());
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.PACKER, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":packer", "inventory"));
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.DEVICE_PACKAGE, 0,
-                    new ModelResourceLocation(DevicePackageModel.MODEL, "inventory"));
+
+        Item commonInterfaceAlternateItem = Item.getItemFromBlock(AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE);
+        if (commonInterfaceAlternateItem != null) {
+            registerItemModelForMetadata(commonInterfaceAlternateItem,
+                    new ModelResourceLocation(AE2Utilix.MODID + ":common_interface", "inventory"));
         }
-        if (AE2UtilixConfig.registerProductReturnCard) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.PRODUCT_RETURN_CARD, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":product_return_card", "inventory"));
-        }
-        if (AE2UtilixConfig.registerPhaseCard) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.PHASE_CARD, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":phase_card", "inventory"));
-        }
-        if (AE2UtilixConfig.registerCouplingStaff) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.COUPLING_STAFF, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":coupling_staff", "inventory"));
-        }
-        if (AE2UtilixConfig.registerParallelCard) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.PARALLEL_CARD, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":parallel_card", "inventory"));
-        }
-        if (AE2UtilixConfig.registerOverflowDestructionCard) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.OVERFLOW_DESTRUCTION_CARD, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":overflow_destruction_card", "inventory"));
-        }
-        if (AE2UtilixConfig.registerMatterDecomposer) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.MATTER_DECOMPOSER, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":matter_decomposer", "inventory"));
-        }
-        if (AE2UtilixConfig.registerFluixResonancePivotCore) {
-            ModelLoader.setCustomModelResourceLocation(AE2Utilix.FLUIX_RESONANCE_PIVOT_CORE, 0,
-                    new ModelResourceLocation(AE2Utilix.MODID + ":fluix_resonance_pivot_core", "inventory"));
-        }
-        if (AE2UtilixConfig.registerPhaseInterface) {
-            Item phaseInterfaceItem = Item.getItemFromBlock(AE2Utilix.BLOCK_PHASE_INTERFACE);
-            if (phaseInterfaceItem != null) {
-                registerItemModelForMetadata(phaseInterfaceItem,
-                        new ModelResourceLocation(AE2Utilix.MODID + ":phase_interface", "inventory"));
-            }
-        }
-        if (AE2UtilixConfig.registerCommonInterface) {
-            Item commonInterfaceAlternateItem = Item.getItemFromBlock(AE2Utilix.BLOCK_COMMON_INTERFACE_ALTERNATE);
-            if (commonInterfaceAlternateItem != null) {
-                registerItemModelForMetadata(commonInterfaceAlternateItem,
-                        new ModelResourceLocation(AE2Utilix.MODID + ":common_interface", "inventory"));
-            }
-        }
-        if (AE2UtilixConfig.registerCrystalGrowthChamber) {
-            Item cgcItem = Item.getItemFromBlock(AE2Utilix.BLOCK_CRYSTAL_GROWTH_CHAMBER);
-            if (cgcItem != null) {
-                registerItemModelForMetadata(cgcItem,
-                        new ModelResourceLocation(AE2Utilix.MODID + ":crystal_growth_chamber", "inventory"));
-            }
+
+        Item cgcItem = Item.getItemFromBlock(AE2Utilix.BLOCK_CRYSTAL_GROWTH_CHAMBER);
+        if (cgcItem != null) {
+            registerItemModelForMetadata(cgcItem,
+                    new ModelResourceLocation(AE2Utilix.MODID + ":crystal_growth_chamber", "inventory"));
         }
     }
 

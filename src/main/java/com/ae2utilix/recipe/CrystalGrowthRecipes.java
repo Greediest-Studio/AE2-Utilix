@@ -15,11 +15,8 @@ import java.util.List;
 public class CrystalGrowthRecipes {
 
     private static final List<CrystalGrowthRecipe> recipes = new ArrayList<>();
-    private static boolean initialized;
 
-    public static synchronized void init() {
-        if (initialized) return;
-        initialized = true;
+    public static void init() {
         List<String> recipeFiles = new ArrayList<>();
         recipeFiles.add("assets/ae2_utilix/recipes/fluix_crystal.json");
         recipeFiles.add("assets/ae2_utilix/recipes/pure_certus_quartz.json");
@@ -38,17 +35,14 @@ public class CrystalGrowthRecipes {
     }
 
     public static List<CrystalGrowthRecipe> getRecipes() {
-        init();
         return recipes;
     }
 
     public static void addRecipe(CrystalGrowthRecipe recipe) {
-        init();
         recipes.add(recipe);
     }
 
     public static boolean removeRecipeByOutput(ItemStack output) {
-        init();
         return recipes.removeIf(recipe -> {
             for (ItemStack out : recipe.getOutputs()) {
                 if (ItemStack.areItemsEqual(out, output) && ItemStack.areItemStackTagsEqual(out, output)) {
@@ -60,13 +54,10 @@ public class CrystalGrowthRecipes {
     }
 
     public static void removeAllRecipes() {
-        init();
         recipes.clear();
     }
 
     public static CrystalGrowthRecipe findMatchingRecipe(IItemHandler inputInv, FluidStack availableFluid, int parallelMultiplier) {
-        init();
-        parallelMultiplier = Math.max(1, parallelMultiplier);
         CrystalGrowthRecipe bestMatch = null;
         int bestInputCount = -1;
         for (CrystalGrowthRecipe recipe : recipes) {
