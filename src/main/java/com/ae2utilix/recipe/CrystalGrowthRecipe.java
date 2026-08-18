@@ -158,7 +158,7 @@ public class CrystalGrowthRecipe {
         List<ItemStack> inputs = new ArrayList<>();
         JsonArray inputsArr = JsonUtils.getJsonArray(json, "inputs");
         for (JsonElement elem : inputsArr) {
-            inputs.add(parseItemStack(JsonUtils.getJsonObject(elem, "input item")));
+            inputs.add(parseItemStack(elem.getAsJsonObject()));
         }
 
         FluidStack inputFluid = null;
@@ -169,7 +169,7 @@ public class CrystalGrowthRecipe {
         List<ItemStack> outputs = new ArrayList<>();
         JsonArray outputsArr = JsonUtils.getJsonArray(json, "outputs");
         for (JsonElement elem : outputsArr) {
-            outputs.add(parseItemStack(JsonUtils.getJsonObject(elem, "output item")));
+            outputs.add(parseItemStack(elem.getAsJsonObject()));
         }
 
         FluidStack outputFluid = null;
