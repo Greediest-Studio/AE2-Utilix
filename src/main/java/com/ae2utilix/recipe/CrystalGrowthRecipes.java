@@ -21,14 +21,17 @@ public class CrystalGrowthRecipes {
         if (initialized) return;
         initialized = true;
         List<String> recipeFiles = new ArrayList<>();
+        // Only resources shipped by this version are loaded. Missing optional files
+        // must not make the built-in recipe initialization look broken.
         recipeFiles.add("assets/ae2_utilix/recipes/fluix_crystal.json");
-        recipeFiles.add("assets/ae2_utilix/recipes/pure_certus_quartz.json");
-        recipeFiles.add("assets/ae2_utilix/recipes/pure_nether_quartz.json");
-        recipeFiles.add("assets/ae2_utilix/recipes/pure_fluix.json");
 
         for (String path : recipeFiles) {
-            try (InputStreamReader reader = new InputStreamReader(
-                    CrystalGrowthRecipes.class.getClassLoader().getResourceAsStream(path), StandardCharsets.UTF_8)) {
+            java.io.InputStream stream = CrystalGrowthRecipes.class.getClassLoader().getResourceAsStream(path);
+            if (stream == null) {
+                AE2Utilix.LOGGER.warn("Crystal growth recipe resource not found: {}", path);
+                continue;
+            }
+            try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
                 JsonObject json = new Gson().fromJson(reader, JsonObject.class);
                 recipes.add(CrystalGrowthRecipe.fromJson(json));
             } catch (Exception e) {

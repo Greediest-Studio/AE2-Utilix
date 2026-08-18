@@ -199,7 +199,6 @@ public class AE2Utilix implements IGuiHandler {
 
         if (AE2UtilixConfig.registerCrystalGrowthChamber) {
             MinecraftForge.EVENT_BUS.register(com.ae2utilix.integration.CGCMemoryCardHandler.class);
-            CrystalGrowthRecipes.init();
         }
 
         PROXY.init();
@@ -214,6 +213,10 @@ public class AE2Utilix implements IGuiHandler {
 
     @EventHandler
     public void postInit(FMLPostInitializationEvent event) {
+        if (AE2UtilixConfig.registerCrystalGrowthChamber) {
+            CrystalGrowthRecipes.init();
+        }
+
         if (AE2UtilixConfig.registerPhaseInterface) {
             Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 1);
             Upgrades.PATTERN_EXPANSION.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 3);

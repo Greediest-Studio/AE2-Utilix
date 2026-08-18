@@ -375,6 +375,8 @@ public class TileCrystalGrowthChamber extends AENetworkPowerTile implements IGri
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        // Keep initialization lazy so all item and fluid registries are ready.
+        CrystalGrowthRecipes.init();
         if (this.getInternalCurrentPower() < this.getInternalMaxPower()) {
             try {
                 double demand = Math.min(EXTRACT_RATE, this.getInternalMaxPower() - this.getInternalCurrentPower());
