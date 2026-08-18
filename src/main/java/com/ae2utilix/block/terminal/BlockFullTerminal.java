@@ -109,6 +109,12 @@ public abstract class BlockFullTerminal extends AEBaseBlock implements IOrientab
     }
 
     @Override
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player,
+                                    EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ) {
+        return this.onActivated(world, pos, player, hand, player.getHeldItem(hand), side, hitX, hitY, hitZ);
+    }
+
+    @Override
     public void breakBlock(World world, BlockPos pos, IBlockState state) {
         TileEntity te = world.getTileEntity(pos);
         if (te instanceof TileFullTerminal) {

@@ -44,6 +44,12 @@ public class BlockCommonInterfaceAlternate extends BlockInterface {
     }
 
     @Override
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player,
+                                    EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ) {
+        return this.onActivated(world, pos, player, hand, player.getHeldItem(hand), side, hitX, hitY, hitZ);
+    }
+
+    @Override
     public boolean onActivated(World world, BlockPos pos, EntityPlayer player, EnumHand hand,
                                @Nullable ItemStack heldItem, EnumFacing side, float hitX, float hitY, float hitZ) {
         if (player.isSneaking()) return false;
