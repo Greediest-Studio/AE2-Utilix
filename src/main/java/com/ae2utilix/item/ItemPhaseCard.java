@@ -16,6 +16,7 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -101,6 +102,7 @@ public class ItemPhaseCard extends Item implements IAE2UtilixUpgradeModule {
                 if (upgrades.isItemValid(i, oneCard) && upgrades.getStackInSlot(i).isEmpty()) {
                     upgrades.insertItem(i, oneCard, false);
                     held.shrink(1);
+                    notifyMarkedDirection(player, side);
                     return EnumActionResult.SUCCESS;
                 }
             }
@@ -108,7 +110,14 @@ public class ItemPhaseCard extends Item implements IAE2UtilixUpgradeModule {
         }
 
         setFace(held, side);
+        notifyMarkedDirection(player, side);
         return EnumActionResult.SUCCESS;
+    }
+
+    private static void notifyMarkedDirection(EntityPlayer player, EnumFacing face) {
+        player.sendStatusMessage(new TextComponentTranslation(
+                "item.ae2_utilix.phase_card.marked",
+                new TextComponentTranslation("ae2_utilix.direction." + face.getName())), true);
     }
 
     private boolean isInterfaceAt(World world, BlockPos pos, float hitX, float hitY, float hitZ) {
@@ -156,7 +165,8 @@ public class ItemPhaseCard extends Item implements IAE2UtilixUpgradeModule {
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<String> tooltip, ITooltipFlag flagIn) {
         EnumFacing face = getFace(stack);
         if (face != null) {
-            tooltip.add(I18n.format("item.ae2_utilix.phase_card.tooltip.1", I18n.format("enumfacing." + face.getName())));
+            tooltip.add(I18n.format("item.ae2_utilix.phase_card.tooltip.1",
+                    I18n.format("ae2_utilix.direction." + face.getName())));
         } else {
             tooltip.add(I18n.format("item.ae2_utilix.phase_card.tooltip.2"));
         }

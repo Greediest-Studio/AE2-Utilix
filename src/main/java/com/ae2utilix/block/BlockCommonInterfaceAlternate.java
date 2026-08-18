@@ -1,7 +1,6 @@
 package com.ae2utilix.block;
 
 import appeng.block.misc.BlockInterface;
-import appeng.util.Platform;
 import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.gui.FullTerminalGuiHandler;
 import net.minecraft.block.properties.IProperty;
@@ -49,7 +48,7 @@ public class BlockCommonInterfaceAlternate extends BlockInterface {
                                @Nullable ItemStack heldItem, EnumFacing side, float hitX, float hitY, float hitZ) {
         if (player.isSneaking()) return false;
         TileCommonInterfaceAlternate tile = (TileCommonInterfaceAlternate) this.getTileEntity(world, pos);
-        if (tile != null && Platform.isServer()) {
+        if (tile != null && !world.isRemote) {
             player.openGui(AE2Utilix.INSTANCE, FullTerminalGuiHandler.GUI_COMMON_INTERFACE,
                     world, pos.getX(), pos.getY(), pos.getZ());
         }

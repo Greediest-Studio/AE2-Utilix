@@ -43,6 +43,7 @@ public class CrystalGrowthRecipe {
     public double getEnergyPerTick() { return processingTime > 0 ? energyCost / processingTime : 0; }
 
     public boolean matches(IItemHandler inv, FluidStack availableFluid, int parallelMultiplier) {
+        parallelMultiplier = Math.max(1, parallelMultiplier);
         if (inputFluid != null) {
             int requiredAmount = inputFluid.amount * parallelMultiplier;
             if (availableFluid == null || availableFluid.amount < requiredAmount) return false;
@@ -51,7 +52,9 @@ public class CrystalGrowthRecipe {
 
         List<ItemStack> remaining = new ArrayList<>();
         for (ItemStack input : inputs) {
-            remaining.add(input.copy());
+            ItemStack required = input.copy();
+            required.setCount(required.getCount() * parallelMultiplier);
+            remaining.add(required);
         }
 
         for (int i = 0; i < inv.getSlots(); i++) {
@@ -79,6 +82,7 @@ public class CrystalGrowthRecipe {
     }
 
     public boolean canFitOutputs(IItemHandler outputInv, int multiplier) {
+        multiplier = Math.max(1, multiplier);
         for (ItemStack output : outputs) {
             ItemStack toInsert = output.copy();
             toInsert.setCount(toInsert.getCount() * multiplier);
@@ -102,6 +106,7 @@ public class CrystalGrowthRecipe {
     }
 
     public boolean canFitFluidOutput(FluidTank outputTank, int multiplier) {
+        multiplier = Math.max(1, multiplier);
         if (outputFluid == null) return true;
         int required = outputFluid.amount * multiplier;
         FluidStack existing = outputTank.getFluid();
