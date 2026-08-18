@@ -93,9 +93,10 @@ public abstract class BlockFullTerminal extends AEBaseBlock implements IOrientab
     protected abstract int getGuiId();
 
     @Override
-    public boolean onActivated(World world, BlockPos pos, EntityPlayer player,
-                                EnumHand hand, ItemStack heldItem, EnumFacing side, float hitX, float hitY, float hitZ) {
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player,
+                                    EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ) {
         // If holding a color applicator, don't open GUI - let the item handle coloring
+        ItemStack heldItem = player.getHeldItem(hand);
         if (!heldItem.isEmpty() && heldItem.getItem() instanceof ToolColorApplicator) {
             return false;
         }
@@ -106,12 +107,6 @@ public abstract class BlockFullTerminal extends AEBaseBlock implements IOrientab
             }
         }
         return true;
-    }
-
-    @Override
-    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player,
-                                    EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ) {
-        return this.onActivated(world, pos, player, hand, player.getHeldItem(hand), side, hitX, hitY, hitZ);
     }
 
     @Override
