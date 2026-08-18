@@ -31,16 +31,20 @@ public class AE2UtilixMixinPlugin implements ILateMixinLoader, IMixinConfigPlugi
         ensureConfigLoaded();
         List<String> configs = new ArrayList<>();
         configs.add("mixins.ae2_utilix.json");
-        if (AE2UtilixConfig.registerCommonInterface && Loader.isModLoaded("nae2")) {
+        if ((AE2UtilixConfig.registerCommonInterface
+                || AE2UtilixConfig.registerPhaseInterface
+                || AE2UtilixConfig.registerProductReturnCard
+                || AE2UtilixConfig.registerPhaseCard)
+                && Loader.isModLoaded("nae2")) {
             configs.add("mixins.ae2_utilix_nae2.json");
         }
         if (AE2UtilixConfig.registerFullTerminals && Loader.isModLoaded("random_complement")) {
             configs.add("mixins.ae2_utilix_random_complement.json");
         }
-        if (AE2UtilixConfig.registerCommonInterface && Loader.isModLoaded("ae2fc")) {
+        if (AE2UtilixConfig.registerFullTerminals && Loader.isModLoaded("ae2fc")) {
             configs.add("mixins.ae2_utilix_ae2fc.json");
         }
-        if (AE2UtilixConfig.registerCommonInterface && Loader.isModLoaded("mekeng")) {
+        if (AE2UtilixConfig.registerOverflowDestructionCard && Loader.isModLoaded("mekeng")) {
             configs.add("mixins.ae2_utilix_mekeng.json");
         }
         if (AE2UtilixConfig.registerCommonInterface
@@ -91,6 +95,10 @@ public class AE2UtilixMixinPlugin implements ILateMixinLoader, IMixinConfigPlugi
         if (name.equals("MixinPartStorageBusAccessor")) {
             return AE2UtilixConfig.registerBlockStorageBus;
         }
+        if (name.equals("MixinGrid")) {
+            return AE2UtilixConfig.registerPhaseInterface
+                    || AE2UtilixConfig.registerCommonInterface;
+        }
         if (name.equals("MixinCraftingGridCache") || name.equals("MixinCraftingCPUStatus")
                 || name.equals("MixinCraftingCPUCluster")) {
             return AE2UtilixConfig.enableCpuAccessMode;
@@ -109,7 +117,9 @@ public class AE2UtilixMixinPlugin implements ILateMixinLoader, IMixinConfigPlugi
             return AE2UtilixConfig.enableCpuAccessMode || AE2UtilixConfig.registerFullTerminals;
         }
         if (name.equals("MixinStackSizeRenderer") || name.equals("MixinRenderItemOverlay")) {
-            return AE2UtilixConfig.registerFluidMark || AE2UtilixConfig.registerCommonInterface;
+            return AE2UtilixConfig.registerFluidMark
+                    || AE2UtilixConfig.registerCommonInterface
+                    || AE2UtilixConfig.registerCommonBuses;
         }
         return true;
     }
