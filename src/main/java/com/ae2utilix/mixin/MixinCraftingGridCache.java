@@ -45,6 +45,13 @@ public abstract class MixinCraftingGridCache {
         }
 
         if (target instanceof CraftingCPUCluster) {
+            Object targetObject = target;
+            if (!(targetObject instanceof ICpuAccessModeHolder)) {
+                // If another transformer replaced the CPU implementation or
+                // this feature was only partially applied, preserve AE2's
+                // original submission path instead of casting blindly.
+                return;
+            }
             CpuAccessMode mode = ((ICpuAccessModeHolder) (Object) target).ae2utilix$getAccessMode();
             if (prioritizePower && !mode.allowsPlayer()) {
                 cir.setReturnValue(null);
@@ -61,13 +68,48 @@ public abstract class MixinCraftingGridCache {
 
         if (target == null) {
             final List<CraftingCPUCluster> validCpusClusters = new ArrayList<>();
+            boolean hasRestrictedEligibleCpu = false;
             for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
-                if (cpu.isActive() && !cpu.isBusy() && cpu.getAvailableStorage() >= job.getByteTotal()) {
-                    CpuAccessMode mode = ((ICpuAccessModeHolder) (Object) cpu).ae2utilix$getAccessMode();
-                    if (prioritizePower && !mode.allowsPlayer()) continue;
-                    if (!prioritizePower && !mode.allowsAutomation()) continue;
-                    validCpusClusters.add(cpu);
+                if (!cpu.isActive() || cpu.isBusy() || cpu.getAvailableStorage() < job.getByteTotal()) {
+                    continue;
                 }
+
+                Object cpuObject = cpu;
+                if (!(cpuObject instanceof ICpuAccessModeHolder)) {
+                    // A CPU without our optional interface is left to AE2's
+                    // normal selection logic for maximum compatibility.
+                    validCpusClusters.add(cpu);
+                    continue;
+                }
+
+                CpuAccessMode mode = ((ICpuAccessModeHolder) cpuObject).ae2utilix$getAccessMode();
+                boolean allowed = prioritizePower ? mode.allowsPlayer() : mode.allowsAutomation();
+                if (!allowed) {
+                    hasRestrictedEligibleCpu = true;
+                    continue;
+                }
+
+                validCpusClusters.add(cpu);
+            }
+
+            // When every eligible CPU is allowed, do not replace AE2's CPU
+            // ordering/selection algorithm. Only take over when filtering is
+            // actually needed.
+            for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
+                Object cpuObject = cpu;
+                if (!cpu.isActive() || cpu.isBusy() || cpu.getAvailableStorage() < job.getByteTotal()
+                        || !(cpuObject instanceof ICpuAccessModeHolder)) {
+                    continue;
+                }
+                CpuAccessMode mode = ((ICpuAccessModeHolder) cpuObject).ae2utilix$getAccessMode();
+                if ((prioritizePower && !mode.allowsPlayer())
+                        || (!prioritizePower && !mode.allowsAutomation())) {
+                    hasRestrictedEligibleCpu = true;
+                    break;
+                }
+            }
+            if (!hasRestrictedEligibleCpu) {
+                return;
             }
 
             Collections.sort(validCpusClusters, (firstCluster, nextCluster) -> {
