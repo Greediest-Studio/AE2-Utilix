@@ -54,6 +54,25 @@ public class CrystalGrowthChamberHandler {
         CraftTweakerAPI.apply(new ActionAddRecipe(inputs, outputs, processingTime, energyCost, fluidInput, fluidOutput));
     }
 
+    private static ILiquidStack firstLiquidStack(Object[] values) {
+        if (values == null) return null;
+        for (Object value : values) {
+            if (value instanceof ILiquidStack) return (ILiquidStack) value;
+        }
+        return null;
+    }
+
+    /** Compatibility overload for ZenScript array literals, including an empty any[] output. */
+    @ZenMethod
+    public static void addRecipe(IIngredient[] inputs,
+                                 ILiquidStack[] fluidInput,
+                                 IIngredient[] outputs,
+                                 Object[] fluidOutput,
+                                 int processingTime, int energyCost) {
+        ILiquidStack input = fluidInput != null && fluidInput.length > 0 ? fluidInput[0] : null;
+        addRecipe(inputs, input, outputs, firstLiquidStack(fluidOutput), processingTime, (double) energyCost);
+    }
+
     @ZenMethod
     public static void remove(IItemStack output) {
         if (output == null) {

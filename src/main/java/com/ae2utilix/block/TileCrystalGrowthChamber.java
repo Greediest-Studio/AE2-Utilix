@@ -204,6 +204,11 @@ public class TileCrystalGrowthChamber extends AENetworkPowerTile implements IGri
 
     @Override
     public void onChangeInventory(IItemHandler inv, int slot, InvOperation mc, ItemStack removed, ItemStack added) {
+        markDirty();
+        try {
+            this.getProxy().getTick().alertDevice(this.getProxy().getNode());
+        } catch (GridAccessException ignored) {
+        }
     }
 
     public boolean isPowered() { return powered; }
@@ -370,6 +375,7 @@ public class TileCrystalGrowthChamber extends AENetworkPowerTile implements IGri
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        CrystalGrowthRecipes.init();
         if (this.getInternalCurrentPower() < this.getInternalMaxPower()) {
             try {
                 double demand = Math.min(EXTRACT_RATE, this.getInternalMaxPower() - this.getInternalCurrentPower());
