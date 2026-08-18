@@ -22,7 +22,9 @@ public class JEIUtilixPlugin implements IModPlugin {
 
     @Override
     public void registerCategories(IRecipeCategoryRegistration registry) {
-        registry.addRecipeCategories(new CrystalGrowthRecipeCategory(registry.getJeiHelpers().getGuiHelper()));
+        if (com.ae2utilix.AE2UtilixConfig.registerCrystalGrowthChamber) {
+            registry.addRecipeCategories(new CrystalGrowthRecipeCategory(registry.getJeiHelpers().getGuiHelper()));
+        }
     }
 
     @Override
@@ -30,35 +32,44 @@ public class JEIUtilixPlugin implements IModPlugin {
         // IJEIGhostIngredients is only a target-provider interface. JEI still
         // needs an explicit handler registration for each GUI class before it
         // will ask those GUIs for drag targets.
-        UtilixGhostIngredientHandler<GuiCommonBus> busGhostHandler =
-                new UtilixGhostIngredientHandler<>(GuiCommonBus.class);
-        UtilixGhostIngredientHandler<GuiCommonInterface> interfaceGhostHandler =
-                new UtilixGhostIngredientHandler<>(GuiCommonInterface.class);
-        registry.addAdvancedGuiHandlers(busGhostHandler, interfaceGhostHandler);
-        registry.addGhostIngredientHandler(GuiCommonBus.class, busGhostHandler);
-        registry.addGhostIngredientHandler(GuiCommonInterface.class, interfaceGhostHandler);
-
-        registry.addAdvancedGuiHandlers(new CrystalGrowthChamberGuiHandler());
-
-        List<CrystalGrowthRecipeWrapper> wrappers = new ArrayList<>();
-        for (CrystalGrowthRecipe recipe : CrystalGrowthRecipes.getRecipes()) {
-            wrappers.add(new CrystalGrowthRecipeWrapper(recipe));
+        if (com.ae2utilix.AE2UtilixConfig.registerCommonBuses) {
+            UtilixGhostIngredientHandler<GuiCommonBus> busGhostHandler =
+                    new UtilixGhostIngredientHandler<>(GuiCommonBus.class);
+            registry.addAdvancedGuiHandlers(busGhostHandler);
+            registry.addGhostIngredientHandler(GuiCommonBus.class, busGhostHandler);
         }
-        registry.addRecipes(wrappers, CrystalGrowthRecipeCategory.UID);
+        if (com.ae2utilix.AE2UtilixConfig.registerCommonInterface) {
+            UtilixGhostIngredientHandler<GuiCommonInterface> interfaceGhostHandler =
+                    new UtilixGhostIngredientHandler<>(GuiCommonInterface.class);
+            registry.addAdvancedGuiHandlers(interfaceGhostHandler);
+            registry.addGhostIngredientHandler(GuiCommonInterface.class, interfaceGhostHandler);
+        }
 
-        registry.addRecipeCatalyst(new ItemStack(AE2Utilix.BLOCK_CRYSTAL_GROWTH_CHAMBER), CrystalGrowthRecipeCategory.UID);
+        if (com.ae2utilix.AE2UtilixConfig.registerCrystalGrowthChamber) {
+            registry.addAdvancedGuiHandlers(new CrystalGrowthChamberGuiHandler());
 
-        registry.addRecipeClickArea(com.ae2utilix.gui.GuiCrystalGrowthChamber.class,
-                86, 38, 17, 10,
-                CrystalGrowthRecipeCategory.UID);
+            List<CrystalGrowthRecipeWrapper> wrappers = new ArrayList<>();
+            for (CrystalGrowthRecipe recipe : CrystalGrowthRecipes.getRecipes()) {
+                wrappers.add(new CrystalGrowthRecipeWrapper(recipe));
+            }
+            registry.addRecipes(wrappers, CrystalGrowthRecipeCategory.UID);
+
+            registry.addRecipeCatalyst(new ItemStack(AE2Utilix.BLOCK_CRYSTAL_GROWTH_CHAMBER), CrystalGrowthRecipeCategory.UID);
+
+            registry.addRecipeClickArea(com.ae2utilix.gui.GuiCrystalGrowthChamber.class,
+                    86, 38, 17, 10,
+                    CrystalGrowthRecipeCategory.UID);
+        }
 
         // Register AE2FCRU fluid recipe transfer handler for our pattern terminal
-        try {
-            registry.getRecipeTransferRegistry().addRecipeTransferHandler(
-                    new FullPatternRecipeTransferHandler(),
-                    mezz.jei.config.Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
-        } catch (NoClassDefFoundError ignored) {
-            // AE2FCRU not loaded
+        if (com.ae2utilix.AE2UtilixConfig.registerFullTerminals) {
+            try {
+                registry.getRecipeTransferRegistry().addRecipeTransferHandler(
+                        new FullPatternRecipeTransferHandler(),
+                        mezz.jei.config.Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
+            } catch (NoClassDefFoundError ignored) {
+                // AE2FCRU not loaded
+            }
         }
     }
 

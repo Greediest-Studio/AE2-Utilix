@@ -53,7 +53,7 @@ import org.apache.logging.log4j.Logger;
 public class AE2Utilix implements IGuiHandler {
     public static final String MODID = "ae2_utilix";
     public static final String NAME = "AE2\u5B9E\u7528\u5668\u68B0";
-    public static final String VERSION = "1.1.2";
+    public static final String VERSION = "1.1.3";
 
     @Mod.Instance(AE2Utilix.MODID)
     public static AE2Utilix INSTANCE;
@@ -70,7 +70,13 @@ public class AE2Utilix implements IGuiHandler {
     public static final CreativeTabs AE2_UTILIX_TAB = new CreativeTabs("ae2_utilix") {
         @Override
         public ItemStack getTabIconItem() {
-            return new ItemStack(PRODUCT_RETURN_CARD);
+            if (AE2UtilixConfig.registerProductReturnCard) {
+                return new ItemStack(PRODUCT_RETURN_CARD);
+            }
+            if (AE2UtilixConfig.registerFluidMark) {
+                return new ItemStack(FLUID_MARK);
+            }
+            return ItemStack.EMPTY;
         }
     };
 
@@ -110,87 +116,95 @@ public class AE2Utilix implements IGuiHandler {
 
         net.minecraftforge.fml.common.network.NetworkRegistry.INSTANCE.registerGuiHandler(this, this);
 
-        BLOCK_PHASE_INTERFACE.setRegistryName(MODID, "phase_interface");
-        BLOCK_PHASE_INTERFACE.setUnlocalizedName(MODID + ".phase_interface");
+        if (AE2UtilixConfig.registerPhaseInterface) {
+            BLOCK_PHASE_INTERFACE.setRegistryName(MODID, "phase_interface");
+            BLOCK_PHASE_INTERFACE.setUnlocalizedName(MODID + ".phase_interface");
+            Item itemBlock = new AEBaseItemBlock(BLOCK_PHASE_INTERFACE);
+            itemBlock.setRegistryName(MODID, "phase_interface");
+            registerBlockAndItem(BLOCK_PHASE_INTERFACE, itemBlock);
+            GameRegistry.registerTileEntity(TilePhaseInterface.class, MODID + ":phase_interface");
+        }
 
-        Item itemBlock = new AEBaseItemBlock(BLOCK_PHASE_INTERFACE);
-        itemBlock.setRegistryName(MODID, "phase_interface");
+        if (AE2UtilixConfig.registerCommonInterface) {
+            BLOCK_COMMON_INTERFACE_ALTERNATE.setRegistryName(MODID, "common_interface");
+            BLOCK_COMMON_INTERFACE_ALTERNATE.setUnlocalizedName(MODID + ".common_interface");
+            Item itemBlockCommonInterfaceAlternate = new AEBaseItemBlock(BLOCK_COMMON_INTERFACE_ALTERNATE);
+            itemBlockCommonInterfaceAlternate.setRegistryName(MODID, "common_interface");
+            registerBlockAndItem(BLOCK_COMMON_INTERFACE_ALTERNATE, itemBlockCommonInterfaceAlternate);
+            GameRegistry.registerTileEntity(TileCommonInterfaceAlternate.class, MODID + ":common_interface");
+        }
 
-        GameRegistry.findRegistry(Block.class).register(BLOCK_PHASE_INTERFACE);
-        GameRegistry.findRegistry(Item.class).register(itemBlock);
+        if (AE2UtilixConfig.registerCrystalGrowthChamber) {
+            BLOCK_CRYSTAL_GROWTH_CHAMBER.setRegistryName(MODID, "crystal_growth_chamber");
+            BLOCK_CRYSTAL_GROWTH_CHAMBER.setUnlocalizedName(MODID + ".crystal_growth_chamber");
+            Item itemBlockCGC = new ItemBlock(BLOCK_CRYSTAL_GROWTH_CHAMBER);
+            itemBlockCGC.setRegistryName(MODID, "crystal_growth_chamber");
+            registerBlockAndItem(BLOCK_CRYSTAL_GROWTH_CHAMBER, itemBlockCGC);
+            GameRegistry.registerTileEntity(TileCrystalGrowthChamber.class, MODID + ":crystal_growth_chamber");
+        }
 
-        BLOCK_COMMON_INTERFACE_ALTERNATE.setRegistryName(MODID, "common_interface");
-        BLOCK_COMMON_INTERFACE_ALTERNATE.setUnlocalizedName(MODID + ".common_interface");
-        Item itemBlockCommonInterfaceAlternate = new AEBaseItemBlock(BLOCK_COMMON_INTERFACE_ALTERNATE);
-        itemBlockCommonInterfaceAlternate.setRegistryName(MODID, "common_interface");
+        if (AE2UtilixConfig.registerFullTerminals) {
+            registerTerminalBlock(BLOCK_STORAGE_TERMINAL, TileStorageTerminal.class);
+            registerTerminalBlock(BLOCK_CRAFTING_TERMINAL, TileCraftingTerminal.class);
+            registerTerminalBlock(BLOCK_PATTERN_TERMINAL, TilePatternTerminal.class);
+            registerTerminalBlock(BLOCK_INTERFACE_TERMINAL, TileInterfaceTerminal.class);
+        }
 
-        GameRegistry.findRegistry(Block.class).register(BLOCK_COMMON_INTERFACE_ALTERNATE);
-        GameRegistry.findRegistry(Item.class).register(itemBlockCommonInterfaceAlternate);
-
-        GameRegistry.registerTileEntity(TilePhaseInterface.class, MODID + ":phase_interface");
-        GameRegistry.registerTileEntity(TileCommonInterfaceAlternate.class, MODID + ":common_interface");
-
-        BLOCK_CRYSTAL_GROWTH_CHAMBER.setRegistryName(MODID, "crystal_growth_chamber");
-        BLOCK_CRYSTAL_GROWTH_CHAMBER.setUnlocalizedName(MODID + ".crystal_growth_chamber");
-
-        Item itemBlockCGC = new ItemBlock(BLOCK_CRYSTAL_GROWTH_CHAMBER);
-        itemBlockCGC.setRegistryName(MODID, "crystal_growth_chamber");
-
-        GameRegistry.findRegistry(Block.class).register(BLOCK_CRYSTAL_GROWTH_CHAMBER);
-        GameRegistry.findRegistry(Item.class).register(itemBlockCGC);
-
-        GameRegistry.registerTileEntity(TileCrystalGrowthChamber.class, MODID + ":crystal_growth_chamber");
-
-        registerTerminalBlock(BLOCK_STORAGE_TERMINAL, TileStorageTerminal.class);
-        registerTerminalBlock(BLOCK_CRAFTING_TERMINAL, TileCraftingTerminal.class);
-        registerTerminalBlock(BLOCK_PATTERN_TERMINAL, TilePatternTerminal.class);
-        registerTerminalBlock(BLOCK_INTERFACE_TERMINAL, TileInterfaceTerminal.class);
-
-        GameRegistry.findRegistry(Item.class).register(PRODUCT_RETURN_CARD);
-        GameRegistry.findRegistry(Item.class).register(PHASE_CARD);
-        GameRegistry.findRegistry(Item.class).register(PARALLEL_CARD);
-        GameRegistry.findRegistry(Item.class).register(OVERFLOW_DESTRUCTION_CARD);
-        GameRegistry.findRegistry(Item.class).register(FLUID_MARK);
-        GameRegistry.findRegistry(Item.class).register(COUPLING_STAFF);
-        GameRegistry.findRegistry(Item.class).register(MATTER_DECOMPOSER);
-        GameRegistry.findRegistry(Item.class).register(FLUIX_RESONANCE_PIVOT_CORE);
-        GameRegistry.findRegistry(Item.class).register(PACKER);
-        GameRegistry.findRegistry(Item.class).register(DEVICE_PACKAGE);
-        GameRegistry.findRegistry(Item.class).register(BLOCK_STORAGE_BUS);
-        GameRegistry.findRegistry(Item.class).register(COMMON_IMPORT_BUS);
-        GameRegistry.findRegistry(Item.class).register(COMMON_EXPORT_BUS);
+        registerItemIf(AE2UtilixConfig.registerProductReturnCard, PRODUCT_RETURN_CARD);
+        registerItemIf(AE2UtilixConfig.registerPhaseCard, PHASE_CARD);
+        registerItemIf(AE2UtilixConfig.registerParallelCard, PARALLEL_CARD);
+        registerItemIf(AE2UtilixConfig.registerOverflowDestructionCard, OVERFLOW_DESTRUCTION_CARD);
+        registerItemIf(AE2UtilixConfig.registerFluidMark, FLUID_MARK);
+        registerItemIf(AE2UtilixConfig.registerCouplingStaff, COUPLING_STAFF);
+        registerItemIf(AE2UtilixConfig.registerMatterDecomposer, MATTER_DECOMPOSER);
+        registerItemIf(AE2UtilixConfig.registerFluixResonancePivotCore, FLUIX_RESONANCE_PIVOT_CORE);
+        if (AE2UtilixConfig.registerPackerAndDevicePackage) {
+            registerItemIf(true, PACKER);
+            registerItemIf(true, DEVICE_PACKAGE);
+        }
+        registerItemIf(AE2UtilixConfig.registerBlockStorageBus, BLOCK_STORAGE_BUS);
+        if (AE2UtilixConfig.registerCommonBuses) {
+            registerItemIf(true, COMMON_IMPORT_BUS);
+            registerItemIf(true, COMMON_EXPORT_BUS);
+        }
 
         PROXY.preInit();
     }
 
     @EventHandler
     public void init(FMLInitializationEvent event) {
-        AEBaseTile.registerTileItem(TilePhaseInterface.class,
-                new BlockStackSrc(BLOCK_PHASE_INTERFACE, 0, ActivityState.Enabled));
+        if (AE2UtilixConfig.registerPhaseInterface) {
+            AEBaseTile.registerTileItem(TilePhaseInterface.class,
+                    new BlockStackSrc(BLOCK_PHASE_INTERFACE, 0, ActivityState.Enabled));
+        }
+        if (AE2UtilixConfig.registerCommonInterface) {
+            AEBaseTile.registerTileItem(TileCommonInterfaceAlternate.class,
+                    new BlockStackSrc(BLOCK_COMMON_INTERFACE_ALTERNATE, 0, ActivityState.Enabled));
+        }
+        if (AE2UtilixConfig.registerFullTerminals) {
+            AEBaseTile.registerTileItem(TileStorageTerminal.class,
+                    new BlockStackSrc(BLOCK_STORAGE_TERMINAL, 0, ActivityState.Enabled));
+            AEBaseTile.registerTileItem(TileCraftingTerminal.class,
+                    new BlockStackSrc(BLOCK_CRAFTING_TERMINAL, 0, ActivityState.Enabled));
+            AEBaseTile.registerTileItem(TilePatternTerminal.class,
+                    new BlockStackSrc(BLOCK_PATTERN_TERMINAL, 0, ActivityState.Enabled));
+            AEBaseTile.registerTileItem(TileInterfaceTerminal.class,
+                    new BlockStackSrc(BLOCK_INTERFACE_TERMINAL, 0, ActivityState.Enabled));
+        }
 
-        AEBaseTile.registerTileItem(TileCommonInterfaceAlternate.class,
-                new BlockStackSrc(BLOCK_COMMON_INTERFACE_ALTERNATE, 0, ActivityState.Enabled));
-
-        AEBaseTile.registerTileItem(TileStorageTerminal.class,
-                new BlockStackSrc(BLOCK_STORAGE_TERMINAL, 0, ActivityState.Enabled));
-        AEBaseTile.registerTileItem(TileCraftingTerminal.class,
-                new BlockStackSrc(BLOCK_CRAFTING_TERMINAL, 0, ActivityState.Enabled));
-        AEBaseTile.registerTileItem(TilePatternTerminal.class,
-                new BlockStackSrc(BLOCK_PATTERN_TERMINAL, 0, ActivityState.Enabled));
-        AEBaseTile.registerTileItem(TileInterfaceTerminal.class,
-                new BlockStackSrc(BLOCK_INTERFACE_TERMINAL, 0, ActivityState.Enabled));
-
-        if (Loader.isModLoaded("ae2bettermagnetcard")) {
+        if ((AE2UtilixConfig.registerCommonInterface || AE2UtilixConfig.registerPhaseInterface)
+                && Loader.isModLoaded("ae2bettermagnetcard")) {
             com.ae2utilix.integration.BMCInteractionHandler.register();
         }
 
-        MinecraftForge.EVENT_BUS.register(com.ae2utilix.integration.CGCMemoryCardHandler.class);
-
-        CrystalGrowthRecipes.init();
+        if (AE2UtilixConfig.registerCrystalGrowthChamber) {
+            MinecraftForge.EVENT_BUS.register(com.ae2utilix.integration.CGCMemoryCardHandler.class);
+            CrystalGrowthRecipes.init();
+        }
 
         PROXY.init();
 
-        if (Loader.isModLoaded("baubles")) {
+        if (AE2UtilixConfig.registerFluixResonancePivotCore && Loader.isModLoaded("baubles")) {
             com.ae2utilix.integration.BaublesIntegration.init();
             LOGGER.info("Baubles detected, registering bauble integration...");
         }
@@ -200,45 +214,65 @@ public class AE2Utilix implements IGuiHandler {
 
     @EventHandler
     public void postInit(FMLPostInitializationEvent event) {
-        Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 1);
-        Upgrades.PATTERN_EXPANSION.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 3);
-        Upgrades.MAGNET.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 1);
-        Upgrades.SPEED.registerItem(new ItemStack(BLOCK_CRYSTAL_GROWTH_CHAMBER), 5);
+        if (AE2UtilixConfig.registerPhaseInterface) {
+            Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 1);
+            Upgrades.PATTERN_EXPANSION.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 3);
+            Upgrades.MAGNET.registerItem(new ItemStack(BLOCK_PHASE_INTERFACE), 1);
+        }
+        if (AE2UtilixConfig.registerCrystalGrowthChamber) {
+            Upgrades.SPEED.registerItem(new ItemStack(BLOCK_CRYSTAL_GROWTH_CHAMBER), 5);
+        }
 
         // Block Storage Bus upgrades: Capacity, Fuzzy, Inverter
-        Upgrades.CAPACITY.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 5);
-        Upgrades.FUZZY.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 1);
-        Upgrades.INVERTER.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 1);
+        if (AE2UtilixConfig.registerBlockStorageBus) {
+            Upgrades.CAPACITY.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 5);
+            Upgrades.FUZZY.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 1);
+            Upgrades.INVERTER.registerItem(new ItemStack(BLOCK_STORAGE_BUS), 1);
+        }
 
         // The common interface exposes four AE2 capacity-card slots.
-        Upgrades.CAPACITY.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 4);
-        // The common interface can request missing configured resources from AE2 crafting CPUs.
-        Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 1);
+        if (AE2UtilixConfig.registerCommonInterface) {
+            Upgrades.CAPACITY.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 4);
+            // The common interface can request missing configured resources from AE2 crafting CPUs.
+            Upgrades.CRAFTING.registerItem(new ItemStack(BLOCK_COMMON_INTERFACE_ALTERNATE), 1);
+        }
 
         // Common import/export buses use the standard non-crafting upgrade
         // set shared by AE2's item buses.  Registering the item stacks is required
         // by PartUpgradeable's StackUpgradeInventory; without it, cards are
         // rejected even when a GUI slot is present.
-        registerCommonBusUpgrades(COMMON_IMPORT_BUS);
-        registerCommonBusUpgrades(COMMON_EXPORT_BUS);
+        if (AE2UtilixConfig.registerCommonBuses) {
+            registerCommonBusUpgrades(COMMON_IMPORT_BUS);
+            registerCommonBusUpgrades(COMMON_EXPORT_BUS);
+        }
 
         AEApi.instance().definitions().blocks().iface().maybeItem()
                 .ifPresent(i -> Upgrades.MAGNET.registerItem(new ItemStack(i), 1));
         AEApi.instance().definitions().parts().iface().maybeItem()
                 .ifPresent(i -> Upgrades.MAGNET.registerItem(new ItemStack(i), 1));
 
-        registerUpgradeTarget(UPGRADE_PRODUCT_RETURN, "appliedenergistics2:interface", 1);
-        registerUpgradeTarget(UPGRADE_PRODUCT_RETURN, "appliedenergistics2:part:207", 1);
-        registerUpgradeTarget(UPGRADE_PRODUCT_RETURN, BLOCK_PHASE_INTERFACE, 1);
-        registerUpgradeTarget(UPGRADE_PHASE_CARD, "appliedenergistics2:interface", 1);
-        registerUpgradeTarget(UPGRADE_PHASE_CARD, "appliedenergistics2:part:207", 1);
-        registerUpgradeTarget(UPGRADE_PHASE_CARD, BLOCK_PHASE_INTERFACE, 1);
-
-        registerUpgradeTarget(UPGRADE_PARALLEL_CARD, BLOCK_CRYSTAL_GROWTH_CHAMBER, 5);
+        if (AE2UtilixConfig.registerProductReturnCard) {
+            registerUpgradeTarget(UPGRADE_PRODUCT_RETURN, "appliedenergistics2:interface", 1);
+            registerUpgradeTarget(UPGRADE_PRODUCT_RETURN, "appliedenergistics2:part:207", 1);
+            if (AE2UtilixConfig.registerPhaseInterface) {
+                registerUpgradeTarget(UPGRADE_PRODUCT_RETURN, BLOCK_PHASE_INTERFACE, 1);
+            }
+        }
+        if (AE2UtilixConfig.registerPhaseCard) {
+            registerUpgradeTarget(UPGRADE_PHASE_CARD, "appliedenergistics2:interface", 1);
+            registerUpgradeTarget(UPGRADE_PHASE_CARD, "appliedenergistics2:part:207", 1);
+            if (AE2UtilixConfig.registerPhaseInterface) {
+                registerUpgradeTarget(UPGRADE_PHASE_CARD, BLOCK_PHASE_INTERFACE, 1);
+            }
+        }
+        if (AE2UtilixConfig.registerParallelCard && AE2UtilixConfig.registerCrystalGrowthChamber) {
+            registerUpgradeTarget(UPGRADE_PARALLEL_CARD, BLOCK_CRYSTAL_GROWTH_CHAMBER, 5);
+        }
 
         // Register Overflow Destruction Card for all storage cells
-        AEApi.instance().definitions().items().cell1k().maybeItem()
-                .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
+        if (AE2UtilixConfig.registerOverflowDestructionCard) {
+            AEApi.instance().definitions().items().cell1k().maybeItem()
+                    .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
         AEApi.instance().definitions().items().cell4k().maybeItem()
                 .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
         AEApi.instance().definitions().items().cell16k().maybeItem()
@@ -251,10 +285,12 @@ public class AE2Utilix implements IGuiHandler {
                 .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
         AEApi.instance().definitions().items().fluidCell16k().maybeItem()
                 .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
-        AEApi.instance().definitions().items().fluidCell64k().maybeItem()
-                .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
+            AEApi.instance().definitions().items().fluidCell64k().maybeItem()
+                    .ifPresent(i -> { Upgrades.CAPACITY.registerItem(new ItemStack(i), 1); });
+        }
 
-        if (FluidReturnHandler.hasAE2FC()) {
+        if ((AE2UtilixConfig.registerProductReturnCard || AE2UtilixConfig.registerPhaseCard)
+                && FluidReturnHandler.hasAE2FC()) {
             LOGGER.info("AE2FluidCraft-Rework detected, registering integration...");
             ae2utilix$registerAE2FCUpgrade("ae2fc:dual_interface");
             ae2utilix$registerAE2FCUpgrade("ae2fc:part_dual_interface");
@@ -275,6 +311,17 @@ public class AE2Utilix implements IGuiHandler {
         GameRegistry.findRegistry(Item.class).register(itemBlock);
 
         GameRegistry.registerTileEntity(tileClass, MODID + ":" + block.getRegistryName().getResourcePath());
+    }
+
+    private void registerBlockAndItem(Block block, Item item) {
+        GameRegistry.findRegistry(Block.class).register(block);
+        GameRegistry.findRegistry(Item.class).register(item);
+    }
+
+    private void registerItemIf(boolean enabled, Item item) {
+        if (enabled) {
+            GameRegistry.findRegistry(Item.class).register(item);
+        }
     }
 
     private void registerUpgradeTarget(String upgradeTypeId, String itemId, int maxSupported) {

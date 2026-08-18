@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(GuiMEMonitorable.class)
+@Mixin(value = GuiMEMonitorable.class, remap = false)
 public interface MixinGuiMEMonitorableAccessor {
 
     @Invoker("setReservedSpace")

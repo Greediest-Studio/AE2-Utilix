@@ -1,9 +1,14 @@
 package com.ae2utilix.mixin;
 
+import appeng.api.storage.ITerminalHost;
+import appeng.core.sync.GuiBridge;
 import com.ae2utilix.AE2Utilix;
 import com.ae2utilix.AE2UtilixConfig;
 import com.ae2utilix.CpuAccessMode;
 import com.ae2utilix.ICpuStatusAccessMode;
+import com.ae2utilix.block.terminal.TileCraftingTerminal;
+import com.ae2utilix.block.terminal.TilePatternTerminal;
+import com.ae2utilix.block.terminal.TileStorageTerminal;
 import com.ae2utilix.network.PacketSwitchCpuAccessMode;
 import appeng.container.implementations.CraftingCPUStatus;
 import appeng.container.implementations.ContainerCraftingStatus;
@@ -13,6 +18,7 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -20,6 +26,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.client.config.GuiUtils;
 import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -37,6 +44,29 @@ import java.util.Map;
 @SideOnly(Side.CLIENT)
 @Mixin(value = appeng.client.gui.implementations.GuiCraftingStatus.class, remap = false)
 public abstract class MixinGuiCraftingCPU {
+
+    @Shadow
+    private GuiBridge originalGui;
+
+    @Shadow
+    private ItemStack myIcon;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void ae2utilix$setOriginalGuiForFullTerminals(InventoryPlayer inventoryPlayer,
+                                                           ITerminalHost te, CallbackInfo ci) {
+        if (this.originalGui == null) {
+            if (te instanceof TileCraftingTerminal) {
+                this.originalGui = GuiBridge.GUI_CRAFTING_TERMINAL;
+                this.myIcon = new ItemStack(AE2Utilix.BLOCK_CRAFTING_TERMINAL);
+            } else if (te instanceof TilePatternTerminal) {
+                this.originalGui = GuiBridge.GUI_PATTERN_TERMINAL;
+                this.myIcon = new ItemStack(AE2Utilix.BLOCK_PATTERN_TERMINAL);
+            } else if (te instanceof TileStorageTerminal) {
+                this.originalGui = GuiBridge.GUI_ME;
+                this.myIcon = new ItemStack(AE2Utilix.BLOCK_STORAGE_TERMINAL);
+            }
+        }
+    }
 
     @Accessor("status")
     public abstract ContainerCraftingStatus ae2utilix$getStatus();
@@ -62,10 +92,22 @@ public abstract class MixinGuiCraftingCPU {
 
     @Unique
     private static final ItemStack[] ae2utilix$BTN_ITEMS = {
-            new ItemStack(Item.getByNameOrId("appliedenergistics2:crafting_storage_1k")),
+            ae2utilix$item("appliedenergistics2:crafting_storage_1k"),
             new ItemStack(Blocks.CRAFTING_TABLE),
-            new ItemStack(Item.getByNameOrId("appliedenergistics2:material"), 1, 53)
+            ae2utilix$item("appliedenergistics2:material", 53)
     };
+
+    @Unique
+    private static ItemStack ae2utilix$item(String id) {
+        Item item = Item.getByNameOrId(id);
+        return item == null ? ItemStack.EMPTY : new ItemStack(item);
+    }
+
+    @Unique
+    private static ItemStack ae2utilix$item(String id, int metadata) {
+        Item item = Item.getByNameOrId(id);
+        return item == null ? ItemStack.EMPTY : new ItemStack(item, 1, metadata);
+    }
 
     @Unique
     private static final String[] ae2utilix$BTN_TOOLTIPS = {
@@ -84,6 +126,9 @@ public abstract class MixinGuiCraftingCPU {
 
     @Unique
     private int ae2utilix$getAccessModeIndex(CraftingCPUStatus cpu) {
+        if (cpu == null) {
+            return 0;
+        }
         Integer local = ae2utilix$itemIndexMap.get(cpu.getSerial());
         if (local != null) {
             return local;
@@ -108,6 +153,7 @@ public abstract class MixinGuiCraftingCPU {
         if (status == null || scrollbar == null) return;
 
         List<CraftingCPUStatus> cpus = status.getCPUs();
+        if (cpus == null) return;
         int firstCpu = scrollbar.getCurrentScroll();
         int rowX = -94 + 9;
         int ox = ae2utilix$lastOffsetX;
@@ -141,6 +187,7 @@ public abstract class MixinGuiCraftingCPU {
         if (status == null || scrollbar == null) return;
 
         List<CraftingCPUStatus> cpus = status.getCPUs();
+        if (cpus == null) return;
         int firstCpu = scrollbar.getCurrentScroll();
         int rowX = -94 + 9;
 
@@ -167,19 +214,27 @@ public abstract class MixinGuiCraftingCPU {
                     ae2utilix$BTN_SIZE, ae2utilix$BTN_SIZE, ae2utilix$BTN_SIZE, ae2utilix$BTN_SIZE);
 
             int itemIdx = ae2utilix$getAccessModeIndex(cpu);
+            if (itemIdx < 0 || itemIdx >= ae2utilix$BTN_ITEMS.length) {
+                itemIdx = 0;
+            }
             ItemStack stack = ae2utilix$BTN_ITEMS[itemIdx];
-            RenderHelper.enableGUIStandardItemLighting();
-            GlStateManager.enableDepth();
-            GlStateManager.pushMatrix();
-            GlStateManager.translate(btnX + 9, btnY + 9, 0);
-            GlStateManager.scale(0.8, 0.8, 1.0);
-            Minecraft.getMinecraft().getRenderItem().renderItemAndEffectIntoGUI(stack, -8, -8);
-            GlStateManager.popMatrix();
-            GlStateManager.disableDepth();
-            RenderHelper.disableStandardItemLighting();
+            if (!stack.isEmpty()) {
+                RenderHelper.enableGUIStandardItemLighting();
+                GlStateManager.enableDepth();
+                GlStateManager.pushMatrix();
+                GlStateManager.translate(btnX + 9, btnY + 9, 0);
+                GlStateManager.scale(0.8, 0.8, 1.0);
+                Minecraft.getMinecraft().getRenderItem().renderItemAndEffectIntoGUI(stack, -8, -8);
+                GlStateManager.popMatrix();
+                GlStateManager.disableDepth();
+                RenderHelper.disableStandardItemLighting();
+            }
 
             if (hover) {
                 int itemIdx2 = ae2utilix$getAccessModeIndex(cpu);
+                if (itemIdx2 < 0 || itemIdx2 >= ae2utilix$BTN_TOOLTIPS.length) {
+                    itemIdx2 = 0;
+                }
                 List<String> tooltip = new ArrayList<>();
                 tooltip.add(ae2utilix$BTN_TOOLTIPS[itemIdx2]);
                 GlStateManager.pushMatrix();
@@ -206,6 +261,7 @@ public abstract class MixinGuiCraftingCPU {
         if (status == null || scrollbar == null) return;
 
         List<CraftingCPUStatus> cpus = status.getCPUs();
+        if (cpus == null) return;
         int firstCpu = scrollbar.getCurrentScroll();
         int rowX = -94 + 9;
         int ox = ae2utilix$lastOffsetX;

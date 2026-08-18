@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "com.ae2utilix.mixin",
+  "plugin": "com.ae2utilix.AE2UtilixMixinPlugin",
   "compatibilityLevel": "JAVA_8",
   "refmap": "mixins.ae2_utilix.refmap.json",
   "mixins": [
@@ -24,12 +25,10 @@
   "client": [
     "MixinStackSizeRenderer",
     "MixinRenderItemOverlay",
-    "MixinAEBaseGuiRemoveFinal",
     "MixinAEBaseGuiHandleClick",
     "MixinPacketCompressedNBT",
     "MixinGuiMEMonitorable",
     "MixinGuiCraftConfirm",
-    "MixinGuiCraftingStatus",
     "MixinGuiMEMonitorableAccessor",
     "MixinGuiCraftingCPU",
     "MixinApiClientHelper",

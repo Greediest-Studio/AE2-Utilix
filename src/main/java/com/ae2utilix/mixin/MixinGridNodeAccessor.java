@@ -4,7 +4,7 @@ import appeng.me.GridNode;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(GridNode.class)
+@Mixin(value = GridNode.class, remap = false)
 public interface MixinGridNodeAccessor {
 
     @Accessor("compressedData")

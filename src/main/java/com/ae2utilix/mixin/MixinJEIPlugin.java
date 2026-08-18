@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.lang.reflect.Constructor;
 
-@Mixin(targets = "appeng.integration.modules.jei.JEIPlugin", remap = false)
+@Mixin(value = appeng.integration.modules.jei.JEIPlugin.class, remap = false)
 public class MixinJEIPlugin {
 
     @Inject(method = "register", at = @At("RETURN"), remap = false)
